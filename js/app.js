@@ -413,7 +413,7 @@ function showCheckInFeedback(student, timeStatus, streak) {
         
         // Play sound if pre-bell and not muted
         if (state.isPreBell && !state.isMuted) {
-            playCheckInSound(streak.currentStreak);
+            playCheckInSound(streak.currentStreak, student.firstCheckIn);
         }
     }
     
@@ -427,22 +427,15 @@ function showCheckInFeedback(student, timeStatus, streak) {
     }, duration);
 }
 
-function playCheckInSound(streakCount) {
-    // Simple audio feedback - can be enhanced later
-    const audio = document.getElementById('checkinSound');
-    
-    // Choose sound based on streak milestone
-    if (streakCount >= 10) {
-        audio.src = 'sounds/celebration.mp3';
+function playCheckInSound(streakCount, isFirstCheckIn = false) {
+    // Use Web Audio API for mellow sounds
+    if (isFirstCheckIn) {
+        SoundFX.playWelcome();
     } else if (streakCount >= 3) {
-        audio.src = 'sounds/streak.mp3';
+        SoundFX.playStreak(streakCount);
     } else {
-        audio.src = 'sounds/checkin.mp3';
+        SoundFX.playCheckIn();
     }
-    
-    audio.play().catch(() => {
-        // Ignore audio play errors (e.g., no user interaction yet)
-    });
 }
 
 async function showStudentStats(student) {
@@ -625,6 +618,7 @@ function toggleMute() {
     state.isMuted = !state.isMuted;
     elements.muteBtn.textContent = state.isMuted ? '🔇' : '🔊';
     elements.muteBtn.classList.toggle('muted', state.isMuted);
+    SoundFX.setMuted(state.isMuted);
     DB.setSetting('muted', state.isMuted);
 }
 
@@ -825,5 +819,254 @@ async function randomizeLayout(groupSize = 1) {
     renderGrid();
 }
 
+// Student Management
+function showStudentManageModal() {
+    renderStudentManageList();
+    document.getElementById('studentManageModal').classList.add('active');
+}
+
+function hideStudentManageModal() {
+    document.getElementById('studentManageModal').classList.remove('active');
+}
+
+function renderStudentManageList() {
+    const list = document.getElementById('studentManageList');
+    const students = state.students.filter(s => !s.isArchived);
+    
+    if (students.length === 0) {
+        list.innerHTML = '<p style="padding: 1rem; text-align: center; color: var(--gray-500);">No students yet. Add students below or import a CSV.</p>';
+        return;
+    }
+    
+    list.innerHTML = students.map(student => `
+        <div class="student-row" data-id="${student.id}">
+            <div class="student-caricature">
+                ${student.caricature 
+                    ? `<img src="${student.caricature}" alt="${student.firstName}">`
+                    : '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--gray-200);border-radius:50%;font-size:1.5rem;">👤</span>'
+                }
+            </div>
+            <div class="student-info">
+                <div class="name">${student.firstName} ${student.lastInitial}.</div>
+                <div class="status">${student.caricature ? '✓ Has caricature' : '⚠️ Needs caricature'}</div>
+            </div>
+            <div class="student-actions">
+                <label class="file-upload-btn" style="padding:0.25rem 0.5rem;font-size:0.8rem;">
+                    📷
+                    <input type="file" accept="image/*" onchange="updateStudentCaricature(${student.id}, this)">
+                </label>
+                <button class="danger" onclick="archiveStudentConfirm(${student.id})">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function updateStudentCaricature(studentId, input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const dataUrl = await fileToDataUrl(file);
+    
+    const student = state.students.find(s => s.id === studentId);
+    if (student) {
+        student.caricature = dataUrl;
+        student.hasPhoto = true;
+        await DB.saveStudent(student);
+        renderStudentManageList();
+        renderGrid();
+    }
+}
+
+function archiveStudentConfirm(studentId) {
+    const student = state.students.find(s => s.id === studentId);
+    if (!student) return;
+    
+    if (confirm(`Remove ${student.firstName} ${student.lastInitial}. from the class? Their data will be archived.`)) {
+        archiveStudentAction(studentId);
+    }
+}
+
+async function archiveStudentAction(studentId) {
+    await DB.archiveStudent(studentId);
+    state.students = await DB.getStudents();
+    renderStudentManageList();
+    renderGrid();
+}
+
+async function addNewStudent() {
+    const firstName = document.getElementById('newStudentFirst').value.trim();
+    const lastInitial = document.getElementById('newStudentLast').value.trim().charAt(0).toUpperCase();
+    const photoInput = document.getElementById('newStudentPhoto');
+    
+    if (!firstName) {
+        alert('Please enter a first name');
+        return;
+    }
+    
+    let caricature = null;
+    if (photoInput.files && photoInput.files[0]) {
+        caricature = await fileToDataUrl(photoInput.files[0]);
+    }
+    
+    const student = {
+        firstName,
+        lastInitial: lastInitial || '?',
+        caricature,
+        hasPhoto: !!caricature
+    };
+    
+    const id = await DB.addStudent(student);
+    state.students = await DB.getStudents();
+    
+    // Add to layout
+    if (state.activeLayout) {
+        const { rows, cols } = state.activeLayout.gridSize;
+        const usedPositions = new Set(
+            state.activeLayout.positions.map(p => `${p.row}-${p.col}`)
+        );
+        
+        // Find first empty position
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                if (!usedPositions.has(`${row}-${col}`)) {
+                    state.activeLayout.positions.push({ studentId: id, row, col });
+                    await DB.saveLayout(state.activeLayout);
+                    break;
+                }
+            }
+            if (state.activeLayout.positions.find(p => p.studentId === id)) break;
+        }
+    }
+    
+    // Clear form
+    document.getElementById('newStudentFirst').value = '';
+    document.getElementById('newStudentLast').value = '';
+    document.getElementById('newStudentPhoto').value = '';
+    document.getElementById('photoFileName').textContent = 'No file chosen';
+    
+    renderStudentManageList();
+    renderGrid();
+}
+
+async function handleBulkCaricatureUpload(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    const statusEl = document.getElementById('bulkUploadStatus');
+    statusEl.textContent = `Processing ${files.length} files...`;
+    statusEl.className = '';
+    
+    let matched = 0;
+    let created = 0;
+    let failed = 0;
+    
+    for (const file of files) {
+        try {
+            // Parse filename: "FirstName LastInitial.ext" or "FirstName_LastInitial.ext"
+            const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+            const parts = nameWithoutExt.split(/[\s_]+/);
+            
+            let firstName, lastInitial;
+            if (parts.length >= 2) {
+                firstName = parts[0];
+                lastInitial = parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase();
+            } else {
+                firstName = parts[0];
+                lastInitial = '';
+            }
+            
+            const dataUrl = await fileToDataUrl(file);
+            
+            // Try to find matching student
+            let student = state.students.find(s => 
+                !s.isArchived &&
+                s.firstName.toLowerCase() === firstName.toLowerCase() &&
+                (lastInitial === '' || s.lastInitial.toUpperCase() === lastInitial)
+            );
+            
+            if (student) {
+                // Update existing student
+                student.caricature = dataUrl;
+                student.hasPhoto = true;
+                await DB.saveStudent(student);
+                matched++;
+            } else {
+                // Create new student
+                const newStudent = {
+                    firstName,
+                    lastInitial: lastInitial || '?',
+                    caricature: dataUrl,
+                    hasPhoto: true
+                };
+                const id = await DB.addStudent(newStudent);
+                
+                // Add to layout
+                if (state.activeLayout) {
+                    const { rows, cols } = state.activeLayout.gridSize;
+                    const usedPositions = new Set(
+                        state.activeLayout.positions.map(p => `${p.row}-${p.col}`)
+                    );
+                    
+                    for (let row = 0; row < rows; row++) {
+                        for (let col = 0; col < cols; col++) {
+                            if (!usedPositions.has(`${row}-${col}`)) {
+                                state.activeLayout.positions.push({ studentId: id, row, col });
+                                await DB.saveLayout(state.activeLayout);
+                                usedPositions.add(`${row}-${col}`);
+                                break;
+                            }
+                        }
+                        if (state.activeLayout.positions.find(p => p.studentId === id)) break;
+                    }
+                }
+                created++;
+            }
+        } catch (err) {
+            console.error('Error processing file:', file.name, err);
+            failed++;
+        }
+    }
+    
+    // Refresh state
+    state.students = await DB.getStudents();
+    state.activeLayout = await DB.getActiveLayout();
+    
+    statusEl.textContent = `Done! ${matched} updated, ${created} created${failed > 0 ? `, ${failed} failed` : ''}`;
+    statusEl.className = failed > 0 ? 'error' : 'success';
+    
+    renderStudentManageList();
+    renderGrid();
+    
+    // Clear input
+    event.target.value = '';
+}
+
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Setup additional event listeners for student management
+function setupStudentManageListeners() {
+    document.getElementById('manageStudentsBtn')?.addEventListener('click', showStudentManageModal);
+    document.getElementById('closeStudentModal')?.addEventListener('click', hideStudentManageModal);
+    document.getElementById('studentManageModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'studentManageModal') hideStudentManageModal();
+    });
+    document.getElementById('addStudentBtn')?.addEventListener('click', addNewStudent);
+    document.getElementById('newStudentPhoto')?.addEventListener('change', (e) => {
+        const fileName = e.target.files[0]?.name || 'No file chosen';
+        document.getElementById('photoFileName').textContent = fileName;
+    });
+    document.getElementById('bulkCaricatureInput')?.addEventListener('change', handleBulkCaricatureUpload);
+}
+
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+    setupStudentManageListeners();
+});

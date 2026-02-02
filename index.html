@@ -232,13 +232,50 @@
         </div>
     </div>
 
-    <!-- Audio elements (will be loaded dynamically) -->
-    <audio id="checkinSound" preload="auto"></audio>
-    <audio id="celebrationSound" preload="auto"></audio>
+    <!-- Student Management Modal -->
+    <div class="modal" id="studentManageModal">
+        <div class="modal-content student-manage-content">
+            <button class="modal-close" id="closeStudentModal">&times;</button>
+            <h2>👥 Manage Students</h2>
+            
+            <div class="student-list-container">
+                <div class="student-list" id="studentManageList">
+                    <!-- Students rendered by JS -->
+                </div>
+            </div>
+            
+            <div class="add-student-form">
+                <h3>Add Student</h3>
+                <div class="form-row">
+                    <input type="text" id="newStudentFirst" placeholder="First Name">
+                    <input type="text" id="newStudentLast" placeholder="Last Initial (e.g., B)">
+                </div>
+                <div class="form-row">
+                    <label class="file-upload-btn">
+                        📷 Choose Caricature
+                        <input type="file" id="newStudentPhoto" accept="image/*">
+                    </label>
+                    <span id="photoFileName">No file chosen</span>
+                </div>
+                <button id="addStudentBtn" class="primary-btn">➕ Add Student</button>
+            </div>
+            
+            <div class="bulk-upload-section">
+                <h3>Bulk Upload Caricatures</h3>
+                <p class="help-text">Select multiple images. Filenames should be "FirstName LastInitial" (e.g., "Jamie B.png")</p>
+                <label class="file-upload-btn">
+                    📁 Upload Multiple
+                    <input type="file" id="bulkCaricatureInput" accept="image/*" multiple>
+                </label>
+                <div id="bulkUploadStatus"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="js/db.js"></script>
     <script src="js/schedule.js"></script>
+    <script src="js/sounds.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
