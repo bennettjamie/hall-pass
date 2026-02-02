@@ -15,7 +15,9 @@ const state = {
     hallPassLocked: false,
     blackoutStart: 10,
     blackoutEnd: 10,
-    dailyMessage: ''
+    dailyMessage: '',
+    customStartTime: null,  // Override start time (HH:MM)
+    customEndTime: null     // Override end time (HH:MM)
 };
 
 // DOM Elements
@@ -87,6 +89,8 @@ function cacheElements() {
     elements.hallpassLocked = document.getElementById('hallpassLocked');
     elements.blackoutStart = document.getElementById('blackoutStart');
     elements.blackoutEnd = document.getElementById('blackoutEnd');
+    elements.quickStartTime = document.getElementById('quickStartTime');
+    elements.quickEndTime = document.getElementById('quickEndTime');
 }
 
 async function loadSettings() {
@@ -120,6 +124,17 @@ async function loadSettings() {
     }
     if (elements.currentPeriod) {
         elements.currentPeriod.value = state.currentPeriod;
+    }
+    
+    // Load custom time overrides
+    state.customStartTime = await DB.getSetting('customStartTime', null);
+    state.customEndTime = await DB.getSetting('customEndTime', null);
+    
+    if (elements.quickStartTime && state.customStartTime) {
+        elements.quickStartTime.value = state.customStartTime;
+    }
+    if (elements.quickEndTime && state.customEndTime) {
+        elements.quickEndTime.value = state.customEndTime;
     }
 }
 
@@ -162,6 +177,19 @@ function setupEventListeners() {
     elements.blackoutEnd?.addEventListener('change', (e) => {
         state.blackoutEnd = parseInt(e.target.value);
         DB.setSetting('blackoutEnd', state.blackoutEnd);
+    });
+    
+    // Quick time override
+    elements.quickStartTime?.addEventListener('change', (e) => {
+        state.customStartTime = e.target.value;
+        DB.setSetting('customStartTime', state.customStartTime);
+        console.log('Start time set to:', state.customStartTime);
+    });
+    
+    elements.quickEndTime?.addEventListener('change', (e) => {
+        state.customEndTime = e.target.value;
+        DB.setSetting('customEndTime', state.customEndTime);
+        console.log('End time set to:', state.customEndTime);
     });
     
     // Request hall pass
@@ -585,7 +613,24 @@ function updateStats() {
 
 function startCountdownTimer() {
     function update() {
-        const timeInfo = Schedule.getTimeUntilClass(state.dayType, state.currentPeriod);
+        let timeInfo;
+        
+        // Use custom time override if set
+        if (state.customStartTime) {
+            const now = new Date();
+            const [hours, minutes] = state.customStartTime.split(':').map(Number);
+            const startTime = new Date();
+            startTime.setHours(hours, minutes, 0, 0);
+            
+            const diff = startTime - now;
+            timeInfo = {
+                milliseconds: diff,
+                isStarted: diff <= 0,
+                isEnded: false
+            };
+        } else {
+            timeInfo = Schedule.getTimeUntilClass(state.dayType, state.currentPeriod);
+        }
         
         if (!timeInfo) {
             elements.countdownTime.textContent = '--:--';
