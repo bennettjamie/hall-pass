@@ -1,0 +1,882 @@
+/* Hall Pass — Styles */
+
+:root {
+    --primary: #4F46E5;
+    --primary-light: #818CF8;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --gray-900: #111827;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--gray-100);
+    color: var(--gray-800);
+    min-height: 100vh;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    box-shadow: var(--shadow);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.class-name {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+    padding: 0.25rem 0.75rem;
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+}
+
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.countdown {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    border: 2px solid var(--gray-200);
+}
+
+.countdown-label {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.countdown-time {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.countdown.in-class .countdown-label {
+    color: var(--success);
+}
+
+.countdown.in-class .countdown-time {
+    color: var(--success);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.stat {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.mute-btn {
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s;
+}
+
+.mute-btn:hover {
+    background: var(--gray-100);
+}
+
+.mute-btn.muted {
+    opacity: 0.5;
+}
+
+/* Navigation Tabs */
+.tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--gray-600);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    background: var(--gray-100);
+    color: var(--gray-800);
+}
+
+.tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.tab.admin-only {
+    margin-left: auto;
+}
+
+.tab.admin-only:first-of-type {
+    margin-left: auto;
+}
+
+/* Daily Message */
+.daily-message {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    background: #FEF3C7;
+    border-bottom: 1px solid #FDE68A;
+}
+
+.message-icon {
+    font-size: 1.25rem;
+}
+
+.message-text {
+    font-size: 0.9rem;
+    color: var(--gray-700);
+}
+
+.daily-message:empty,
+.daily-message.hidden {
+    display: none;
+}
+
+/* Main Content */
+.main-content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Check-In Grid */
+.checkin-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.grid-cell {
+    aspect-ratio: 1;
+    background: white;
+    border-radius: var(--radius);
+    border: 2px solid transparent;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+    position: relative;
+}
+
+.grid-cell:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.grid-cell.empty {
+    background: transparent;
+    box-shadow: none;
+    border: 2px dashed var(--gray-200);
+    cursor: default;
+}
+
+.grid-cell.empty:hover {
+    transform: none;
+}
+
+.grid-cell.checked-in {
+    border-color: var(--success);
+    background: #ECFDF5;
+}
+
+.grid-cell.checked-in::after {
+    content: '✓';
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 1rem;
+    color: var(--success);
+    font-weight: bold;
+}
+
+.grid-cell.late {
+    border-color: var(--warning);
+    background: #FFFBEB;
+}
+
+.grid-cell.out {
+    opacity: 0.6;
+}
+
+.grid-cell.out::after {
+    content: 'OUT';
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: white;
+    background: var(--gray-500);
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+}
+
+.student-caricature {
+    width: 70%;
+    height: 70%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--gray-200);
+}
+
+.student-caricature.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: var(--gray-400);
+}
+
+.student-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--gray-700);
+    margin-top: 0.5rem;
+    text-align: center;
+    padding: 0 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Hall Pass Tab */
+.hallpass-container {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.hallpass-spotlight {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 2rem;
+    text-align: center;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spotlight-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--gray-400);
+}
+
+.spotlight-icon {
+    font-size: 4rem;
+}
+
+.spotlight-text {
+    font-size: 1.25rem;
+}
+
+.spotlight-student {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.spotlight-student .student-caricature {
+    width: 150px;
+    height: 150px;
+    border: 4px solid var(--primary);
+    box-shadow: 0 0 0 8px rgba(79, 70, 229, 0.1);
+}
+
+.spotlight-student.overdue .student-caricature {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.1);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+.spotlight-timer {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.spotlight-student.overdue .spotlight-timer {
+    color: var(--danger);
+}
+
+.spotlight-reason {
+    font-size: 1.25rem;
+}
+
+.hallpass-queue {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1rem;
+}
+
+.hallpass-queue h3 {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+    margin-bottom: 0.75rem;
+}
+
+.queue-list {
+    display: flex;
+    gap: 1rem;
+}
+
+.queue-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.queue-item .student-caricature {
+    width: 60px;
+    height: 60px;
+}
+
+.queue-empty {
+    color: var(--gray-400);
+    font-size: 0.9rem;
+    padding: 1rem;
+}
+
+.hallpass-actions {
+    text-align: center;
+}
+
+.request-pass-btn {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.request-pass-btn:hover {
+    background: var(--primary-light);
+    transform: translateY(-1px);
+}
+
+.request-pass-btn:disabled {
+    background: var(--gray-300);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.hallpass-note {
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+}
+
+/* Attendance List */
+.attendance-list {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.attendance-row {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-100);
+    gap: 1rem;
+}
+
+.attendance-row:last-child {
+    border-bottom: none;
+}
+
+.attendance-row .student-caricature {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+}
+
+.attendance-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.attendance-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.attendance-status.present {
+    background: #ECFDF5;
+    color: var(--success);
+}
+
+.attendance-status.late {
+    background: #FFFBEB;
+    color: var(--warning);
+}
+
+.attendance-status.absent {
+    background: #FEF2F2;
+    color: var(--danger);
+}
+
+.attendance-time {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    min-width: 80px;
+    text-align: right;
+}
+
+/* Settings */
+.settings-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.settings-container h2 {
+    margin-bottom: 1.5rem;
+}
+
+.settings-section {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.settings-section h3 {
+    font-size: 1rem;
+    color: var(--gray-700);
+    margin-bottom: 1rem;
+}
+
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.setting-row:last-child {
+    margin-bottom: 0;
+}
+
+.setting-row label {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+
+.setting-row select,
+.setting-row input[type="time"],
+.setting-row input[type="number"] {
+    padding: 0.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
+.setting-row textarea {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.setting-row button {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--gray-700);
+    background: var(--gray-100);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.setting-row button:hover {
+    background: var(--gray-200);
+}
+
+/* Display Mode Button */
+.display-mode-btn {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 56px;
+    height: 56px;
+    font-size: 1.5rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    box-shadow: var(--shadow-lg);
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 100;
+}
+
+.display-mode-btn:hover {
+    transform: scale(1.1);
+    background: var(--primary-light);
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: var(--radius);
+    padding: 2rem;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+}
+
+.modal-close:hover {
+    color: var(--gray-600);
+}
+
+/* Hall Pass Request Modal */
+.reason-icons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.reason-btn {
+    padding: 1rem;
+    font-size: 1.1rem;
+    background: var(--gray-50);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.reason-btn:hover,
+.reason-btn.active {
+    border-color: var(--primary);
+    background: #EEF2FF;
+}
+
+.return-time {
+    margin: 1.5rem 0;
+}
+
+.return-time label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+}
+
+.time-options {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.time-btn {
+    flex: 1;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    background: var(--gray-50);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.time-btn:hover,
+.time-btn.active {
+    border-color: var(--primary);
+    background: #EEF2FF;
+}
+
+.confirm-pass-btn {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+.confirm-pass-btn:hover {
+    background: var(--primary-light);
+}
+
+.cancel-btn {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+/* Feedback Modal */
+.feedback-content {
+    text-align: center;
+    min-width: 300px;
+}
+
+.feedback-caricature {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.feedback-caricature img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.feedback-message {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 0.5rem;
+}
+
+.feedback-streak {
+    font-size: 1.1rem;
+    color: var(--primary);
+}
+
+.feedback-late {
+    color: var(--warning);
+}
+
+/* Animations */
+@keyframes bounceIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes confetti {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+}
+
+.animate-bounce-in {
+    animation: bounceIn 0.4s ease-out;
+}
+
+/* Display Mode (Projector) */
+body.display-mode {
+    background: var(--gray-900);
+}
+
+body.display-mode .header {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+}
+
+body.display-mode .logo,
+body.display-mode .countdown-time {
+    color: white;
+}
+
+body.display-mode .tabs,
+body.display-mode .display-mode-btn,
+body.display-mode .admin-only {
+    display: none !important;
+}
+
+body.display-mode .main-content {
+    background: var(--gray-900);
+}
+
+body.display-mode .grid-cell {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+}
+
+body.display-mode .grid-cell.empty {
+    border-color: var(--gray-700);
+}
+
+body.display-mode .student-name {
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .header-center {
+        order: 3;
+        width: 100%;
+    }
+    
+    .countdown {
+        width: 100%;
+    }
+    
+    .checkin-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .tabs {
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .checkin-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
