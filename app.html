@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hall Pass - Attendance</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: #16213e;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .class-selector {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            background: #0f3460;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        
+        .status-bar {
+            background: #0f3460;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .period-info {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .period-info span {
+            opacity: 0.8;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .stat-dot.absent { background: #ffcccc; }
+        .stat-dot.ontime { background: #ffffff; }
+        .stat-dot.late { background: #fff3cd; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            padding: 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .student {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+            user-select: none;
+        }
+        
+        .student:active {
+            transform: scale(0.95);
+        }
+        
+        .student.absent {
+            background: #ffcccc;
+            color: #333;
+        }
+        
+        .student.ontime {
+            background: #ffffff;
+            color: #333;
+            box-shadow: 0 0 0 3px #4ade80;
+        }
+        
+        .student.late {
+            background: #fff3cd;
+            color: #333;
+            box-shadow: 0 0 0 3px #fbbf24;
+        }
+        
+        .student.hall-pass {
+            box-shadow: 0 0 0 3px #60a5fa, 0 0 20px rgba(96, 165, 250, 0.5);
+        }
+        
+        .student img {
+            width: 70%;
+            height: 70%;
+            object-fit: contain;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+        
+        .student .name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-align: center;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+        
+        .student .late-time {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: #ef4444;
+            color: white;
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .student .hall-timer {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #3b82f6;
+            color: white;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .student .hall-timer.overdue {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Hall Pass Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 320px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .modal h2 {
+            margin-bottom: 8px;
+        }
+        
+        .modal p {
+            opacity: 0.7;
+            margin-bottom: 20px;
+        }
+        
+        .time-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .time-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #0f3460;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .time-btn:hover {
+            background: #1a4a7a;
+        }
+        
+        .cancel-btn {
+            background: #374151;
+            padding: 10px 30px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+        }
+        
+        /* Return confirmation */
+        .return-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5);
+            display: none;
+        }
+        
+        .return-btn.visible {
+            display: block;
+        }
+        
+        /* Import section */
+        .import-section {
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .import-section h2 {
+            margin-bottom: 20px;
+        }
+        
+        .import-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            background: #4ade80;
+            color: #1a1a2e;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px;
+        }
+        
+        @media (max-width: 600px) {
+            .grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                padding: 10px;
+            }
+            
+            .student .name {
+                font-size: 0.65rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎟️ Hall Pass</h1>
+        <select class="class-selector" id="classSelector">
+            <option value="">Select Class...</option>
+        </select>
+    </div>
+    
+    <div class="status-bar">
+        <div class="period-info">
+            <span id="periodDisplay">Period: --</span>
+            <span id="timeDisplay">--:--</span>
+            <span id="classStatus">Class not started</span>
+        </div>
+        <div class="stats">
+            <div class="stat"><div class="stat-dot absent"></div><span id="absentCount">0</span></div>
+            <div class="stat"><div class="stat-dot ontime"></div><span id="ontimeCount">0</span></div>
+            <div class="stat"><div class="stat-dot late"></div><span id="lateCount">0</span></div>
+        </div>
+    </div>
+    
+    <div id="gridContainer">
+        <div class="import-section" id="importSection">
+            <h2>Load a Class</h2>
+            <p>Select a class from the dropdown above, or import data.</p>
+            <input type="file" id="importFile" accept=".json" style="display:none">
+            <button class="import-btn" onclick="document.getElementById('importFile').click()">📁 Import JSON</button>
+        </div>
+        <div class="grid" id="studentGrid" style="display:none"></div>
+    </div>
+    
+    <!-- Hall Pass Modal -->
+    <div class="modal-overlay" id="hallPassModal">
+        <div class="modal">
+            <h2>🚶 Hall Pass</h2>
+            <p id="hallPassStudent">Student Name</p>
+            <p>How long will you be?</p>
+            <div class="time-options">
+                <button class="time-btn" onclick="startHallPass(2)">2 min</button>
+                <button class="time-btn" onclick="startHallPass(3)">3 min</button>
+                <button class="time-btn" onclick="startHallPass(5)">5 min</button>
+                <button class="time-btn" onclick="startHallPass(7)">7 min</button>
+            </div>
+            <button class="cancel-btn" onclick="closeHallPassModal()">Cancel</button>
+        </div>
+    </div>
+    
+    <button class="return-btn" id="returnBtn" onclick="returnFromHallPass()">
+        ✅ Mark Returned
+    </button>
+
+    <script>
+        // ========== CONFIG ==========
+        const BRITANNIA_SCHEDULE = {
+            // Day type -> periods with start/end times (24h format)
+            // Based on Britannia Secondary bell schedule
+            'monday': [
+                { period: 1, start: '08:40', end: '10:00' },
+                { period: 2, start: '10:10', end: '11:30' },
+                { period: 3, start: '12:15', end: '13:35' },
+                { period: 4, start: '13:45', end: '15:05' }
+            ],
+            'tuesday': [
+                { period: 1, start: '08:40', end: '10:00' },
+                { period: 2, start: '10:10', end: '11:30' },
+                { period: 3, start: '12:15', end: '13:15' },
+                { period: 4, start: '13:25', end: '14:25' }
+            ],
+            'wednesday': [
+                { period: 1, start: '09:20', end: '10:20' },
+                { period: 2, start: '10:30', end: '11:30' },
+                { period: 3, start: '12:15', end: '13:35' },
+                { period: 4, start: '13:45', end: '15:05' }
+            ],
+            'thursday': [
+                { period: 1, start: '08:40', end: '10:00' },
+                { period: 2, start: '10:10', end: '11:30' },
+                { period: 3, start: '12:15', end: '13:15' },
+                { period: 4, start: '13:25', end: '14:05' }
+            ],
+            'friday': [
+                { period: 1, start: '09:20', end: '10:20' },
+                { period: 2, start: '10:30', end: '11:30' },
+                { period: 3, start: '12:15', end: '13:35' },
+                { period: 4, start: '13:45', end: '15:05' }
+            ]
+        };
+        
+        const HALL_PASS_GRACE_PERIOD = 10; // minutes after class start
+        const HALL_PASS_CUTOFF = 10; // minutes before class end
+        
+        // ========== STATE ==========
+        let currentClass = null;
+        let students = [];
+        let attendance = {}; // { date: { studentId: { status, checkedInAt, lateMinutes } } }
+        let hallPasses = {}; // { date: { studentId: [{ startTime, estimatedMinutes, returnTime, overdueMinutes }] } }
+        let activeHallPass = null; // { studentId, startTime, estimatedMinutes }
+        let classStartTime = null;
+        let classEndTime = null;
+        let currentPeriod = null;
+        let selectedStudentForPass = null;
+        let holdTimer = null;
+        
+        // ========== INDEXEDDB ==========
+        let db;
+        const DB_NAME = 'HallPassDB';
+        const DB_VERSION = 1;
+        
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    
+                    if (!db.objectStoreNames.contains('classes')) {
+                        db.createObjectStore('classes', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('attendance')) {
+                        db.createObjectStore('attendance', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('hallpasses')) {
+                        db.createObjectStore('hallpasses', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+        
+        async function saveClass(classData) {
+            const tx = db.transaction('classes', 'readwrite');
+            const store = tx.objectStore('classes');
+            await store.put(classData);
+        }
+        
+        async function loadClasses() {
+            const tx = db.transaction('classes', 'readonly');
+            const store = tx.objectStore('classes');
+            return new Promise((resolve) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => resolve([]);
+            });
+        }
+        
+        async function saveAttendance() {
+            const tx = db.transaction('attendance', 'readwrite');
+            const store = tx.objectStore('attendance');
+            const today = getToday();
+            await store.put({ id: `${currentClass.id}-${today}`, classId: currentClass.id, date: today, data: attendance[today] || {} });
+        }
+        
+        async function loadAttendance() {
+            const tx = db.transaction('attendance', 'readonly');
+            const store = tx.objectStore('attendance');
+            const today = getToday();
+            return new Promise((resolve) => {
+                const request = store.get(`${currentClass.id}-${today}`);
+                request.onsuccess = () => {
+                    if (request.result) {
+                        attendance[today] = request.result.data;
+                    }
+                    resolve();
+                };
+                request.onerror = () => resolve();
+            });
+        }
+        
+        async function saveHallPasses() {
+            const tx = db.transaction('hallpasses', 'readwrite');
+            const store = tx.objectStore('hallpasses');
+            const today = getToday();
+            await store.put({ id: `${currentClass.id}-${today}`, classId: currentClass.id, date: today, data: hallPasses[today] || {} });
+        }
+        
+        async function loadHallPasses() {
+            const tx = db.transaction('hallpasses', 'readonly');
+            const store = tx.objectStore('hallpasses');
+            const today = getToday();
+            return new Promise((resolve) => {
+                const request = store.get(`${currentClass.id}-${today}`);
+                request.onsuccess = () => {
+                    if (request.result) {
+                        hallPasses[today] = request.result.data;
+                    }
+                    resolve();
+                };
+                request.onerror = () => resolve();
+            });
+        }
+        
+        // ========== TIME HELPERS ==========
+        function getToday() {
+            return new Date().toISOString().split('T')[0];
+        }
+        
+        function getCurrentTime() {
+            const now = new Date();
+            return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        }
+        
+        function timeToMinutes(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+        
+        function minutesToTime(mins) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+        
+        function detectCurrentPeriod() {
+            const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const today = days[new Date().getDay()];
+            const schedule = BRITANNIA_SCHEDULE[today];
+            
+            if (!schedule) {
+                return { period: null, start: null, end: null, status: 'weekend' };
+            }
+            
+            const currentMins = timeToMinutes(getCurrentTime());
+            
+            for (const p of schedule) {
+                const startMins = timeToMinutes(p.start);
+                const endMins = timeToMinutes(p.end);
+                
+                // Within 15 min before start or during class
+                if (currentMins >= startMins - 15 && currentMins <= endMins) {
+                    return {
+                        period: p.period,
+                        start: p.start,
+                        end: p.end,
+                        status: currentMins < startMins ? 'before' : 'during'
+                    };
+                }
+            }
+            
+            // Find next period
+            for (const p of schedule) {
+                const startMins = timeToMinutes(p.start);
+                if (currentMins < startMins) {
+                    return { period: p.period, start: p.start, end: p.end, status: 'between' };
+                }
+            }
+            
+            return { period: null, start: null, end: null, status: 'after' };
+        }
+        
+        function updatePeriodDisplay() {
+            const info = detectCurrentPeriod();
+            const periodEl = document.getElementById('periodDisplay');
+            const timeEl = document.getElementById('timeDisplay');
+            const statusEl = document.getElementById('classStatus');
+            
+            timeEl.textContent = getCurrentTime();
+            
+            if (info.period) {
+                periodEl.textContent = `Period ${info.period}`;
+                classStartTime = info.start;
+                classEndTime = info.end;
+                currentPeriod = info.period;
+                
+                const currentMins = timeToMinutes(getCurrentTime());
+                const startMins = timeToMinutes(info.start);
+                const endMins = timeToMinutes(info.end);
+                
+                if (info.status === 'before') {
+                    statusEl.textContent = `Starts in ${startMins - currentMins} min`;
+                    statusEl.style.color = '#fbbf24';
+                } else if (info.status === 'during') {
+                    const remaining = endMins - currentMins;
+                    statusEl.textContent = `${remaining} min remaining`;
+                    statusEl.style.color = '#4ade80';
+                }
+            } else {
+                periodEl.textContent = 'No class';
+                statusEl.textContent = info.status === 'weekend' ? 'Weekend' : 'School day ended';
+                statusEl.style.color = '#9ca3af';
+            }
+        }
+        
+        // ========== STUDENT ACTIONS ==========
+        function checkInStudent(studentId) {
+            const today = getToday();
+            if (!attendance[today]) attendance[today] = {};
+            
+            // Already checked in?
+            if (attendance[today][studentId]) {
+                // If on hall pass, this tap marks return
+                if (activeHallPass && activeHallPass.studentId === studentId) {
+                    returnFromHallPass();
+                    return;
+                }
+                return;
+            }
+            
+            const currentMins = timeToMinutes(getCurrentTime());
+            const startMins = classStartTime ? timeToMinutes(classStartTime) : currentMins;
+            
+            let status = 'ontime';
+            let lateMinutes = 0;
+            
+            if (currentMins > startMins) {
+                status = 'late';
+                lateMinutes = currentMins - startMins;
+            }
+            
+            attendance[today][studentId] = {
+                status,
+                checkedInAt: getCurrentTime(),
+                lateMinutes
+            };
+            
+            // Play sound
+            playCheckInSound(status);
+            
+            saveAttendance();
+            renderGrid();
+            updateStats();
+        }
+        
+        function canUseHallPass() {
+            if (!classStartTime || !classEndTime) return false;
+            
+            const currentMins = timeToMinutes(getCurrentTime());
+            const startMins = timeToMinutes(classStartTime);
+            const endMins = timeToMinutes(classEndTime);
+            
+            const afterGrace = currentMins >= startMins + HALL_PASS_GRACE_PERIOD;
+            const beforeCutoff = currentMins <= endMins - HALL_PASS_CUTOFF;
+            
+            return afterGrace && beforeCutoff;
+        }
+        
+        function openHallPassModal(studentId) {
+            const today = getToday();
+            const record = attendance[today]?.[studentId];
+            
+            // Must be checked in
+            if (!record) {
+                alert('Student must check in first!');
+                return;
+            }
+            
+            // Check if hall pass is allowed right now
+            if (!canUseHallPass()) {
+                alert('Hall passes not available right now.\n(10 min after start, 10 min before end)');
+                return;
+            }
+            
+            // Already on a hall pass?
+            if (activeHallPass) {
+                alert('Someone is already out on a hall pass!');
+                return;
+            }
+            
+            const student = students.find(s => s.id === studentId);
+            selectedStudentForPass = studentId;
+            document.getElementById('hallPassStudent').textContent = `${student.firstName} ${student.lastInitial}.`;
+            document.getElementById('hallPassModal').classList.add('active');
+        }
+        
+        function closeHallPassModal() {
+            document.getElementById('hallPassModal').classList.remove('active');
+            selectedStudentForPass = null;
+        }
+        
+        function startHallPass(minutes) {
+            if (!selectedStudentForPass) return;
+            
+            const today = getToday();
+            if (!hallPasses[today]) hallPasses[today] = {};
+            if (!hallPasses[today][selectedStudentForPass]) hallPasses[today][selectedStudentForPass] = [];
+            
+            activeHallPass = {
+                studentId: selectedStudentForPass,
+                startTime: Date.now(),
+                estimatedMinutes: minutes
+            };
+            
+            hallPasses[today][selectedStudentForPass].push({
+                startTime: getCurrentTime(),
+                estimatedMinutes: minutes,
+                returnTime: null,
+                overdueMinutes: 0
+            });
+            
+            saveHallPasses();
+            closeHallPassModal();
+            document.getElementById('returnBtn').classList.add('visible');
+            renderGrid();
+        }
+        
+        function returnFromHallPass() {
+            if (!activeHallPass) return;
+            
+            const today = getToday();
+            const passes = hallPasses[today]?.[activeHallPass.studentId];
+            if (passes && passes.length > 0) {
+                const lastPass = passes[passes.length - 1];
+                lastPass.returnTime = getCurrentTime();
+                
+                const elapsed = (Date.now() - activeHallPass.startTime) / 60000;
+                if (elapsed > activeHallPass.estimatedMinutes) {
+                    lastPass.overdueMinutes = Math.round(elapsed - activeHallPass.estimatedMinutes);
+                }
+            }
+            
+            activeHallPass = null;
+            saveHallPasses();
+            document.getElementById('returnBtn').classList.remove('visible');
+            renderGrid();
+        }
+        
+        // ========== RENDERING ==========
+        function renderGrid() {
+            const grid = document.getElementById('studentGrid');
+            const today = getToday();
+            
+            grid.innerHTML = students.map(student => {
+                const record = attendance[today]?.[student.id];
+                let statusClass = 'absent';
+                let lateTime = '';
+                let hallTimer = '';
+                
+                if (record) {
+                    statusClass = record.status;
+                    if (record.lateMinutes > 0) {
+                        lateTime = `<div class="late-time">+${record.lateMinutes}m</div>`;
+                    }
+                }
+                
+                // Hall pass timer
+                if (activeHallPass && activeHallPass.studentId === student.id) {
+                    statusClass += ' hall-pass';
+                    const elapsed = Math.floor((Date.now() - activeHallPass.startTime) / 60000);
+                    const remaining = activeHallPass.estimatedMinutes - elapsed;
+                    
+                    if (remaining > 0) {
+                        hallTimer = `<div class="hall-timer">${remaining}m left</div>`;
+                    } else {
+                        hallTimer = `<div class="hall-timer overdue">+${Math.abs(remaining)}m OVER</div>`;
+                    }
+                }
+                
+                return `
+                    <div class="student ${statusClass}" 
+                         data-id="${student.id}"
+                         ontouchstart="handleTouchStart(${student.id})"
+                         ontouchend="handleTouchEnd(${student.id})"
+                         onmousedown="handleTouchStart(${student.id})"
+                         onmouseup="handleTouchEnd(${student.id})"
+                         onmouseleave="handleTouchEnd(${student.id})">
+                        <img src="${student.caricature}" alt="${student.firstName}">
+                        <div class="name">${student.firstName} ${student.lastInitial}.</div>
+                        ${lateTime}
+                        ${hallTimer}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('importSection').style.display = 'none';
+            grid.style.display = 'grid';
+        }
+        
+        function updateStats() {
+            const today = getToday();
+            const records = attendance[today] || {};
+            
+            let absent = 0, ontime = 0, late = 0;
+            
+            students.forEach(s => {
+                const record = records[s.id];
+                if (!record) absent++;
+                else if (record.status === 'ontime') ontime++;
+                else if (record.status === 'late') late++;
+            });
+            
+            document.getElementById('absentCount').textContent = absent;
+            document.getElementById('ontimeCount').textContent = ontime;
+            document.getElementById('lateCount').textContent = late;
+        }
+        
+        // ========== TOUCH/CLICK HANDLERS ==========
+        function handleTouchStart(studentId) {
+            holdTimer = setTimeout(() => {
+                openHallPassModal(studentId);
+                holdTimer = null;
+            }, 500); // 500ms hold for hall pass
+        }
+        
+        function handleTouchEnd(studentId) {
+            if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+                checkInStudent(studentId);
+            }
+        }
+        
+        // ========== SOUNDS ==========
+        function playCheckInSound(status) {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            if (status === 'ontime') {
+                osc.frequency.value = 523.25; // C5
+                osc.type = 'sine';
+            } else {
+                osc.frequency.value = 349.23; // F4
+                osc.type = 'triangle';
+            }
+            
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialDecayTo && gain.gain.exponentialDecayTo(0.01, ctx.currentTime + 0.3);
+            
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+        }
+        
+        // ========== CLASS MANAGEMENT ==========
+        async function loadClass(classId) {
+            const classes = await loadClasses();
+            const classData = classes.find(c => c.id === classId);
+            
+            if (!classData) return;
+            
+            currentClass = classData;
+            students = classData.students || [];
+            attendance = {};
+            hallPasses = {};
+            
+            await loadAttendance();
+            await loadHallPasses();
+            
+            renderGrid();
+            updateStats();
+        }
+        
+        async function importClassData(jsonData) {
+            // Handle the export format from our extraction scripts
+            const classData = {
+                id: jsonData.settings?.classId || `class-${Date.now()}`,
+                name: jsonData.settings?.className || 'Imported Class',
+                students: jsonData.students || [],
+                createdAt: new Date().toISOString()
+            };
+            
+            await saveClass(classData);
+            await refreshClassSelector();
+            
+            // Auto-select the imported class
+            document.getElementById('classSelector').value = classData.id;
+            await loadClass(classData.id);
+        }
+        
+        async function refreshClassSelector() {
+            const classes = await loadClasses();
+            const selector = document.getElementById('classSelector');
+            
+            selector.innerHTML = '<option value="">Select Class...</option>' +
+                classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
+        
+        // ========== INIT ==========
+        async function init() {
+            await initDB();
+            await refreshClassSelector();
+            
+            document.getElementById('classSelector').addEventListener('change', (e) => {
+                if (e.target.value) {
+                    loadClass(e.target.value);
+                }
+            });
+            
+            document.getElementById('importFile').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const text = await file.text();
+                const data = JSON.parse(text);
+                await importClassData(data);
+            });
+            
+            // Update time display every second
+            setInterval(() => {
+                updatePeriodDisplay();
+                
+                // Update hall pass timers
+                if (activeHallPass) {
+                    renderGrid();
+                }
+            }, 1000);
+            
+            updatePeriodDisplay();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
