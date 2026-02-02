@@ -1050,6 +1050,89 @@ function fileToDataUrl(file) {
     });
 }
 
+// Demo data
+async function loadDemoClass() {
+    if (!confirm('This will add a demo class of 24 students with placeholder avatars. Continue?')) {
+        return;
+    }
+    
+    const demoStudents = [
+        'Ava C.', 'Ben T.', 'Chloe R.', 'David K.', 'Emma L.', 'Finn M.',
+        'Grace H.', 'Henry W.', 'Isla P.', 'Jack D.', 'Kate B.', 'Liam S.',
+        'Maya N.', 'Noah G.', 'Olivia J.', 'Peter F.', 'Quinn A.', 'Ruby E.',
+        'Sam V.', 'Tara Y.', 'Uma O.', 'Vince Z.', 'Willa X.', 'Xander I.'
+    ];
+    
+    // Generate simple avatar SVGs
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+    
+    for (let i = 0; i < demoStudents.length; i++) {
+        const [firstName, lastInitial] = demoStudents[i].split(' ');
+        const color = colors[i % colors.length];
+        
+        // Create simple SVG avatar
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="48" fill="${color}"/>
+            <circle cx="50" cy="40" r="20" fill="white"/>
+            <ellipse cx="50" cy="85" rx="30" ry="25" fill="white"/>
+            <text x="50" y="48" text-anchor="middle" font-size="16" font-weight="bold" fill="${color}">${firstName.charAt(0)}</text>
+        </svg>`;
+        
+        const dataUrl = 'data:image/svg+xml;base64,' + btoa(svg);
+        
+        await DB.addStudent({
+            firstName,
+            lastInitial: lastInitial.replace('.', ''),
+            caricature: dataUrl,
+            hasPhoto: true
+        });
+    }
+    
+    // Update state
+    state.students = await DB.getStudents();
+    
+    // Create layout positions
+    if (state.activeLayout) {
+        const students = state.students.filter(s => !s.isArchived);
+        state.activeLayout.positions = [];
+        
+        let idx = 0;
+        for (let row = 0; row < 6 && idx < students.length; row++) {
+            for (let col = 0; col < 6 && idx < students.length; col++) {
+                state.activeLayout.positions.push({
+                    studentId: students[idx].id,
+                    row,
+                    col
+                });
+                idx++;
+            }
+        }
+        
+        await DB.saveLayout(state.activeLayout);
+    }
+    
+    renderGrid();
+    renderAttendanceList();
+    updateStats();
+    
+    alert('Demo class loaded! 24 students added.');
+}
+
+async function clearAllData() {
+    if (!confirm('⚠️ This will delete ALL data (students, attendance, settings). Are you sure?')) {
+        return;
+    }
+    if (!confirm('Really sure? This cannot be undone!')) {
+        return;
+    }
+    
+    // Clear IndexedDB
+    indexedDB.deleteDatabase('HallPassDB');
+    
+    // Reload page to reinitialize
+    location.reload();
+}
+
 // Setup additional event listeners for student management
 function setupStudentManageListeners() {
     document.getElementById('manageStudentsBtn')?.addEventListener('click', showStudentManageModal);
@@ -1063,6 +1146,8 @@ function setupStudentManageListeners() {
         document.getElementById('photoFileName').textContent = fileName;
     });
     document.getElementById('bulkCaricatureInput')?.addEventListener('change', handleBulkCaricatureUpload);
+    document.getElementById('loadDemoBtn')?.addEventListener('click', loadDemoClass);
+    document.getElementById('clearAllBtn')?.addEventListener('click', clearAllData);
 }
 
 // Initialize on DOM ready
