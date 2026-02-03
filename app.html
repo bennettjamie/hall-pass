@@ -59,7 +59,7 @@
             cursor: pointer;
         }
         
-        .settings-btn {
+        .icon-btn {
             background: #0f3460;
             border: none;
             color: white;
@@ -73,8 +73,13 @@
             justify-content: center;
         }
         
-        .settings-btn:hover {
+        .icon-btn:hover {
             background: #1a4a7a;
+        }
+        
+        .icon-btn.active {
+            background: #4ade80;
+            color: #1a1a2e;
         }
         
         .status-bar {
@@ -89,10 +94,28 @@
         .period-info {
             display: flex;
             gap: 20px;
+            align-items: center;
         }
         
         .period-info span {
             opacity: 0.8;
+        }
+        
+        .countdown {
+            background: #4ade80;
+            color: #1a1a2e;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .countdown.in-class {
+            background: #60a5fa;
+        }
+        
+        .countdown.after {
+            background: #6b7280;
         }
         
         .stats {
@@ -116,16 +139,24 @@
         .stat-dot.ontime { background: #ffffff; }
         .stat-dot.late { background: #fff3cd; }
         
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
+        /* Position-aware grid */
+        .seating-container {
             padding: 15px;
             max-width: 1200px;
             margin: 0 auto;
+            position: relative;
         }
         
-        .student {
+        .seating-grid {
+            display: grid;
+            gap: 8px;
+            background: #0f3460;
+            border-radius: 12px;
+            padding: 15px;
+            position: relative;
+        }
+        
+        .seat {
             aspect-ratio: 1;
             border-radius: 12px;
             display: flex;
@@ -137,42 +168,60 @@
             transition: transform 0.15s, box-shadow 0.15s;
             position: relative;
             user-select: none;
+            min-height: 100px;
         }
         
-        .student:active {
+        .seat.empty {
+            background: rgba(255,255,255,0.05);
+            border: 2px dashed rgba(255,255,255,0.2);
+            cursor: default;
+        }
+        
+        .seat.empty.drop-target {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+        }
+        
+        .seat:not(.empty):active {
             transform: scale(0.95);
         }
         
-        .student.absent {
+        .seat.dragging {
+            opacity: 0.5;
+            transform: scale(1.05);
+            z-index: 100;
+        }
+        
+        .seat.absent {
             background: #ffcccc;
             color: #333;
         }
         
-        .student.ontime {
+        .seat.ontime {
             background: #ffffff;
             color: #333;
             box-shadow: 0 0 0 3px #4ade80;
         }
         
-        .student.late {
+        .seat.late {
             background: #fff3cd;
             color: #333;
             box-shadow: 0 0 0 3px #fbbf24;
         }
         
-        .student.hall-pass {
+        .seat.hall-pass {
             box-shadow: 0 0 0 3px #60a5fa, 0 0 20px rgba(96, 165, 250, 0.5);
         }
         
-        .student img {
-            width: 70%;
-            height: 70%;
+        .seat img {
+            width: 65%;
+            height: 65%;
             object-fit: contain;
             border-radius: 8px;
             pointer-events: none;
         }
         
-        .student .name {
+        .seat .name {
             font-size: 0.75rem;
             font-weight: 600;
             text-align: center;
@@ -180,7 +229,7 @@
             line-height: 1.2;
         }
         
-        .student .late-time {
+        .seat .late-time {
             position: absolute;
             top: 4px;
             right: 4px;
@@ -192,7 +241,7 @@
             font-weight: bold;
         }
         
-        .student .hall-timer {
+        .seat .hall-timer {
             position: absolute;
             bottom: 4px;
             left: 50%;
@@ -205,7 +254,7 @@
             font-weight: bold;
         }
         
-        .student .hall-timer.overdue {
+        .seat .hall-timer.overdue {
             background: #ef4444;
             animation: pulse 1s infinite;
         }
@@ -213,6 +262,63 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
+        }
+        
+        /* Room features overlay */
+        .room-feature {
+            position: absolute;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.7);
+            pointer-events: none;
+        }
+        
+        /* Edit mode */
+        .edit-mode .seat:not(.empty) {
+            cursor: grab;
+        }
+        
+        .edit-mode .seat:not(.empty):active {
+            cursor: grabbing;
+        }
+        
+        .edit-toolbar {
+            display: none;
+            background: #16213e;
+            padding: 10px 20px;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .edit-toolbar.active {
+            display: flex;
+        }
+        
+        .edit-toolbar button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .edit-toolbar .save-btn {
+            background: #4ade80;
+            color: #1a1a2e;
+        }
+        
+        .edit-toolbar .cancel-btn {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .edit-toolbar .group-btn {
+            background: #60a5fa;
+            color: white;
         }
         
         /* Modal Styles */
@@ -300,7 +406,8 @@
         
         .form-row select,
         .form-row input[type="time"],
-        .form-row input[type="text"] {
+        .form-row input[type="text"],
+        .form-row input[type="number"] {
             flex: 1;
             padding: 10px 12px;
             border-radius: 8px;
@@ -308,10 +415,6 @@
             background: #1a1a2e;
             color: white;
             font-size: 0.95rem;
-        }
-        
-        .form-row select {
-            cursor: pointer;
         }
         
         .time-inputs {
@@ -328,78 +431,6 @@
             display: flex;
             align-items: center;
             opacity: 0.6;
-        }
-        
-        /* Teaching Schedule */
-        .schedule-grid {
-            display: grid;
-            gap: 8px;
-            margin-top: 10px;
-        }
-        
-        .schedule-row {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .schedule-row .day-name {
-            font-size: 0.85rem;
-            opacity: 0.8;
-        }
-        
-        .schedule-row select {
-            padding: 8px 10px;
-            border-radius: 6px;
-            border: none;
-            background: #1a1a2e;
-            color: white;
-            font-size: 0.85rem;
-        }
-        
-        /* Class Assignment */
-        .class-assignment {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-        }
-        
-        .class-assignment .class-name {
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        
-        .period-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        
-        .period-chip {
-            background: #0f3460;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-        
-        .period-chip.p1 { border-left: 3px solid #4ade80; }
-        .period-chip.p2 { border-left: 3px solid #60a5fa; }
-        .period-chip.p3 { border-left: 3px solid #f472b6; }
-        .period-chip.p4 { border-left: 3px solid #fbbf24; }
-        
-        /* Daily Message */
-        .daily-message-input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            background: #1a1a2e;
-            color: white;
-            font-size: 0.95rem;
-            resize: vertical;
-            min-height: 60px;
         }
         
         /* Buttons */
@@ -452,25 +483,20 @@
             margin-top: 20px;
         }
         
-        /* Return confirmation */
-        .return-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5);
-            display: none;
+        /* Layout selector */
+        .layout-selector {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
         
-        .return-btn.visible {
-            display: block;
+        .layout-selector select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: none;
+            background: #0f3460;
+            color: white;
+            font-size: 0.85rem;
         }
         
         /* Import section */
@@ -495,30 +521,71 @@
             margin: 10px;
         }
         
+        /* Return button */
+        .return-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5);
+            display: none;
+            z-index: 150;
+        }
+        
+        .return-btn.visible {
+            display: block;
+        }
+        
+        /* Group display mode */
+        .group-view .seating-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .group-cluster {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            min-width: 200px;
+        }
+        
+        .group-cluster .group-label {
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #4ade80;
+        }
+        
+        .group-cluster .seat {
+            width: 100px;
+            min-height: 100px;
+        }
+        
         @media (max-width: 600px) {
-            .grid {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 8px;
-                padding: 10px;
+            .seating-grid {
+                gap: 6px;
             }
             
-            .student .name {
+            .seat {
+                min-height: 80px;
+            }
+            
+            .seat .name {
                 font-size: 0.65rem;
-            }
-            
-            .form-row {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .form-row label {
-                width: 100%;
-                margin-bottom: 4px;
-            }
-            
-            .schedule-row {
-                grid-template-columns: 1fr;
-                gap: 4px;
             }
         }
     </style>
@@ -527,19 +594,32 @@
     <div class="header">
         <div class="header-left">
             <h1>🎟️ Hall Pass</h1>
+            <div class="layout-selector">
+                <select id="layoutSelector">
+                    <option value="standard">Standard Layout</option>
+                </select>
+            </div>
         </div>
         <div class="header-right">
             <select class="class-selector" id="classSelector">
                 <option value="">Select Class...</option>
             </select>
-            <button class="settings-btn" onclick="openSettings()" title="Settings">⚙️</button>
+            <button class="icon-btn" id="editModeBtn" onclick="toggleEditMode()" title="Edit Layout">✏️</button>
+            <button class="icon-btn" id="groupsBtn" onclick="openGroupsModal()" title="Make Groups">👥</button>
+            <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
         </div>
+    </div>
+    
+    <div class="edit-toolbar" id="editToolbar">
+        <span>✏️ Edit Mode — Drag students to rearrange</span>
+        <button class="save-btn" onclick="saveLayout()">💾 Save Layout</button>
+        <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
     </div>
     
     <div class="status-bar">
         <div class="period-info">
             <span id="periodDisplay">Period: --</span>
-            <span id="timeDisplay">--:--</span>
+            <div class="countdown" id="countdownDisplay">--:--</div>
             <span id="classStatus">Class not started</span>
         </div>
         <div class="stats">
@@ -556,7 +636,43 @@
             <input type="file" id="importFile" accept=".json" style="display:none">
             <button class="import-btn" onclick="document.getElementById('importFile').click()">📁 Import JSON</button>
         </div>
-        <div class="grid" id="studentGrid" style="display:none"></div>
+        <div class="seating-container" id="seatingContainer" style="display:none">
+            <div class="seating-grid" id="seatingGrid"></div>
+        </div>
+    </div>
+    
+    <!-- Groups Modal -->
+    <div class="modal-overlay" id="groupsModal">
+        <div class="modal">
+            <h2>👥 Make Groups</h2>
+            <p>Randomly assign students to groups</p>
+            <div class="time-options">
+                <button class="time-btn" onclick="makeGroups(2)">Pairs</button>
+                <button class="time-btn" onclick="makeGroups(3)">Groups of 3</button>
+                <button class="time-btn" onclick="makeGroups(4)">Groups of 4</button>
+                <button class="time-btn" onclick="makeGroups(5)">Groups of 5</button>
+            </div>
+            <button class="cancel-btn" onclick="closeGroupsModal()">Cancel</button>
+            <div style="margin-top: 15px;">
+                <button class="time-btn" onclick="returnToStandardLayout()" style="background: #6b7280;">🏠 Return to Standard</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hall Pass Modal -->
+    <div class="modal-overlay" id="hallPassModal">
+        <div class="modal">
+            <h2>🚶 Hall Pass</h2>
+            <p id="hallPassStudent">Student Name</p>
+            <p>How long will you be?</p>
+            <div class="time-options">
+                <button class="time-btn" onclick="startHallPass(2)">2 min</button>
+                <button class="time-btn" onclick="startHallPass(3)">3 min</button>
+                <button class="time-btn" onclick="startHallPass(5)">5 min</button>
+                <button class="time-btn" onclick="startHallPass(7)">7 min</button>
+            </div>
+            <button class="cancel-btn" onclick="closeHallPassModal()">Cancel</button>
+        </div>
     </div>
     
     <!-- Settings Modal -->
@@ -564,7 +680,6 @@
         <div class="modal settings-modal">
             <h2>⚙️ Settings</h2>
             
-            <!-- Schedule Section -->
             <div class="settings-section">
                 <h3>📅 Schedule</h3>
                 <div class="form-row">
@@ -596,43 +711,27 @@
                 </div>
             </div>
             
-            <!-- Teaching Schedule Section -->
             <div class="settings-section">
-                <h3>📚 My Teaching Schedule</h3>
-                <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 12px;">
-                    Assign which class you teach in each period. When you select a period, the correct class loads automatically.
-                </p>
-                <div id="teachingScheduleContainer">
-                    <!-- Dynamically populated -->
+                <h3>📐 Grid Size</h3>
+                <div class="form-row">
+                    <label>Rows</label>
+                    <input type="number" id="settingsRows" min="3" max="10" value="5">
+                </div>
+                <div class="form-row">
+                    <label>Columns</label>
+                    <input type="number" id="settingsCols" min="3" max="10" value="6">
                 </div>
             </div>
             
-            <!-- Daily Message Section -->
             <div class="settings-section">
                 <h3>📝 Daily Message</h3>
-                <textarea class="daily-message-input" id="settingsDailyMessage" placeholder="Type a message for students..."></textarea>
+                <textarea id="settingsDailyMessage" style="width:100%; padding:10px; border-radius:8px; border:none; background:#1a1a2e; color:white; min-height:60px;" placeholder="Message for students..."></textarea>
             </div>
             
             <div class="button-row">
                 <button class="cancel-btn" onclick="closeSettings()">Cancel</button>
                 <button class="save-btn" onclick="saveSettings()">Save</button>
             </div>
-        </div>
-    </div>
-    
-    <!-- Hall Pass Modal -->
-    <div class="modal-overlay" id="hallPassModal">
-        <div class="modal">
-            <h2>🚶 Hall Pass</h2>
-            <p id="hallPassStudent">Student Name</p>
-            <p>How long will you be?</p>
-            <div class="time-options">
-                <button class="time-btn" onclick="startHallPass(2)">2 min</button>
-                <button class="time-btn" onclick="startHallPass(3)">3 min</button>
-                <button class="time-btn" onclick="startHallPass(5)">5 min</button>
-                <button class="time-btn" onclick="startHallPass(7)">7 min</button>
-            </div>
-            <button class="cancel-btn" onclick="closeHallPassModal()">Cancel</button>
         </div>
     </div>
     
@@ -680,8 +779,8 @@
             }
         };
         
-        const HALL_PASS_GRACE_PERIOD = 10; // minutes after class start
-        const HALL_PASS_CUTOFF = 10; // minutes before class end
+        const HALL_PASS_GRACE_PERIOD = 10;
+        const HALL_PASS_CUTOFF = 10;
         
         // ========== STATE ==========
         let currentClass = null;
@@ -695,22 +794,31 @@
         let selectedStudentForPass = null;
         let holdTimer = null;
         
-        // Settings state
+        // Layout state
+        let gridSize = { rows: 5, cols: 6 };
+        let layouts = {}; // { layoutName: { positions: { studentId: {row, col} }, gridSize } }
+        let currentLayout = 'standard';
+        let editMode = false;
+        let draggedStudent = null;
+        let originalPositions = null; // For cancel
+        let groupView = false;
+        let currentGroups = null;
+        
+        // Settings
         let appSettings = {
             school: 'britannia',
-            dayType: null, // auto-detect if null
-            period: null,  // auto-detect if null
+            dayType: null,
+            period: null,
             startTimeOverride: null,
             endTimeOverride: null,
             dailyMessage: '',
-            // Teaching schedule: { classId: { monday: 1, tuesday: 2, ... } }
             teachingSchedule: {}
         };
         
         // ========== INDEXEDDB ==========
         let db;
         const DB_NAME = 'HallPassDB';
-        const DB_VERSION = 2;
+        const DB_VERSION = 3;
         
         function initDB() {
             return new Promise((resolve, reject) => {
@@ -737,6 +845,9 @@
                     if (!db.objectStoreNames.contains('settings')) {
                         db.createObjectStore('settings', { keyPath: 'id' });
                     }
+                    if (!db.objectStoreNames.contains('layouts')) {
+                        db.createObjectStore('layouts', { keyPath: 'id' });
+                    }
                 };
             });
         }
@@ -757,7 +868,38 @@
             });
         }
         
+        async function saveLayouts() {
+            if (!currentClass) return;
+            const tx = db.transaction('layouts', 'readwrite');
+            const store = tx.objectStore('layouts');
+            await store.put({ 
+                id: currentClass.id, 
+                layouts: layouts,
+                gridSize: gridSize,
+                currentLayout: currentLayout
+            });
+        }
+        
+        async function loadLayouts() {
+            if (!currentClass) return;
+            const tx = db.transaction('layouts', 'readonly');
+            const store = tx.objectStore('layouts');
+            return new Promise((resolve) => {
+                const request = store.get(currentClass.id);
+                request.onsuccess = () => {
+                    if (request.result) {
+                        layouts = request.result.layouts || {};
+                        gridSize = request.result.gridSize || { rows: 5, cols: 6 };
+                        currentLayout = request.result.currentLayout || 'standard';
+                    }
+                    resolve();
+                };
+                request.onerror = () => resolve();
+            });
+        }
+        
         async function saveAttendance() {
+            if (!currentClass) return;
             const tx = db.transaction('attendance', 'readwrite');
             const store = tx.objectStore('attendance');
             const today = getToday();
@@ -765,6 +907,7 @@
         }
         
         async function loadAttendance() {
+            if (!currentClass) return;
             const tx = db.transaction('attendance', 'readonly');
             const store = tx.objectStore('attendance');
             const today = getToday();
@@ -781,6 +924,7 @@
         }
         
         async function saveHallPasses() {
+            if (!currentClass) return;
             const tx = db.transaction('hallpasses', 'readwrite');
             const store = tx.objectStore('hallpasses');
             const today = getToday();
@@ -788,6 +932,7 @@
         }
         
         async function loadHallPasses() {
+            if (!currentClass) return;
             const tx = db.transaction('hallpasses', 'readonly');
             const store = tx.objectStore('hallpasses');
             const today = getToday();
@@ -839,12 +984,6 @@
             return h * 60 + m;
         }
         
-        function minutesToTime(mins) {
-            const h = Math.floor(mins / 60);
-            const m = mins % 60;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        }
-        
         function formatTime12h(time24) {
             const [h, m] = time24.split(':').map(Number);
             const ampm = h >= 12 ? 'PM' : 'AM';
@@ -875,7 +1014,6 @@
                 return { period: null, start: null, end: null, status: 'weekend' };
             }
             
-            // If period is manually set, use that
             if (appSettings.period) {
                 const periodInfo = getPeriodTimes(dayType, appSettings.period);
                 if (periodInfo) {
@@ -888,14 +1026,12 @@
                 }
             }
             
-            // Auto-detect from current time
             const currentMins = timeToMinutes(getCurrentTime());
             
             for (const p of schedule) {
                 const startMins = timeToMinutes(p.start);
                 const endMins = timeToMinutes(p.end);
                 
-                // Within 15 min before start or during class
                 if (currentMins >= startMins - 15 && currentMins <= endMins) {
                     return {
                         period: p.period,
@@ -906,7 +1042,6 @@
                 }
             }
             
-            // Find next period
             for (const p of schedule) {
                 const startMins = timeToMinutes(p.start);
                 if (currentMins < startMins) {
@@ -920,10 +1055,8 @@
         function updatePeriodDisplay() {
             const info = detectCurrentPeriod();
             const periodEl = document.getElementById('periodDisplay');
-            const timeEl = document.getElementById('timeDisplay');
+            const countdownEl = document.getElementById('countdownDisplay');
             const statusEl = document.getElementById('classStatus');
-            
-            timeEl.textContent = getCurrentTime();
             
             if (info.period) {
                 periodEl.textContent = `Period ${info.period}`;
@@ -935,177 +1068,354 @@
                 const startMins = timeToMinutes(info.start);
                 const endMins = timeToMinutes(info.end);
                 
-                if (info.status === 'manual') {
+                if (info.status === 'before' || currentMins < startMins) {
+                    const remaining = startMins - currentMins;
+                    const mins = Math.floor(remaining);
+                    const secs = Math.floor((remaining - mins) * 60);
+                    countdownEl.textContent = `Starts in ${mins}m`;
+                    countdownEl.className = 'countdown';
                     statusEl.textContent = `${formatTime12h(info.start)} - ${formatTime12h(info.end)}`;
-                    statusEl.style.color = '#60a5fa';
-                } else if (info.status === 'before') {
-                    statusEl.textContent = `Starts in ${startMins - currentMins} min`;
                     statusEl.style.color = '#fbbf24';
-                } else if (info.status === 'during') {
+                } else if (currentMins <= endMins) {
                     const remaining = endMins - currentMins;
-                    statusEl.textContent = `${remaining} min remaining`;
+                    countdownEl.textContent = `${remaining}m left`;
+                    countdownEl.className = 'countdown in-class';
+                    statusEl.textContent = 'Class in session';
                     statusEl.style.color = '#4ade80';
+                } else {
+                    countdownEl.textContent = 'Ended';
+                    countdownEl.className = 'countdown after';
+                    statusEl.textContent = '';
                 }
-                
-                // Auto-load class if teaching schedule is set
-                autoLoadClassForPeriod(info.period);
             } else {
                 periodEl.textContent = 'No class';
+                countdownEl.textContent = '--:--';
+                countdownEl.className = 'countdown after';
                 statusEl.textContent = info.status === 'weekend' ? 'Weekend' : 'School day ended';
                 statusEl.style.color = '#9ca3af';
             }
         }
         
-        // ========== TEACHING SCHEDULE ==========
-        async function autoLoadClassForPeriod(period) {
-            const dayType = appSettings.dayType || getTodayDayType();
-            
-            // Find which class is scheduled for this period on this day
-            for (const [classId, schedule] of Object.entries(appSettings.teachingSchedule)) {
-                if (schedule[dayType] === period) {
-                    // Only auto-load if not already loaded
-                    if (!currentClass || currentClass.id !== classId) {
-                        const selector = document.getElementById('classSelector');
-                        if (selector.value !== classId) {
-                            selector.value = classId;
-                            await loadClass(classId);
-                        }
-                    }
-                    return;
-                }
+        // ========== POSITION & LAYOUT ==========
+        function getStudentPosition(studentId) {
+            const layout = layouts[currentLayout];
+            if (layout && layout.positions && layout.positions[studentId]) {
+                return layout.positions[studentId];
+            }
+            // Default: assign sequentially
+            const idx = students.findIndex(s => s.id === studentId);
+            if (idx === -1) return { row: 0, col: 0 };
+            return {
+                row: Math.floor(idx / gridSize.cols),
+                col: idx % gridSize.cols
+            };
+        }
+        
+        function setStudentPosition(studentId, row, col) {
+            if (!layouts[currentLayout]) {
+                layouts[currentLayout] = { positions: {}, gridSize: { ...gridSize } };
+            }
+            if (!layouts[currentLayout].positions) {
+                layouts[currentLayout].positions = {};
+            }
+            layouts[currentLayout].positions[studentId] = { row, col };
+        }
+        
+        function initStandardLayout() {
+            if (!layouts['standard']) {
+                layouts['standard'] = { positions: {}, gridSize: { ...gridSize } };
+            }
+            // If no positions set, create them from import order
+            if (Object.keys(layouts['standard'].positions || {}).length === 0) {
+                students.forEach((student, idx) => {
+                    layouts['standard'].positions[student.id] = {
+                        row: Math.floor(idx / gridSize.cols),
+                        col: idx % gridSize.cols
+                    };
+                });
             }
         }
         
-        // ========== SETTINGS MODAL ==========
-        function openSettings() {
-            populateSettingsModal();
-            document.getElementById('settingsModal').classList.add('active');
+        function updateLayoutSelector() {
+            const selector = document.getElementById('layoutSelector');
+            const layoutNames = Object.keys(layouts);
+            if (!layoutNames.includes('standard')) layoutNames.unshift('standard');
+            
+            selector.innerHTML = layoutNames.map(name => 
+                `<option value="${name}" ${name === currentLayout ? 'selected' : ''}>${name.charAt(0).toUpperCase() + name.slice(1)}</option>`
+            ).join('');
         }
         
-        function closeSettings() {
-            document.getElementById('settingsModal').classList.remove('active');
-        }
-        
-        async function populateSettingsModal() {
-            const dayType = appSettings.dayType || getTodayDayType();
-            const info = detectCurrentPeriod();
-            
-            // Set day type
-            document.getElementById('settingsDayType').value = dayType;
-            
-            // Set period
-            const periodSelect = document.getElementById('settingsPeriod');
-            periodSelect.value = appSettings.period || info.period || 1;
-            
-            // Populate times from schedule
-            updateTimesFromSchedule();
-            
-            // Daily message
-            document.getElementById('settingsDailyMessage').value = appSettings.dailyMessage || '';
-            
-            // Teaching schedule
-            await populateTeachingSchedule();
-        }
-        
-        function onDayTypeChange() {
-            updateTimesFromSchedule();
-        }
-        
-        function onPeriodChange() {
-            updateTimesFromSchedule();
-        }
-        
-        function updateTimesFromSchedule() {
-            const dayType = document.getElementById('settingsDayType').value;
-            const period = document.getElementById('settingsPeriod').value;
-            
-            const periodInfo = getPeriodTimes(dayType, period);
-            
-            if (periodInfo) {
-                document.getElementById('settingsStartTime').value = periodInfo.start;
-                document.getElementById('settingsEndTime').value = periodInfo.end;
-            }
-        }
-        
-        async function populateTeachingSchedule() {
-            const container = document.getElementById('teachingScheduleContainer');
-            const classes = await loadClasses();
-            
-            if (classes.length === 0) {
-                container.innerHTML = '<p style="opacity: 0.6; font-size: 0.85rem;">Import classes first to set up your teaching schedule.</p>';
+        // ========== RENDERING ==========
+        function renderGrid() {
+            if (groupView && currentGroups) {
+                renderGroupView();
                 return;
             }
             
-            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-            const dayLabels = {
-                monday: 'Mon',
-                tuesday: 'Tue',
-                wednesday: 'Wed',
-                thursday: 'Thu',
-                friday: 'Fri'
-            };
+            const container = document.getElementById('seatingContainer');
+            const grid = document.getElementById('seatingGrid');
+            const today = getToday();
             
-            container.innerHTML = classes.map(cls => {
-                const schedule = appSettings.teachingSchedule[cls.id] || {};
-                
-                return `
-                    <div class="class-assignment">
-                        <div class="class-name">${cls.name}</div>
-                        <div class="schedule-grid">
-                            ${days.map(day => `
-                                <div class="schedule-row">
-                                    <span class="day-name">${dayLabels[day]}</span>
-                                    <select data-class="${cls.id}" data-day="${day}">
-                                        <option value="">-- No class --</option>
-                                        <option value="1" ${schedule[day] === 1 ? 'selected' : ''}>Period 1</option>
-                                        <option value="2" ${schedule[day] === 2 ? 'selected' : ''}>Period 2</option>
-                                        <option value="3" ${schedule[day] === 3 ? 'selected' : ''}>Period 3</option>
-                                        <option value="4" ${schedule[day] === 4 ? 'selected' : ''}>Period 4</option>
-                                    </select>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        async function saveSettings() {
-            // Get day type and period
-            appSettings.dayType = document.getElementById('settingsDayType').value;
-            appSettings.period = parseInt(document.getElementById('settingsPeriod').value);
+            // Set grid template
+            grid.style.gridTemplateColumns = `repeat(${gridSize.cols}, 1fr)`;
+            grid.style.gridTemplateRows = `repeat(${gridSize.rows}, 1fr)`;
             
-            // Get time overrides (only if different from schedule)
-            const periodInfo = getPeriodTimes(appSettings.dayType, appSettings.period);
-            const startTime = document.getElementById('settingsStartTime').value;
-            const endTime = document.getElementById('settingsEndTime').value;
-            
-            appSettings.startTimeOverride = (startTime !== periodInfo?.start) ? startTime : null;
-            appSettings.endTimeOverride = (endTime !== periodInfo?.end) ? endTime : null;
-            
-            // Daily message
-            appSettings.dailyMessage = document.getElementById('settingsDailyMessage').value;
-            
-            // Teaching schedule
-            const scheduleSelects = document.querySelectorAll('#teachingScheduleContainer select');
-            appSettings.teachingSchedule = {};
-            
-            scheduleSelects.forEach(select => {
-                const classId = select.dataset.class;
-                const day = select.dataset.day;
-                const period = select.value ? parseInt(select.value) : null;
-                
-                if (!appSettings.teachingSchedule[classId]) {
-                    appSettings.teachingSchedule[classId] = {};
-                }
-                if (period) {
-                    appSettings.teachingSchedule[classId][day] = period;
-                }
+            // Create a position map
+            const positionMap = {}; // "row,col" -> student
+            students.forEach(student => {
+                const pos = getStudentPosition(student.id);
+                positionMap[`${pos.row},${pos.col}`] = student;
             });
             
-            await saveAppSettings();
-            updatePeriodDisplay();
-            closeSettings();
+            // Render grid
+            let html = '';
+            for (let row = 0; row < gridSize.rows; row++) {
+                for (let col = 0; col < gridSize.cols; col++) {
+                    const student = positionMap[`${row},${col}`];
+                    
+                    if (student) {
+                        const record = attendance[today]?.[student.id];
+                        let statusClass = 'absent';
+                        let lateTime = '';
+                        let hallTimer = '';
+                        
+                        if (record) {
+                            statusClass = record.status;
+                            if (record.lateMinutes > 0) {
+                                lateTime = `<div class="late-time">+${record.lateMinutes}m</div>`;
+                            }
+                        }
+                        
+                        if (activeHallPass && activeHallPass.studentId === student.id) {
+                            statusClass += ' hall-pass';
+                            const elapsed = Math.floor((Date.now() - activeHallPass.startTime) / 60000);
+                            const remaining = activeHallPass.estimatedMinutes - elapsed;
+                            
+                            if (remaining > 0) {
+                                hallTimer = `<div class="hall-timer">${remaining}m left</div>`;
+                            } else {
+                                hallTimer = `<div class="hall-timer overdue">+${Math.abs(remaining)}m OVER</div>`;
+                            }
+                        }
+                        
+                        html += `
+                            <div class="seat ${statusClass}" 
+                                 data-id="${student.id}"
+                                 data-row="${row}"
+                                 data-col="${col}"
+                                 draggable="${editMode}"
+                                 ontouchstart="handleTouchStart(event, ${student.id})"
+                                 ontouchend="handleTouchEnd(event, ${student.id})"
+                                 onmousedown="handleMouseDown(event, ${student.id})"
+                                 onmouseup="handleMouseUp(event, ${student.id})"
+                                 ondragstart="handleDragStart(event, ${student.id})"
+                                 ondragend="handleDragEnd(event)"
+                                 ondragover="handleDragOver(event)"
+                                 ondrop="handleDrop(event, ${row}, ${col})">
+                                <img src="${student.caricature}" alt="${student.firstName}">
+                                <div class="name">${student.firstName} ${student.lastInitial}.</div>
+                                ${lateTime}
+                                ${hallTimer}
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="seat empty"
+                                 data-row="${row}"
+                                 data-col="${col}"
+                                 ondragover="handleDragOver(event)"
+                                 ondrop="handleDrop(event, ${row}, ${col})">
+                            </div>
+                        `;
+                    }
+                }
+            }
+            
+            grid.innerHTML = html;
+            document.getElementById('importSection').style.display = 'none';
+            container.style.display = 'block';
+            
+            if (editMode) {
+                document.body.classList.add('edit-mode');
+            } else {
+                document.body.classList.remove('edit-mode');
+            }
+        }
+        
+        function renderGroupView() {
+            const container = document.getElementById('seatingContainer');
+            const grid = document.getElementById('seatingGrid');
+            const today = getToday();
+            
+            container.classList.add('group-view');
+            
+            let html = '';
+            currentGroups.forEach((group, idx) => {
+                html += `<div class="group-cluster">`;
+                html += `<div class="group-label">Group ${idx + 1}</div>`;
+                
+                group.forEach(student => {
+                    const record = attendance[today]?.[student.id];
+                    let statusClass = record ? record.status : 'absent';
+                    
+                    html += `
+                        <div class="seat ${statusClass}" data-id="${student.id}">
+                            <img src="${student.caricature}" alt="${student.firstName}">
+                            <div class="name">${student.firstName} ${student.lastInitial}.</div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            });
+            
+            grid.innerHTML = html;
+            grid.style.gridTemplateColumns = '';
+            grid.style.gridTemplateRows = '';
+        }
+        
+        function updateStats() {
+            const today = getToday();
+            const records = attendance[today] || {};
+            
+            let absent = 0, ontime = 0, late = 0;
+            
+            students.forEach(s => {
+                const record = records[s.id];
+                if (!record) absent++;
+                else if (record.status === 'ontime') ontime++;
+                else if (record.status === 'late') late++;
+            });
+            
+            document.getElementById('absentCount').textContent = absent;
+            document.getElementById('ontimeCount').textContent = ontime;
+            document.getElementById('lateCount').textContent = late;
+        }
+        
+        // ========== EDIT MODE & DRAG-DROP ==========
+        function toggleEditMode() {
+            editMode = !editMode;
+            document.getElementById('editModeBtn').classList.toggle('active', editMode);
+            document.getElementById('editToolbar').classList.toggle('active', editMode);
+            
+            if (editMode) {
+                // Save original positions for cancel
+                originalPositions = JSON.parse(JSON.stringify(layouts[currentLayout]?.positions || {}));
+            }
+            
+            renderGrid();
+        }
+        
+        function saveLayout() {
+            editMode = false;
+            document.getElementById('editModeBtn').classList.remove('active');
+            document.getElementById('editToolbar').classList.remove('active');
+            saveLayouts();
+            renderGrid();
+        }
+        
+        function cancelEdit() {
+            editMode = false;
+            document.getElementById('editModeBtn').classList.remove('active');
+            document.getElementById('editToolbar').classList.remove('active');
+            
+            // Restore original positions
+            if (originalPositions && layouts[currentLayout]) {
+                layouts[currentLayout].positions = originalPositions;
+            }
+            
+            renderGrid();
+        }
+        
+        function handleDragStart(e, studentId) {
+            if (!editMode) return;
+            draggedStudent = studentId;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+        
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedStudent = null;
+            document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+        }
+        
+        function handleDragOver(e) {
+            if (!editMode || !draggedStudent) return;
+            e.preventDefault();
+            e.target.closest('.seat')?.classList.add('drop-target');
+        }
+        
+        function handleDrop(e, row, col) {
+            if (!editMode || !draggedStudent) return;
+            e.preventDefault();
+            
+            const targetSeat = e.target.closest('.seat');
+            targetSeat?.classList.remove('drop-target');
+            
+            // If dropping on another student, swap them
+            const targetStudentId = targetSeat?.dataset.id;
+            
+            if (targetStudentId && targetStudentId != draggedStudent) {
+                // Swap positions
+                const draggedPos = getStudentPosition(draggedStudent);
+                const targetPos = { row, col };
+                
+                setStudentPosition(draggedStudent, targetPos.row, targetPos.col);
+                setStudentPosition(parseInt(targetStudentId), draggedPos.row, draggedPos.col);
+            } else {
+                // Move to empty spot
+                setStudentPosition(draggedStudent, row, col);
+            }
+            
+            draggedStudent = null;
+            renderGrid();
+        }
+        
+        // ========== TOUCH/CLICK HANDLERS ==========
+        let touchStartTime = 0;
+        
+        function handleTouchStart(e, studentId) {
+            touchStartTime = Date.now();
+            holdTimer = setTimeout(() => {
+                if (!editMode) {
+                    openHallPassModal(studentId);
+                }
+                holdTimer = null;
+            }, 500);
+        }
+        
+        function handleTouchEnd(e, studentId) {
+            const touchDuration = Date.now() - touchStartTime;
+            if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+                if (touchDuration < 500 && !editMode) {
+                    checkInStudent(studentId);
+                }
+            }
+        }
+        
+        function handleMouseDown(e, studentId) {
+            if (editMode) return; // Let drag handle it
+            touchStartTime = Date.now();
+            holdTimer = setTimeout(() => {
+                openHallPassModal(studentId);
+                holdTimer = null;
+            }, 500);
+        }
+        
+        function handleMouseUp(e, studentId) {
+            if (editMode) return;
+            const duration = Date.now() - touchStartTime;
+            if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+                if (duration < 500) {
+                    checkInStudent(studentId);
+                }
+            }
         }
         
         // ========== STUDENT ACTIONS ==========
@@ -1113,12 +1423,9 @@
             const today = getToday();
             if (!attendance[today]) attendance[today] = {};
             
-            // Already checked in?
             if (attendance[today][studentId]) {
-                // If on hall pass, this tap marks return
                 if (activeHallPass && activeHallPass.studentId === studentId) {
                     returnFromHallPass();
-                    return;
                 }
                 return;
             }
@@ -1140,9 +1447,7 @@
                 lateMinutes
             };
             
-            // Play sound
             playCheckInSound(status);
-            
             saveAttendance();
             renderGrid();
             updateStats();
@@ -1155,29 +1460,24 @@
             const startMins = timeToMinutes(classStartTime);
             const endMins = timeToMinutes(classEndTime);
             
-            const afterGrace = currentMins >= startMins + HALL_PASS_GRACE_PERIOD;
-            const beforeCutoff = currentMins <= endMins - HALL_PASS_CUTOFF;
-            
-            return afterGrace && beforeCutoff;
+            return currentMins >= startMins + HALL_PASS_GRACE_PERIOD && 
+                   currentMins <= endMins - HALL_PASS_CUTOFF;
         }
         
         function openHallPassModal(studentId) {
             const today = getToday();
             const record = attendance[today]?.[studentId];
             
-            // Must be checked in
             if (!record) {
                 alert('Student must check in first!');
                 return;
             }
             
-            // Check if hall pass is allowed right now
             if (!canUseHallPass()) {
                 alert('Hall passes not available right now.\n(10 min after start, 10 min before end)');
                 return;
             }
             
-            // Already on a hall pass?
             if (activeHallPass) {
                 alert('Someone is already out on a hall pass!');
                 return;
@@ -1241,113 +1541,137 @@
             renderGrid();
         }
         
-        // ========== RENDERING ==========
-        function renderGrid() {
-            const grid = document.getElementById('studentGrid');
-            const today = getToday();
-            
-            grid.innerHTML = students.map(student => {
-                const record = attendance[today]?.[student.id];
-                let statusClass = 'absent';
-                let lateTime = '';
-                let hallTimer = '';
-                
-                if (record) {
-                    statusClass = record.status;
-                    if (record.lateMinutes > 0) {
-                        lateTime = `<div class="late-time">+${record.lateMinutes}m</div>`;
-                    }
-                }
-                
-                // Hall pass timer
-                if (activeHallPass && activeHallPass.studentId === student.id) {
-                    statusClass += ' hall-pass';
-                    const elapsed = Math.floor((Date.now() - activeHallPass.startTime) / 60000);
-                    const remaining = activeHallPass.estimatedMinutes - elapsed;
-                    
-                    if (remaining > 0) {
-                        hallTimer = `<div class="hall-timer">${remaining}m left</div>`;
-                    } else {
-                        hallTimer = `<div class="hall-timer overdue">+${Math.abs(remaining)}m OVER</div>`;
-                    }
-                }
-                
-                return `
-                    <div class="student ${statusClass}" 
-                         data-id="${student.id}"
-                         ontouchstart="handleTouchStart(${student.id})"
-                         ontouchend="handleTouchEnd(${student.id})"
-                         onmousedown="handleTouchStart(${student.id})"
-                         onmouseup="handleTouchEnd(${student.id})"
-                         onmouseleave="handleTouchEnd(${student.id})">
-                        <img src="${student.caricature}" alt="${student.firstName}">
-                        <div class="name">${student.firstName} ${student.lastInitial}.</div>
-                        ${lateTime}
-                        ${hallTimer}
-                    </div>
-                `;
-            }).join('');
-            
-            document.getElementById('importSection').style.display = 'none';
-            grid.style.display = 'grid';
+        // ========== GROUPS ==========
+        function openGroupsModal() {
+            document.getElementById('groupsModal').classList.add('active');
         }
         
-        function updateStats() {
-            const today = getToday();
-            const records = attendance[today] || {};
-            
-            let absent = 0, ontime = 0, late = 0;
-            
-            students.forEach(s => {
-                const record = records[s.id];
-                if (!record) absent++;
-                else if (record.status === 'ontime') ontime++;
-                else if (record.status === 'late') late++;
-            });
-            
-            document.getElementById('absentCount').textContent = absent;
-            document.getElementById('ontimeCount').textContent = ontime;
-            document.getElementById('lateCount').textContent = late;
+        function closeGroupsModal() {
+            document.getElementById('groupsModal').classList.remove('active');
         }
         
-        // ========== TOUCH/CLICK HANDLERS ==========
-        function handleTouchStart(studentId) {
-            holdTimer = setTimeout(() => {
-                openHallPassModal(studentId);
-                holdTimer = null;
-            }, 500);
-        }
-        
-        function handleTouchEnd(studentId) {
-            if (holdTimer) {
-                clearTimeout(holdTimer);
-                holdTimer = null;
-                checkInStudent(studentId);
+        function makeGroups(size) {
+            // Shuffle students
+            const shuffled = [...students].sort(() => Math.random() - 0.5);
+            
+            // Create groups
+            currentGroups = [];
+            for (let i = 0; i < shuffled.length; i += size) {
+                currentGroups.push(shuffled.slice(i, i + size));
             }
+            
+            groupView = true;
+            closeGroupsModal();
+            renderGrid();
+        }
+        
+        function returnToStandardLayout() {
+            groupView = false;
+            currentGroups = null;
+            currentLayout = 'standard';
+            document.getElementById('seatingContainer').classList.remove('group-view');
+            closeGroupsModal();
+            renderGrid();
+            updateLayoutSelector();
         }
         
         // ========== SOUNDS ==========
         function playCheckInSound(status) {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                if (status === 'ontime') {
+                    osc.frequency.value = 523.25;
+                    osc.type = 'sine';
+                } else {
+                    osc.frequency.value = 349.23;
+                    osc.type = 'triangle';
+                }
+                
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValue && gain.gain.exponentialRampToValue(0.01, ctx.currentTime + 0.3);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {
+                // Audio not available
+            }
+        }
+        
+        // ========== SETTINGS ==========
+        function openSettings() {
+            populateSettingsModal();
+            document.getElementById('settingsModal').classList.add('active');
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('active');
+        }
+        
+        function populateSettingsModal() {
+            const dayType = appSettings.dayType || getTodayDayType();
+            const info = detectCurrentPeriod();
             
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+            document.getElementById('settingsDayType').value = dayType;
+            document.getElementById('settingsPeriod').value = appSettings.period || info.period || 1;
+            document.getElementById('settingsRows').value = gridSize.rows;
+            document.getElementById('settingsCols').value = gridSize.cols;
+            document.getElementById('settingsDailyMessage').value = appSettings.dailyMessage || '';
             
-            if (status === 'ontime') {
-                osc.frequency.value = 523.25;
-                osc.type = 'sine';
-            } else {
-                osc.frequency.value = 349.23;
-                osc.type = 'triangle';
+            updateTimesFromSchedule();
+        }
+        
+        function onDayTypeChange() {
+            updateTimesFromSchedule();
+        }
+        
+        function onPeriodChange() {
+            updateTimesFromSchedule();
+        }
+        
+        function updateTimesFromSchedule() {
+            const dayType = document.getElementById('settingsDayType').value;
+            const period = document.getElementById('settingsPeriod').value;
+            const periodInfo = getPeriodTimes(dayType, period);
+            
+            if (periodInfo) {
+                document.getElementById('settingsStartTime').value = periodInfo.start;
+                document.getElementById('settingsEndTime').value = periodInfo.end;
+            }
+        }
+        
+        async function saveSettings() {
+            appSettings.dayType = document.getElementById('settingsDayType').value;
+            appSettings.period = parseInt(document.getElementById('settingsPeriod').value);
+            
+            const periodInfo = getPeriodTimes(appSettings.dayType, appSettings.period);
+            const startTime = document.getElementById('settingsStartTime').value;
+            const endTime = document.getElementById('settingsEndTime').value;
+            
+            appSettings.startTimeOverride = (startTime !== periodInfo?.start) ? startTime : null;
+            appSettings.endTimeOverride = (endTime !== periodInfo?.end) ? endTime : null;
+            appSettings.dailyMessage = document.getElementById('settingsDailyMessage').value;
+            
+            // Grid size
+            const newRows = parseInt(document.getElementById('settingsRows').value);
+            const newCols = parseInt(document.getElementById('settingsCols').value);
+            
+            if (newRows !== gridSize.rows || newCols !== gridSize.cols) {
+                gridSize = { rows: newRows, cols: newCols };
+                // Re-layout students if grid changed
+                initStandardLayout();
             }
             
-            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-            gain.gain.exponentialDecayTo && gain.gain.exponentialDecayTo(0.01, ctx.currentTime + 0.3);
-            
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
+            await saveAppSettings();
+            await saveLayouts();
+            updatePeriodDisplay();
+            renderGrid();
+            closeSettings();
         }
         
         // ========== CLASS MANAGEMENT ==========
@@ -1361,21 +1685,53 @@
             students = classData.students || [];
             attendance = {};
             hallPasses = {};
+            layouts = {};
+            
+            // Load grid size from class or use default
+            if (classData.gridSize) {
+                gridSize = classData.gridSize;
+            }
+            
+            // Load saved layouts
+            await loadLayouts();
+            
+            // Initialize standard layout from student positions if available
+            if (students.length > 0 && students[0].position) {
+                layouts['standard'] = { positions: {}, gridSize: { ...gridSize } };
+                students.forEach(s => {
+                    if (s.position) {
+                        layouts['standard'].positions[s.id] = s.position;
+                    }
+                });
+            } else {
+                initStandardLayout();
+            }
             
             await loadAttendance();
             await loadHallPasses();
             
+            currentLayout = 'standard';
+            groupView = false;
+            
+            updateLayoutSelector();
             renderGrid();
             updateStats();
         }
         
         async function importClassData(jsonData) {
+            // Handle import format
             const classData = {
                 id: jsonData.settings?.classId || `class-${Date.now()}`,
                 name: jsonData.settings?.className || 'Imported Class',
                 students: jsonData.students || [],
+                gridSize: jsonData.settings?.gridSize || { rows: 5, cols: 6 },
                 createdAt: new Date().toISOString()
             };
+            
+            // If students have positions, store them
+            if (classData.students.length > 0 && classData.students[0].position) {
+                gridSize = classData.gridSize;
+            }
             
             await saveClass(classData);
             await refreshClassSelector();
@@ -1404,6 +1760,12 @@
                 }
             });
             
+            document.getElementById('layoutSelector').addEventListener('change', (e) => {
+                currentLayout = e.target.value;
+                groupView = false;
+                renderGrid();
+            });
+            
             document.getElementById('importFile').addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -1413,10 +1775,8 @@
                 await importClassData(data);
             });
             
-            // Update time display every second
             setInterval(() => {
                 updatePeriodDisplay();
-                
                 if (activeHallPass) {
                     renderGrid();
                 }
