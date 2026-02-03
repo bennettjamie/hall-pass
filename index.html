@@ -15,7 +15,25 @@
         <header class="header">
             <div class="header-left">
                 <h1 class="logo">🎟️ Hall Pass</h1>
-                <span class="class-name" id="className">CLE 10 — Block 2</span>
+                <div class="header-selectors">
+                    <select id="headerDayType" class="header-select" title="Day Type">
+                        <option value="monday">Monday</option>
+                        <option value="tuesday">Tuesday (PM FIT)</option>
+                        <option value="wednesday">Wednesday (AM FIT)</option>
+                        <option value="thursday">Thursday (PM FIT)</option>
+                        <option value="friday">Friday (AM FIT)</option>
+                        <option value="collab-am">Collab AM</option>
+                        <option value="collab-pm">Collab PM</option>
+                        <option value="early">Early Dismissal</option>
+                    </select>
+                    <select id="headerPeriod" class="header-select" title="Period">
+                        <option value="1">Period 1</option>
+                        <option value="2">Period 2</option>
+                        <option value="3">Period 3</option>
+                        <option value="4">Period 4</option>
+                    </select>
+                    <span class="header-times" id="headerTimes">8:40 - 10:00</span>
+                </div>
             </div>
             <div class="header-center">
                 <div class="countdown" id="countdown">

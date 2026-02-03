@@ -48,9 +48,19 @@ async function init() {
     const today = new Date().toISOString().split('T')[0];
     state.todayAttendance = await DB.getAttendanceForDate(today);
     
-    // Set default day type based on current day
-    state.dayType = Schedule.getDefaultDayType();
-    elements.dayType.value = state.dayType;
+    // Set default day type based on current day (if not already saved)
+    if (!await DB.getSetting('dayType')) {
+        state.dayType = Schedule.getDefaultDayType();
+    } else {
+        state.dayType = await DB.getSetting('dayType');
+    }
+    
+    // Sync all dropdowns
+    syncHeaderDropdowns();
+    syncSettingsDropdowns();
+    
+    // Update times from schedule
+    updateTimesFromSchedule();
     
     // Render the grid
     renderGrid();
@@ -91,6 +101,10 @@ function cacheElements() {
     elements.blackoutEnd = document.getElementById('blackoutEnd');
     elements.quickStartTime = document.getElementById('quickStartTime');
     elements.quickEndTime = document.getElementById('quickEndTime');
+    // Header dropdowns
+    elements.headerDayType = document.getElementById('headerDayType');
+    elements.headerPeriod = document.getElementById('headerPeriod');
+    elements.headerTimes = document.getElementById('headerTimes');
 }
 
 async function loadSettings() {
@@ -147,16 +161,36 @@ function setupEventListeners() {
     // Mute button
     elements.muteBtn.addEventListener('click', toggleMute);
     
-    // Day type change
-    elements.dayType.addEventListener('change', (e) => {
+    // Day type change (settings)
+    elements.dayType?.addEventListener('change', (e) => {
         state.dayType = e.target.value;
         DB.setSetting('dayType', state.dayType);
+        syncHeaderDropdowns();
+        updateTimesFromSchedule();
     });
     
-    // Period change
-    elements.currentPeriod.addEventListener('change', (e) => {
+    // Period change (settings)
+    elements.currentPeriod?.addEventListener('change', (e) => {
         state.currentPeriod = parseInt(e.target.value);
         DB.setSetting('currentPeriod', state.currentPeriod);
+        syncHeaderDropdowns();
+        updateTimesFromSchedule();
+    });
+    
+    // Header day type change
+    elements.headerDayType?.addEventListener('change', (e) => {
+        state.dayType = e.target.value;
+        DB.setSetting('dayType', state.dayType);
+        syncSettingsDropdowns();
+        updateTimesFromSchedule();
+    });
+    
+    // Header period change
+    elements.headerPeriod?.addEventListener('change', (e) => {
+        state.currentPeriod = parseInt(e.target.value);
+        DB.setSetting('currentPeriod', state.currentPeriod);
+        syncSettingsDropdowns();
+        updateTimesFromSchedule();
     });
     
     // Daily message
@@ -592,6 +626,54 @@ function renderAttendanceList() {
             </div>
         `;
     }).join('');
+}
+
+// Sync header dropdowns with state
+function syncHeaderDropdowns() {
+    if (elements.headerDayType) {
+        elements.headerDayType.value = state.dayType;
+    }
+    if (elements.headerPeriod) {
+        elements.headerPeriod.value = state.currentPeriod;
+    }
+}
+
+// Sync settings dropdowns with state
+function syncSettingsDropdowns() {
+    if (elements.dayType) {
+        elements.dayType.value = state.dayType;
+    }
+    if (elements.currentPeriod) {
+        elements.currentPeriod.value = state.currentPeriod;
+    }
+}
+
+// Update times from bell schedule
+function updateTimesFromSchedule() {
+    const periodInfo = Schedule.getPeriodInfo(state.dayType, state.currentPeriod);
+    
+    if (periodInfo) {
+        // Update header times display
+        if (elements.headerTimes) {
+            elements.headerTimes.textContent = `${periodInfo.start} - ${periodInfo.end}`;
+        }
+        
+        // Update settings time inputs (unless user has custom override)
+        if (elements.quickStartTime && !state.customStartTime) {
+            elements.quickStartTime.value = periodInfo.start;
+        }
+        if (elements.quickEndTime && !state.customEndTime) {
+            elements.quickEndTime.value = periodInfo.end;
+        }
+        
+        // Clear custom overrides when schedule changes (they'll use schedule times)
+        state.customStartTime = null;
+        state.customEndTime = null;
+        DB.setSetting('customStartTime', null);
+        DB.setSetting('customEndTime', null);
+        
+        console.log(`Schedule updated: ${state.dayType} Period ${state.currentPeriod} = ${periodInfo.start} - ${periodInfo.end}`);
+    }
 }
 
 function updateStats() {
