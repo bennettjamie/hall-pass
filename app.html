@@ -49,13 +49,42 @@
             gap: 10px;
         }
         
-        .class-selector {
+        .period-class-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #0f3460;
+            padding: 6px 12px;
+            border-radius: 10px;
+        }
+        
+        .header-select {
             padding: 8px 12px;
             border-radius: 8px;
             border: none;
-            background: #0f3460;
+            background: #1a1a2e;
             color: white;
             font-size: 1rem;
+            cursor: pointer;
+            min-width: 120px;
+        }
+        
+        .header-select:focus {
+            outline: 2px solid #4ade80;
+        }
+        
+        .selector-divider {
+            color: rgba(255,255,255,0.4);
+            font-weight: 300;
+        }
+        
+        .layout-select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: none;
+            background: #0f3460;
+            color: white;
+            font-size: 0.85rem;
             cursor: pointer;
         }
         
@@ -483,21 +512,7 @@
             margin-top: 20px;
         }
         
-        /* Layout selector */
-        .layout-selector {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        
-        .layout-selector select {
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: none;
-            background: #0f3460;
-            color: white;
-            font-size: 0.85rem;
-        }
+        /* Layout selector (moved to header-right) */
         
         /* Import section */
         .import-section {
@@ -594,15 +609,23 @@
     <div class="header">
         <div class="header-left">
             <h1>🎟️ Hall Pass</h1>
-            <div class="layout-selector">
-                <select id="layoutSelector">
-                    <option value="standard">Standard Layout</option>
+            <div class="period-class-selector">
+                <select class="header-select" id="periodSelector" onchange="onPeriodSelectorChange()">
+                    <option value="">Period...</option>
+                    <option value="1">Period 1</option>
+                    <option value="2">Period 2</option>
+                    <option value="3">Period 3</option>
+                    <option value="4">Period 4</option>
+                </select>
+                <span class="selector-divider">—</span>
+                <select class="header-select" id="classSelector" onchange="onClassSelectorChange()">
+                    <option value="">Select Class...</option>
                 </select>
             </div>
         </div>
         <div class="header-right">
-            <select class="class-selector" id="classSelector">
-                <option value="">Select Class...</option>
+            <select class="layout-select" id="layoutSelector">
+                <option value="standard">Standard</option>
             </select>
             <button class="icon-btn" id="editModeBtn" onclick="toggleEditMode()" title="Edit Layout">✏️</button>
             <button class="icon-btn" id="groupsBtn" onclick="openGroupsModal()" title="Make Groups">👥</button>
@@ -1748,17 +1771,88 @@
                 classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
         }
         
+        // ========== PERIOD/CLASS SELECTORS ==========
+        async function onPeriodSelectorChange() {
+            const periodSelector = document.getElementById('periodSelector');
+            const selectedPeriod = parseInt(periodSelector.value);
+            
+            if (!selectedPeriod) return;
+            
+            // Update app settings
+            appSettings.period = selectedPeriod;
+            
+            // Update times based on day type
+            const dayType = appSettings.dayType || getTodayDayType();
+            const periodInfo = getPeriodTimes(dayType, selectedPeriod);
+            if (periodInfo) {
+                classStartTime = periodInfo.start;
+                classEndTime = periodInfo.end;
+            }
+            
+            // Update class dropdown to show classes for this period
+            await updateClassDropdownForPeriod(selectedPeriod);
+            
+            // Update display
+            updatePeriodDisplay();
+            await saveAppSettings();
+        }
+        
+        async function updateClassDropdownForPeriod(period) {
+            const classSelector = document.getElementById('classSelector');
+            const classes = await loadClasses();
+            const dayType = appSettings.dayType || getTodayDayType();
+            
+            // Filter classes that are scheduled for this period on this day
+            const matchingClasses = classes.filter(cls => {
+                const schedule = appSettings.teachingSchedule?.[cls.id];
+                return schedule && schedule[dayType] === period;
+            });
+            
+            // If no teaching schedule set up, show all classes
+            const classesToShow = matchingClasses.length > 0 ? matchingClasses : classes;
+            
+            classSelector.innerHTML = '<option value="">Select Class...</option>' +
+                classesToShow.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            
+            // Auto-select if only one class for this period
+            if (matchingClasses.length === 1) {
+                classSelector.value = matchingClasses[0].id;
+                await loadClass(matchingClasses[0].id);
+            }
+        }
+        
+        async function onClassSelectorChange() {
+            const classSelector = document.getElementById('classSelector');
+            if (classSelector.value) {
+                await loadClass(classSelector.value);
+            }
+        }
+        
+        function initPeriodSelector() {
+            const periodSelector = document.getElementById('periodSelector');
+            const info = detectCurrentPeriod();
+            
+            // Set to current/detected period
+            if (appSettings.period) {
+                periodSelector.value = appSettings.period;
+            } else if (info.period) {
+                periodSelector.value = info.period;
+            }
+        }
+        
         // ========== INIT ==========
         async function init() {
             await initDB();
             await loadAppSettings();
             await refreshClassSelector();
             
-            document.getElementById('classSelector').addEventListener('change', (e) => {
-                if (e.target.value) {
-                    loadClass(e.target.value);
-                }
-            });
+            // Initialize period selector
+            initPeriodSelector();
+            
+            // If period is set, update class dropdown
+            if (appSettings.period) {
+                await updateClassDropdownForPeriod(appSettings.period);
+            }
             
             document.getElementById('layoutSelector').addEventListener('change', (e) => {
                 currentLayout = e.target.value;
