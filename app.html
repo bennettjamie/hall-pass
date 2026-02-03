@@ -288,6 +288,28 @@
             animation: pulse 1s infinite;
         }
         
+        .edit-student-btn {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: #60a5fa;
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .edit-student-btn:hover {
+            background: #3b82f6;
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -635,6 +657,7 @@
     
     <div class="edit-toolbar" id="editToolbar">
         <span>✏️ Edit Mode — Drag students to rearrange</span>
+        <button class="group-btn" onclick="openAddStudentModal()" style="background:#60a5fa;">➕ Add Student</button>
         <button class="save-btn" onclick="saveLayout()">💾 Save Layout</button>
         <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
     </div>
@@ -661,6 +684,30 @@
         </div>
         <div class="seating-container" id="seatingContainer" style="display:none">
             <div class="seating-grid" id="seatingGrid"></div>
+        </div>
+    </div>
+    
+    <!-- Add/Edit Student Modal -->
+    <div class="modal-overlay" id="studentModal">
+        <div class="modal">
+            <h2 id="studentModalTitle">➕ Add Student</h2>
+            <div style="text-align: left; margin: 20px 0;">
+                <div class="form-row">
+                    <label>First Name</label>
+                    <input type="text" id="studentFirstName" placeholder="e.g., Alex" style="flex:1; padding:10px; border-radius:8px; border:none; background:#0f3460; color:white;">
+                </div>
+                <div class="form-row" style="margin-top: 12px;">
+                    <label>Last Initial</label>
+                    <input type="text" id="studentLastInitial" placeholder="e.g., M" maxlength="1" style="flex:1; padding:10px; border-radius:8px; border:none; background:#0f3460; color:white;">
+                </div>
+            </div>
+            <div class="button-row">
+                <button class="cancel-btn" onclick="closeStudentModal()">Cancel</button>
+                <button class="save-btn" onclick="saveStudent()">Save</button>
+            </div>
+            <div id="removeStudentBtn" style="margin-top: 15px; display: none;">
+                <button class="time-btn" onclick="removeStudent()" style="background: #ef4444;">🗑️ Remove Student</button>
+            </div>
         </div>
     </div>
     
@@ -1222,6 +1269,8 @@
                             }
                         }
                         
+                        const editBtn = editMode ? `<button class="edit-student-btn" onclick="event.stopPropagation(); openEditStudentModal(${student.id})">✏️</button>` : '';
+                        
                         html += `
                             <div class="seat ${statusClass}" 
                                  data-id="${student.id}"
@@ -1236,6 +1285,7 @@
                                  ondragend="handleDragEnd(event)"
                                  ondragover="handleDragOver(event)"
                                  ondrop="handleDrop(event, ${row}, ${col})">
+                                ${editBtn}
                                 <img src="${student.caricature}" alt="${student.firstName}">
                                 <div class="name">${student.firstName} ${student.lastInitial}.</div>
                                 ${lateTime}
@@ -1562,6 +1612,123 @@
             saveHallPasses();
             document.getElementById('returnBtn').classList.remove('visible');
             renderGrid();
+        }
+        
+        // ========== STUDENT MANAGEMENT ==========
+        let editingStudentId = null;
+        
+        function openAddStudentModal() {
+            editingStudentId = null;
+            document.getElementById('studentModalTitle').textContent = '➕ Add Student';
+            document.getElementById('studentFirstName').value = '';
+            document.getElementById('studentLastInitial').value = '';
+            document.getElementById('removeStudentBtn').style.display = 'none';
+            document.getElementById('studentModal').classList.add('active');
+        }
+        
+        function openEditStudentModal(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            editingStudentId = studentId;
+            document.getElementById('studentModalTitle').textContent = '✏️ Edit Student';
+            document.getElementById('studentFirstName').value = student.firstName;
+            document.getElementById('studentLastInitial').value = student.lastInitial;
+            document.getElementById('removeStudentBtn').style.display = 'block';
+            document.getElementById('studentModal').classList.add('active');
+        }
+        
+        function closeStudentModal() {
+            document.getElementById('studentModal').classList.remove('active');
+            editingStudentId = null;
+        }
+        
+        async function saveStudent() {
+            const firstName = document.getElementById('studentFirstName').value.trim();
+            const lastInitial = document.getElementById('studentLastInitial').value.trim().toUpperCase();
+            
+            if (!firstName) {
+                alert('Please enter a first name');
+                return;
+            }
+            
+            if (editingStudentId) {
+                // Editing existing student
+                const student = students.find(s => s.id === editingStudentId);
+                if (student) {
+                    student.firstName = firstName;
+                    student.lastInitial = lastInitial || 'X';
+                }
+            } else {
+                // Adding new student
+                const newId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
+                
+                // Find first empty position
+                const positions = new Set(students.map(s => `${getStudentPosition(s.id).row},${getStudentPosition(s.id).col}`));
+                let newPos = { row: 0, col: 0 };
+                outer: for (let r = 0; r < gridSize.rows; r++) {
+                    for (let c = 0; c < gridSize.cols; c++) {
+                        if (!positions.has(`${r},${c}`)) {
+                            newPos = { row: r, col: c };
+                            break outer;
+                        }
+                    }
+                }
+                
+                // Create placeholder caricature (colored circle with initials)
+                const colors = ['#4ade80', '#60a5fa', '#f472b6', '#fbbf24', '#a78bfa', '#34d399'];
+                const color = colors[newId % colors.length];
+                const initials = (firstName[0] + (lastInitial || 'X')).toUpperCase();
+                const placeholder = `data:image/svg+xml,${encodeURIComponent(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                        <circle cx="50" cy="50" r="45" fill="${color}"/>
+                        <text x="50" y="58" text-anchor="middle" font-size="32" font-family="Arial" font-weight="bold" fill="white">${initials}</text>
+                    </svg>
+                `)}`;
+                
+                const newStudent = {
+                    id: newId,
+                    firstName: firstName,
+                    lastInitial: lastInitial || 'X',
+                    caricature: placeholder,
+                    position: newPos
+                };
+                
+                students.push(newStudent);
+                setStudentPosition(newId, newPos.row, newPos.col);
+            }
+            
+            // Save class data
+            if (currentClass) {
+                currentClass.students = students;
+                await saveClass(currentClass);
+                await saveLayouts();
+            }
+            
+            closeStudentModal();
+            renderGrid();
+            updateStats();
+        }
+        
+        async function removeStudent() {
+            if (!editingStudentId) return;
+            
+            if (!confirm('Remove this student? Their attendance history will be preserved.')) {
+                return;
+            }
+            
+            // Remove from students array
+            students = students.filter(s => s.id !== editingStudentId);
+            
+            // Save
+            if (currentClass) {
+                currentClass.students = students;
+                await saveClass(currentClass);
+            }
+            
+            closeStudentModal();
+            renderGrid();
+            updateStats();
         }
         
         // ========== GROUPS ==========
