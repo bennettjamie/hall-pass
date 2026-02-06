@@ -239,6 +239,31 @@ const PhotoExtract = {
                 border-radius: 3px;
             }
             
+            .grid-cell-adjustable {
+                border-color: rgba(255, 100, 100, 0.9);
+                border-width: 3px;
+                background: rgba(255, 100, 100, 0.15);
+            }
+            
+            .cell-resize-handle {
+                position: absolute;
+                bottom: -6px;
+                right: -6px;
+                width: 14px;
+                height: 14px;
+                background: #ff6464;
+                border: 2px solid white;
+                border-radius: 3px;
+                cursor: nwse-resize;
+                pointer-events: auto;
+                z-index: 10;
+            }
+            
+            .cell-resize-handle:hover {
+                background: #ff4444;
+                transform: scale(1.2);
+            }
+            
             .crop-area {
                 position: absolute;
                 border: 3px dashed rgba(255, 100, 100, 0.8);
@@ -339,14 +364,18 @@ const PhotoExtract = {
                 const left = (cropLeft + col * (cropRight - cropLeft) / cols) * 100;
                 const top = (cropTop + row * (cropBottom - cropTop) / rows) * 100;
                 
+                // First cell gets draggable corner handle
+                const isFirstCell = row === 0 && col === 0;
+                
                 html += `
-                    <div class="grid-cell" style="
+                    <div class="grid-cell ${isFirstCell ? 'grid-cell-adjustable' : ''}" style="
                         left: ${left}%;
                         top: ${top}%;
                         width: ${cellWidth}%;
                         height: ${cellHeight}%;
                     ">
                         <span class="grid-cell-number">${cellNum}</span>
+                        ${isFirstCell ? '<div class="cell-resize-handle" id="cellResizeHandle"></div>' : ''}
                     </div>
                 `;
                 cellNum++;
@@ -354,6 +383,103 @@ const PhotoExtract = {
         }
         
         overlay.innerHTML = html;
+        
+        // Setup drag handler for first cell
+        this.setupCellDrag();
+    },
+    
+    setupCellDrag() {
+        const handle = document.getElementById('cellResizeHandle');
+        const overlay = document.getElementById('gridOverlay');
+        if (!handle || !overlay) return;
+        
+        let isDragging = false;
+        let startX, startY, startWidth, startHeight;
+        
+        handle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const rect = overlay.getBoundingClientRect();
+            startWidth = this.gridConfig.cropRight - this.gridConfig.cropLeft;
+            startHeight = this.gridConfig.cropBottom - this.gridConfig.cropTop;
+            
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const rect = document.getElementById('gridPreview').getBoundingClientRect();
+            const deltaX = (e.clientX - startX) / rect.width;
+            const deltaY = (e.clientY - startY) / rect.height;
+            
+            // Adjust cell size by changing crop bounds
+            const cols = this.gridConfig.cols;
+            const rows = this.gridConfig.rows;
+            
+            // Delta per cell
+            const cellDeltaX = deltaX;
+            const cellDeltaY = deltaY;
+            
+            // New crop right/bottom based on drag
+            let newRight = this.gridConfig.cropLeft + (startWidth + cellDeltaX * cols);
+            let newBottom = this.gridConfig.cropTop + (startHeight + cellDeltaY * rows);
+            
+            // Clamp
+            newRight = Math.min(1, Math.max(this.gridConfig.cropLeft + 0.3, newRight));
+            newBottom = Math.min(1, Math.max(this.gridConfig.cropTop + 0.3, newBottom));
+            
+            this.gridConfig.cropRight = newRight;
+            this.gridConfig.cropBottom = newBottom;
+            
+            // Update slider to match
+            document.getElementById('cropBottom').value = newBottom * 100;
+            document.getElementById('cropBottomVal').textContent = Math.round(newBottom * 100) + '%';
+            
+            this.updatePreviewWithoutDrag();
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    },
+    
+    updatePreviewWithoutDrag() {
+        // Same as updatePreview but doesn't re-setup drag (prevents recursion)
+        const { cols, rows, cropTop, cropBottom, cropLeft, cropRight } = this.gridConfig;
+        
+        const overlay = document.getElementById('gridOverlay');
+        const cellWidth = (cropRight - cropLeft) / cols * 100;
+        const cellHeight = (cropBottom - cropTop) / rows * 100;
+        
+        let html = '';
+        let cellNum = 1;
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const left = (cropLeft + col * (cropRight - cropLeft) / cols) * 100;
+                const top = (cropTop + row * (cropBottom - cropTop) / rows) * 100;
+                const isFirstCell = row === 0 && col === 0;
+                
+                html += `
+                    <div class="grid-cell ${isFirstCell ? 'grid-cell-adjustable' : ''}" style="
+                        left: ${left}%;
+                        top: ${top}%;
+                        width: ${cellWidth}%;
+                        height: ${cellHeight}%;
+                    ">
+                        <span class="grid-cell-number">${cellNum}</span>
+                        ${isFirstCell ? '<div class="cell-resize-handle" id="cellResizeHandle"></div>' : ''}
+                    </div>
+                `;
+                cellNum++;
+            }
+        }
+        
+        overlay.innerHTML = html;
+        this.setupCellDrag();
     },
     
     closeSetup() {
@@ -390,9 +516,10 @@ const PhotoExtract = {
                 const cellX = startX + col * cellWidth;
                 const cellY = startY + row * cellHeight;
                 
-                // Center the face crop in the cell (faces are usually in upper-middle of cell)
+                // Center the face crop in the cell
+                // Names are at TOP of cell, faces are BELOW — so offset downward
                 const faceX = cellX + (cellWidth - faceSize) / 2;
-                const faceY = cellY + (cellHeight - faceSize) * 0.3; // Slightly toward top
+                const faceY = cellY + (cellHeight - faceSize) * 0.55; // Lower in cell (below name text)
                 
                 // Clear and draw
                 ctx.clearRect(0, 0, faceSize, faceSize);
