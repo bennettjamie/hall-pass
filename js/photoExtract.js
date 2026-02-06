@@ -360,8 +360,8 @@ const PhotoExtract = {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Face crop size - LARGE to fill the circle, minimal whitespace
-        const faceSize = Math.min(cellWidth, cellHeight) * 0.85;
+        // Face crop size - balance between large and avoiding overflow
+        const faceSize = Math.min(cellWidth, cellHeight) * 0.70;
         canvas.width = faceSize;
         canvas.height = faceSize;
         
@@ -386,14 +386,14 @@ const PhotoExtract = {
             const cellX = col * cellWidth;
             const cellY = headerHeight + (row * cellHeight);
             
-            // Face is in lower portion of cell (name text is top ~20%)
-            // Center horizontally, position vertically to capture face
-            const nameAreaHeight = cellHeight * 0.22; // ~22% for name text
+            // Face is in lower portion of cell (name text is top ~25-30%)
+            // For 2-line names, need more space. Be aggressive about going lower.
+            const nameAreaHeight = cellHeight * 0.32; // ~32% for name text (accounts for 2-line names)
             const photoAreaHeight = cellHeight - nameAreaHeight;
             
             const faceX = cellX + (cellWidth - faceSize) / 2;
-            // Center face in the photo area (below name)
-            const faceY = cellY + nameAreaHeight + (photoAreaHeight - faceSize) / 2;
+            // Position face in upper part of photo area (faces are usually upper body)
+            const faceY = cellY + nameAreaHeight + (photoAreaHeight - faceSize) * 0.15;
             
             ctx.clearRect(0, 0, faceSize, faceSize);
             ctx.save();
