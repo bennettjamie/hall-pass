@@ -1,28 +1,32 @@
 /**
- * Photo Extract — Extract student faces and names from MyEd class photo
- * Optimized for MyEd BC export format:
- * - Grid layout (typically 6 columns)
- * - Names ABOVE photos (Last, First format)
- * - Header row at top
+ * Photo Extract v2 — User-Assisted Grid Extraction
+ * 
+ * Flow:
+ * 1. User uploads class photo
+ * 2. User sets grid dimensions (rows × cols)
+ * 3. User can adjust crop area by dragging corners
+ * 4. Faces extracted based on user-defined grid
+ * 5. User pastes names OR types them manually
  */
 
 const PhotoExtract = {
-    extractedStudents: [],
     originalImage: null,
+    extractedStudents: [],
     
-    // Grid configuration for MyEd exports (auto-detected)
-    config: {
-        headerHeight: 0.04,    // Top header is ~4% of image
-        nameHeight: 0.035,     // Name text is ~3.5% of cell height  
-        photoPadding: 0.05,    // Padding around photo
+    // Grid settings (user-configurable)
+    gridConfig: {
+        cols: 5,
+        rows: 4,
+        // Crop area as percentages (0-1)
+        cropTop: 0.05,      // Skip header
+        cropBottom: 0.98,
+        cropLeft: 0.02,
+        cropRight: 0.98,
     },
     
     init() {
         const importBtn = document.getElementById('importClassPhotoBtn');
         const fileInput = document.getElementById('classPhotoInput');
-        const closeBtn = document.getElementById('closePhotoPreview');
-        const cancelBtn = document.getElementById('cancelPhotoImport');
-        const saveBtn = document.getElementById('saveExtractedStudents');
         
         if (importBtn) {
             importBtn.addEventListener('click', () => fileInput.click());
@@ -31,42 +35,19 @@ const PhotoExtract = {
         if (fileInput) {
             fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         }
-        
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => this.closeModal());
-        }
-        
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => this.closeModal());
-        }
-        
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => this.saveStudents());
-        }
     },
     
     async handleFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
         
-        this.showProcessing('Loading image...');
-        
         try {
             const imageData = await this.loadImage(file);
             this.originalImage = imageData;
-            
-            this.showProcessing('Extracting students...');
-            const students = await this.extractStudentsFromGrid(imageData);
-            
-            this.extractedStudents = students;
-            
-            this.hideProcessing();
-            this.showPreview();
-            
+            this.showGridSetup();
         } catch (error) {
-            console.error('Photo extraction error:', error);
-            this.hideProcessing();
-            alert('Failed to process image: ' + error.message);
+            console.error('Failed to load image:', error);
+            alert('Failed to load image: ' + error.message);
         }
         
         event.target.value = '';
@@ -93,376 +74,486 @@ const PhotoExtract = {
         });
     },
     
-    // Auto-detect grid dimensions based on image size and typical class layouts
-    detectGridSize(width, contentHeight) {
-        // Typical cell aspect ratio in MyEd is roughly 1:1.3 (width:height)
-        // We'll try common grid sizes and pick the best fit
-        
-        const cellAspectRatio = 0.75; // width/height of a typical cell
-        
-        // Common class sizes and their grid layouts
-        const commonGrids = [
-            { cols: 5, rows: 4 },  // 20 students
-            { cols: 5, rows: 5 },  // 25 students
-            { cols: 6, rows: 4 },  // 24 students
-            { cols: 6, rows: 5 },  // 30 students
-            { cols: 6, rows: 6 },  // 36 students
-            { cols: 7, rows: 5 },  // 35 students
-            { cols: 4, rows: 4 },  // 16 students
-            { cols: 4, rows: 5 },  // 20 students
-        ];
-        
-        let bestGrid = { cols: 6, rows: 5 }; // Default
-        let bestScore = Infinity;
-        
-        for (const grid of commonGrids) {
-            const cellWidth = width / grid.cols;
-            const cellHeight = contentHeight / grid.rows;
-            const actualRatio = cellWidth / cellHeight;
-            
-            // Score based on how close to expected aspect ratio
-            const score = Math.abs(actualRatio - cellAspectRatio);
-            
-            if (score < bestScore) {
-                bestScore = score;
-                bestGrid = grid;
-            }
+    showGridSetup() {
+        // Create or get the setup modal
+        let modal = document.getElementById('gridSetupModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'gridSetupModal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
         }
         
-        return bestGrid;
+        modal.innerHTML = `
+            <div class="modal-content modal-xlarge">
+                <div class="modal-header">
+                    <h2>📐 Step 1: Define Grid</h2>
+                    <button class="modal-close" onclick="PhotoExtract.closeSetup()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="grid-setup-container">
+                        <div class="grid-controls">
+                            <div class="control-group">
+                                <label>Columns (students per row)</label>
+                                <select id="gridCols" onchange="PhotoExtract.updatePreview()">
+                                    ${[3,4,5,6,7,8].map(n => 
+                                        `<option value="${n}" ${n === this.gridConfig.cols ? 'selected' : ''}>${n}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Rows</label>
+                                <select id="gridRows" onchange="PhotoExtract.updatePreview()">
+                                    ${[2,3,4,5,6,7,8].map(n => 
+                                        `<option value="${n}" ${n === this.gridConfig.rows ? 'selected' : ''}>${n}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Total students: <strong id="totalStudents">${this.gridConfig.cols * this.gridConfig.rows}</strong></label>
+                            </div>
+                            <hr>
+                            <div class="control-group">
+                                <label>Adjust crop area (skip headers/margins)</label>
+                                <div class="crop-sliders">
+                                    <label>Top: <input type="range" id="cropTop" min="0" max="30" value="${this.gridConfig.cropTop * 100}" onchange="PhotoExtract.updatePreview()">
+                                    <span id="cropTopVal">${Math.round(this.gridConfig.cropTop * 100)}%</span></label>
+                                    <label>Bottom: <input type="range" id="cropBottom" min="70" max="100" value="${this.gridConfig.cropBottom * 100}" onchange="PhotoExtract.updatePreview()">
+                                    <span id="cropBottomVal">${Math.round(this.gridConfig.cropBottom * 100)}%</span></label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid-preview-container">
+                            <p class="help-text">Grid preview — adjust until boxes align with faces</p>
+                            <div class="grid-preview" id="gridPreview">
+                                <img id="previewImage" src="${this.originalImage.dataUrl}" alt="Class photo">
+                                <div class="grid-overlay" id="gridOverlay"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="secondary-btn" onclick="PhotoExtract.closeSetup()">Cancel</button>
+                    <button class="primary-btn" onclick="PhotoExtract.extractFaces()">Extract Faces →</button>
+                </div>
+            </div>
+        `;
+        
+        // Add styles if not present
+        this.addStyles();
+        
+        modal.classList.add('active');
+        this.updatePreview();
     },
     
-    async extractStudentsFromGrid(imageData) {
-        const { image, width, height } = imageData;
-        const { headerHeight, nameHeight, photoPadding } = this.config;
+    addStyles() {
+        if (document.getElementById('photoExtractStyles')) return;
         
-        // Skip header row
-        const contentTop = Math.floor(height * headerHeight);
-        const contentHeight = height - contentTop;
-        
-        // Auto-detect grid size based on image aspect ratio and typical class sizes
-        const { cols, rows } = this.detectGridSize(width, contentHeight);
-        console.log(`Detected grid: ${cols} cols × ${rows} rows`);
-        
-        // Calculate cell dimensions
-        const cellWidth = Math.floor(width / cols);
-        const cellHeight = Math.floor(contentHeight / rows);
-        
-        // Name area is at top of each cell
-        const nameAreaHeight = Math.floor(cellHeight * nameHeight);
-        
-        // Photo area starts after name
-        const photoTop = nameAreaHeight;
-        const photoHeight = cellHeight - nameAreaHeight;
-        
-        // Create canvas for cropping
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Also create a canvas for OCR on the full image
-        const ocrCanvas = document.createElement('canvas');
-        ocrCanvas.width = width;
-        ocrCanvas.height = height;
-        const ocrCtx = ocrCanvas.getContext('2d');
-        ocrCtx.drawImage(image, 0, 0);
-        
-        // Run OCR on the full image to get names
-        let names = [];
-        if (typeof Tesseract !== 'undefined') {
-            try {
-                this.showProcessing('Running OCR...');
-                const result = await Tesseract.recognize(imageData.dataUrl, 'eng', {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            this.showProcessing(`OCR: ${Math.round(m.progress * 100)}%`);
-                        }
-                    }
-                });
-                names = this.parseNamesFromOCR(result.data.text);
-                console.log('OCR found names:', names);
-            } catch (e) {
-                console.error('OCR failed:', e);
+        const style = document.createElement('style');
+        style.id = 'photoExtractStyles';
+        style.textContent = `
+            .modal-xlarge .modal-content { max-width: 1000px; }
+            .modal-xlarge { max-width: 95vw; }
+            
+            .grid-setup-container {
+                display: flex;
+                gap: 2rem;
             }
-        }
+            
+            .grid-controls {
+                min-width: 200px;
+            }
+            
+            .control-group {
+                margin-bottom: 1rem;
+            }
+            
+            .control-group label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+            }
+            
+            .control-group select {
+                width: 100%;
+                padding: 0.5rem;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 1rem;
+            }
+            
+            .crop-sliders label {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .crop-sliders input[type="range"] {
+                flex: 1;
+            }
+            
+            .grid-preview-container {
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .grid-preview {
+                position: relative;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                overflow: hidden;
+                background: #f5f5f5;
+            }
+            
+            .grid-preview img {
+                width: 100%;
+                height: auto;
+                display: block;
+            }
+            
+            .grid-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                pointer-events: none;
+            }
+            
+            .grid-cell {
+                position: absolute;
+                border: 2px solid rgba(99, 102, 241, 0.7);
+                background: rgba(99, 102, 241, 0.1);
+                box-sizing: border-box;
+            }
+            
+            .grid-cell-number {
+                position: absolute;
+                top: 2px;
+                left: 4px;
+                background: rgba(99, 102, 241, 0.9);
+                color: white;
+                font-size: 10px;
+                padding: 1px 4px;
+                border-radius: 3px;
+            }
+            
+            .crop-area {
+                position: absolute;
+                border: 3px dashed rgba(255, 100, 100, 0.8);
+                background: rgba(255, 100, 100, 0.05);
+            }
+            
+            /* Names input modal */
+            .names-input-container {
+                display: flex;
+                gap: 2rem;
+            }
+            
+            .names-input-left {
+                flex: 1;
+            }
+            
+            .names-input-right {
+                flex: 1;
+                max-height: 500px;
+                overflow-y: auto;
+            }
+            
+            .names-textarea {
+                width: 100%;
+                height: 300px;
+                font-family: monospace;
+                font-size: 14px;
+                padding: 1rem;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                resize: vertical;
+            }
+            
+            .extracted-face {
+                display: inline-flex;
+                flex-direction: column;
+                align-items: center;
+                margin: 0.5rem;
+                width: 100px;
+            }
+            
+            .extracted-face img {
+                width: 70px;
+                height: 70px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid #ddd;
+            }
+            
+            .extracted-face input {
+                width: 100%;
+                text-align: center;
+                margin-top: 0.5rem;
+                padding: 0.25rem;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            
+            .extracted-face .face-number {
+                font-size: 10px;
+                color: #666;
+            }
+        `;
+        document.head.appendChild(style);
+    },
+    
+    updatePreview() {
+        const cols = parseInt(document.getElementById('gridCols').value);
+        const rows = parseInt(document.getElementById('gridRows').value);
+        const cropTop = parseInt(document.getElementById('cropTop').value) / 100;
+        const cropBottom = parseInt(document.getElementById('cropBottom').value) / 100;
         
-        const students = [];
-        let nameIndex = 0;
+        // Update config
+        this.gridConfig.cols = cols;
+        this.gridConfig.rows = rows;
+        this.gridConfig.cropTop = cropTop;
+        this.gridConfig.cropBottom = cropBottom;
         
-        // Crop size for face (square)
-        const cropSize = Math.min(cellWidth * 0.85, photoHeight * 0.9);
-        canvas.width = cropSize;
-        canvas.height = cropSize;
+        // Update display values
+        document.getElementById('totalStudents').textContent = cols * rows;
+        document.getElementById('cropTopVal').textContent = Math.round(cropTop * 100) + '%';
+        document.getElementById('cropBottomVal').textContent = Math.round(cropBottom * 100) + '%';
+        
+        // Update grid overlay
+        const overlay = document.getElementById('gridOverlay');
+        const cropLeft = this.gridConfig.cropLeft;
+        const cropRight = this.gridConfig.cropRight;
+        
+        const cellWidth = (cropRight - cropLeft) / cols * 100;
+        const cellHeight = (cropBottom - cropTop) / rows * 100;
+        
+        let html = '';
+        let cellNum = 1;
         
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
-                // Calculate cell position (accounting for header)
-                const cellX = col * cellWidth;
-                const cellY = contentTop + (row * cellHeight);
+                const left = (cropLeft + col * (cropRight - cropLeft) / cols) * 100;
+                const top = (cropTop + row * (cropBottom - cropTop) / rows) * 100;
                 
-                // Photo is in lower portion of cell, centered
-                const photoX = cellX + (cellWidth - cropSize) / 2;
-                const photoY = cellY + photoTop + (photoHeight - cropSize) / 2;
+                html += `
+                    <div class="grid-cell" style="
+                        left: ${left}%;
+                        top: ${top}%;
+                        width: ${cellWidth}%;
+                        height: ${cellHeight}%;
+                    ">
+                        <span class="grid-cell-number">${cellNum}</span>
+                    </div>
+                `;
+                cellNum++;
+            }
+        }
+        
+        overlay.innerHTML = html;
+    },
+    
+    closeSetup() {
+        const modal = document.getElementById('gridSetupModal');
+        if (modal) modal.classList.remove('active');
+    },
+    
+    extractFaces() {
+        const { cols, rows, cropTop, cropBottom, cropLeft, cropRight } = this.gridConfig;
+        const { image, width, height } = this.originalImage;
+        
+        // Calculate actual pixel positions
+        const startX = Math.floor(width * cropLeft);
+        const startY = Math.floor(height * cropTop);
+        const endX = Math.floor(width * cropRight);
+        const endY = Math.floor(height * cropBottom);
+        
+        const cellWidth = (endX - startX) / cols;
+        const cellHeight = (endY - startY) / rows;
+        
+        // Create canvas for face extraction
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Face crop size (square, 80% of cell width to leave margin)
+        const faceSize = Math.min(cellWidth, cellHeight) * 0.75;
+        canvas.width = faceSize;
+        canvas.height = faceSize;
+        
+        this.extractedStudents = [];
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const cellX = startX + col * cellWidth;
+                const cellY = startY + row * cellHeight;
                 
-                // Check if this cell has content (not empty/white)
-                const hasContent = this.checkCellHasContent(ocrCtx, cellX, cellY, cellWidth, cellHeight);
+                // Center the face crop in the cell (faces are usually in upper-middle of cell)
+                const faceX = cellX + (cellWidth - faceSize) / 2;
+                const faceY = cellY + (cellHeight - faceSize) * 0.3; // Slightly toward top
                 
-                if (!hasContent) {
-                    continue; // Skip empty cells
-                }
-                
-                // Crop the face
-                ctx.clearRect(0, 0, cropSize, cropSize);
+                // Clear and draw
+                ctx.clearRect(0, 0, faceSize, faceSize);
                 ctx.save();
                 
-                // Create circular clip
+                // Circular clip
                 ctx.beginPath();
-                ctx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
+                ctx.arc(faceSize / 2, faceSize / 2, faceSize / 2, 0, Math.PI * 2);
                 ctx.clip();
                 
-                // Draw the cropped region
                 ctx.drawImage(
                     image,
-                    photoX, photoY, cropSize, cropSize,
-                    0, 0, cropSize, cropSize
+                    faceX, faceY, faceSize, faceSize,
+                    0, 0, faceSize, faceSize
                 );
                 
                 ctx.restore();
                 
-                // Get name from OCR results or use placeholder
-                let studentName = names[nameIndex] || null;
-                
-                // Mark WITHDRAWN students but keep them in layout
-                const isWithdrawn = studentName && studentName.isWithdrawn;
-                
-                // If withdrawn, draw overlay text
-                if (isWithdrawn) {
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
-                    ctx.font = `bold ${Math.floor(cropSize / 6)}px Arial`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    
-                    // Rotate text diagonally
-                    ctx.translate(cropSize / 2, cropSize / 2);
-                    ctx.rotate(-Math.PI / 6);
-                    ctx.fillText('WITHDRAWN', 0, 0);
-                    ctx.restore();
-                }
-                
                 const faceDataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 
-                if (!studentName) {
-                    studentName = {
-                        firstName: `Student`,
-                        lastName: `${nameIndex + 1}`,
-                        lastInitial: `${nameIndex + 1}`,
-                        displayName: `Student ${nameIndex + 1}`
-                    };
-                }
-                
-                students.push({
-                    id: `extracted-${Date.now()}-${students.length}`,
-                    firstName: isWithdrawn ? 'WITHDRAWN' : studentName.firstName,
-                    lastName: studentName.lastName || '',
-                    lastInitial: studentName.lastInitial || '?',
-                    displayName: isWithdrawn ? 'WITHDRAWN' : studentName.displayName,
-                    caricature: faceDataUrl,
+                this.extractedStudents.push({
+                    id: `student-${Date.now()}-${this.extractedStudents.length}`,
+                    faceDataUrl,
                     gridPosition: { row, col },
-                    isWithdrawn: isWithdrawn
+                    displayName: ''
                 });
-                
-                nameIndex++;
             }
         }
         
-        return students;
+        this.closeSetup();
+        this.showNamesInput();
     },
     
-    // Check if a cell has actual content (not empty)
-    checkCellHasContent(ctx, x, y, width, height) {
-        try {
-            const imageData = ctx.getImageData(
-                Math.floor(x + width * 0.3),
-                Math.floor(y + height * 0.3),
-                Math.floor(width * 0.4),
-                Math.floor(height * 0.4)
-            );
-            
-            const data = imageData.data;
-            let nonWhitePixels = 0;
-            
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                
-                // Check if pixel is not white/light gray
-                if (r < 240 || g < 240 || b < 240) {
-                    nonWhitePixels++;
-                }
-            }
-            
-            // If more than 10% non-white pixels, has content
-            return nonWhitePixels > (data.length / 4) * 0.1;
-        } catch (e) {
-            return true; // Assume has content if can't check
-        }
-    },
-    
-    // Parse names from OCR text (MyEd format: "Last, First")
-    parseNamesFromOCR(text) {
-        console.log('=== RAW OCR TEXT ===');
-        console.log(text);
-        console.log('====================');
-        
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        const names = [];
-        
-        for (const line of lines) {
-            console.log('Processing line:', JSON.stringify(line));
-            
-            // Skip header/metadata lines
-            if (line.includes('Schedule') || line.includes('Term') || 
-                line.includes('EDUCATION') || line.includes('MCLE') ||
-                line.includes('P1') || line.includes('P2') ||
-                line.match(/^S\d/) || line.match(/^\d+$/)) {
-                console.log('  -> Skipped (header/metadata)');
-                continue;
-            }
-            
-            // Check for WITHDRAWN
-            const isWithdrawn = line.toUpperCase().includes('WITHDRAWN');
-            
-            // More flexible name matching:
-            // Allow letters, hyphens, apostrophes, spaces within names
-            // Match "Last, First" or "Last First" patterns
-            const commaMatch = line.match(/^([A-Za-z][A-Za-z\-'.\s]*?),\s*([A-Za-z][A-Za-z\-'.\s]*?)$/);
-            const spaceMatch = !commaMatch && line.match(/^([A-Za-z][A-Za-z\-'.]*)\s+([A-Za-z][A-Za-z\-'.]*)/);
-            
-            const match = commaMatch || spaceMatch;
-            
-            if (match) {
-                let lastName = match[1].trim();
-                let firstName = match[2].trim();
-                
-                // For space match, assume First Last order and swap
-                if (spaceMatch && !commaMatch) {
-                    [firstName, lastName] = [lastName, firstName];
-                }
-                
-                // Handle hyphenated names that might span lines
-                if (firstName.length < 2) {
-                    console.log('  -> Skipped (firstName too short)');
-                    continue;
-                }
-                
-                const lastInitial = lastName.charAt(0).toUpperCase();
-                console.log(`  -> MATCHED: "${firstName} ${lastInitial}." (${lastName}, ${firstName})`);
-                
-                names.push({
-                    firstName,
-                    lastName,
-                    lastInitial,
-                    displayName: `${firstName} ${lastInitial}.`,
-                    isWithdrawn
-                });
-            } else {
-                console.log('  -> No match');
-            }
+    showNamesInput() {
+        let modal = document.getElementById('namesInputModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'namesInputModal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
         }
         
-        console.log(`=== TOTAL NAMES FOUND: ${names.length} ===`);
-        console.log(names.map(n => n.displayName).join(', '));
-        
-        return names;
-    },
-    
-    showProcessing(text) {
-        const status = document.getElementById('photoProcessingStatus');
-        const textEl = document.getElementById('processingText');
-        if (status) {
-            status.style.display = 'flex';
-            if (textEl) textEl.textContent = text;
-        }
-    },
-    
-    hideProcessing() {
-        const status = document.getElementById('photoProcessingStatus');
-        if (status) status.style.display = 'none';
-    },
-    
-    showPreview() {
-        const modal = document.getElementById('photoPreviewModal');
-        const grid = document.getElementById('extractedStudentsGrid');
-        
-        if (!modal || !grid) return;
-        
-        grid.innerHTML = this.extractedStudents.map((student, index) => `
-            <div class="extracted-student-card" data-index="${index}">
-                <img src="${student.caricature}" alt="${student.displayName}">
-                <input type="text" value="${student.displayName}" 
-                       data-field="displayName" 
-                       placeholder="First L.">
-                <button class="remove-btn" onclick="PhotoExtract.removeStudent(${index})">✕ Remove</button>
+        const facesHtml = this.extractedStudents.map((s, i) => `
+            <div class="extracted-face">
+                <span class="face-number">#${i + 1}</span>
+                <img src="${s.faceDataUrl}" alt="Student ${i + 1}">
+                <input type="text" id="name-${i}" placeholder="First L." value="${s.displayName}">
             </div>
         `).join('');
         
-        grid.querySelectorAll('input').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const index = parseInt(e.target.closest('.extracted-student-card').dataset.index);
-                this.updateStudentName(index, e.target.value);
-            });
-        });
+        modal.innerHTML = `
+            <div class="modal-content modal-xlarge">
+                <div class="modal-header">
+                    <h2>✏️ Step 2: Add Names</h2>
+                    <button class="modal-close" onclick="PhotoExtract.closeNames()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="names-input-container">
+                        <div class="names-input-left">
+                            <p class="help-text"><strong>Option A:</strong> Paste names below (one per line, in order)</p>
+                            <textarea id="namesPaste" class="names-textarea" placeholder="Ahmad A.
+Evans A.
+Neda A.
+Grayer A.
+...
+
+Paste from MyEd or type names, one per line.
+Order: left-to-right, top-to-bottom."></textarea>
+                            <button class="secondary-btn" onclick="PhotoExtract.applyPastedNames()" style="margin-top: 1rem;">
+                                Apply Names →
+                            </button>
+                            <p class="help-text" style="margin-top: 1rem;"><strong>Option B:</strong> Or type directly in the boxes on the right →</p>
+                        </div>
+                        <div class="names-input-right">
+                            <p class="help-text">Extracted faces (${this.extractedStudents.length} students)</p>
+                            <div class="extracted-faces-grid">
+                                ${facesHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="secondary-btn" onclick="PhotoExtract.backToGrid()">← Back to Grid</button>
+                    <button class="secondary-btn" onclick="PhotoExtract.closeNames()">Cancel</button>
+                    <button class="primary-btn" onclick="PhotoExtract.saveStudents()">✓ Save All Students</button>
+                </div>
+            </div>
+        `;
         
         modal.classList.add('active');
     },
     
-    closeModal() {
-        const modal = document.getElementById('photoPreviewModal');
-        if (modal) modal.classList.remove('active');
-        this.extractedStudents = [];
-    },
-    
-    updateStudentName(index, displayName) {
-        if (this.extractedStudents[index]) {
-            const parts = displayName.trim().split(/\s+/);
-            const firstName = parts[0] || 'Student';
-            const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '')[0] : '?';
-            
-            this.extractedStudents[index].firstName = firstName;
-            this.extractedStudents[index].lastInitial = lastInitial.toUpperCase();
-            this.extractedStudents[index].displayName = `${firstName} ${lastInitial}.`;
+    applyPastedNames() {
+        const textarea = document.getElementById('namesPaste');
+        const names = textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+        
+        names.forEach((name, i) => {
+            if (i < this.extractedStudents.length) {
+                this.extractedStudents[i].displayName = name;
+                const input = document.getElementById(`name-${i}`);
+                if (input) input.value = name;
+            }
+        });
+        
+        if (names.length < this.extractedStudents.length) {
+            alert(`Applied ${names.length} names. ${this.extractedStudents.length - names.length} students still need names.`);
+        } else if (names.length > this.extractedStudents.length) {
+            alert(`Applied ${this.extractedStudents.length} names. ${names.length - this.extractedStudents.length} extra names were ignored.`);
+        } else {
+            alert(`Applied ${names.length} names!`);
         }
     },
     
-    removeStudent(index) {
-        this.extractedStudents.splice(index, 1);
-        this.showPreview();
+    closeNames() {
+        const modal = document.getElementById('namesInputModal');
+        if (modal) modal.classList.remove('active');
+    },
+    
+    backToGrid() {
+        this.closeNames();
+        this.showGridSetup();
     },
     
     async saveStudents() {
-        if (this.extractedStudents.length === 0) {
-            alert('No students to save!');
+        // Collect names from inputs
+        this.extractedStudents.forEach((student, i) => {
+            const input = document.getElementById(`name-${i}`);
+            if (input && input.value.trim()) {
+                student.displayName = input.value.trim();
+            }
+        });
+        
+        // Filter out students without names (empty cells)
+        const validStudents = this.extractedStudents.filter(s => s.displayName);
+        
+        if (validStudents.length === 0) {
+            alert('Please add at least one student name.');
             return;
         }
         
         try {
             const confirmClear = confirm(
-                `This will add ${this.extractedStudents.length} students. ` +
-                `Clear existing students first?`
+                `This will add ${validStudents.length} students. Clear existing students first?`
             );
             
             if (confirmClear) {
                 await DB.clearStudents();
             }
             
-            for (const student of this.extractedStudents) {
+            for (const student of validStudents) {
+                // Parse display name into first/last
+                const parts = student.displayName.split(/\s+/);
+                const firstName = parts[0] || 'Student';
+                const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
+                
                 await DB.addStudent({
                     displayName: student.displayName,
-                    firstName: student.firstName,
-                    lastInitial: student.lastInitial,
-                    caricature: student.caricature,
-                    sortKey: `${student.lastInitial.toLowerCase()}_${student.firstName.toLowerCase()}`
+                    firstName,
+                    lastInitial,
+                    caricature: student.faceDataUrl,
+                    sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
                 });
             }
             
@@ -470,9 +561,8 @@ const PhotoExtract = {
             renderGrid();
             updateStats();
             
-            this.closeModal();
-            
-            alert(`Imported ${this.extractedStudents.length} students!`);
+            this.closeNames();
+            alert(`Imported ${validStudents.length} students!`);
             
         } catch (error) {
             console.error('Failed to save:', error);
