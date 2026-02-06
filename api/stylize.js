@@ -15,7 +15,53 @@ export default async function handler(req, res) {
     }
     
     try {
-        const { image, style, name } = req.body;
+        const { image, style, name, description, generateFromDescription } = req.body;
+        
+        // If generating from description only (no source image)
+        if (generateFromDescription && description) {
+            const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+            
+            const imagePrompt = `Beautiful flattering portrait of a young student: ${description}. 
+Art style: Disney Pixar 3D animated character, big friendly eyes, warm smile, appealing proportions, soft lighting. 
+Composition: square format, head and shoulders, centered, looking at viewer with friendly confident expression. 
+Lighting: soft flattering studio lighting. Background: simple, clean gradient.
+Important: attractive proportions, appealing features, positive representation, gender-neutral if not specified.`;
+            
+            const imagenResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        instances: [{ prompt: imagePrompt }],
+                        parameters: {
+                            sampleCount: 1,
+                            aspectRatio: "1:1",
+                            safetyFilterLevel: "block_few",
+                            personGeneration: "allow_adult"
+                        }
+                    })
+                }
+            );
+            
+            if (imagenResponse.ok) {
+                const imagenData = await imagenResponse.json();
+                const generatedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
+                
+                if (generatedImage) {
+                    return res.status(200).json({
+                        success: true,
+                        image: `data:image/png;base64,${generatedImage}`,
+                        fromDescription: true
+                    });
+                }
+            }
+            
+            return res.status(200).json({ 
+                success: false, 
+                error: 'Could not generate avatar from description' 
+            });
+        }
         
         if (!image || !style) {
             return res.status(400).json({ error: 'Image and style required' });

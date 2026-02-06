@@ -14,6 +14,15 @@ const PhotoExtract = {
     extractedData: null,
     selectedStyle: 'original',
     
+    // Gender-neutral placeholder avatar (simple silhouette)
+    placeholderAvatar: `data:image/svg+xml,${encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="50" fill="#e5e7eb"/>
+            <circle cx="50" cy="38" r="18" fill="#9ca3af"/>
+            <ellipse cx="50" cy="85" rx="30" ry="25" fill="#9ca3af"/>
+        </svg>
+    `)}`,
+    
     // Available avatar styles - all are pre-generated on import for instant switching
     // Chosen to be flattering, fun, and appealing to students
     styles: [
@@ -336,6 +345,14 @@ const PhotoExtract = {
         this.extractedData.studentFaces = [];
         
         for (let i = 0; i < students.length; i++) {
+            const studentName = students[i];
+            
+            // Check if this is a blank/placeholder student
+            if (!studentName || studentName.trim() === '' || studentName.includes('[BLANK]')) {
+                this.extractedData.studentFaces.push(this.placeholderAvatar);
+                continue;
+            }
+            
             const row = Math.floor(i / cols);
             const col = i % cols;
             
@@ -364,6 +381,37 @@ const PhotoExtract = {
             
             this.extractedData.studentFaces.push(canvas.toDataURL('image/jpeg', 0.85));
         }
+    },
+    
+    // Generate avatar from text description (for students without photos)
+    async generateAvatarFromDescription(studentId, description) {
+        try {
+            const response = await fetch('/api/stylize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: description,
+                    style: 'disney', // Default to friendly Disney style
+                    generateFromDescription: true
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success && data.image) {
+                // Update student's avatar
+                await DB.updateStudent(studentId, {
+                    caricature: data.image,
+                    avatars: { ...((await DB.getStudent(studentId))?.avatars || {}), generated: data.image }
+                });
+                
+                state.students = await DB.getStudents();
+                renderGrid();
+                return true;
+            }
+        } catch (e) {
+            console.error('Failed to generate avatar:', e);
+        }
+        return false;
     },
     
     showResults() {
