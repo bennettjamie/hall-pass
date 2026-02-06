@@ -10,12 +10,10 @@ const PhotoExtract = {
     extractedStudents: [],
     originalImage: null,
     
-    // Grid configuration for MyEd exports
+    // Grid configuration for MyEd exports (auto-detected)
     config: {
-        cols: 6,
-        rows: 5,
         headerHeight: 0.04,    // Top header is ~4% of image
-        nameHeight: 0.035,     // Name text is ~3.5% of cell height
+        nameHeight: 0.035,     // Name text is ~3.5% of cell height  
         photoPadding: 0.05,    // Padding around photo
     },
     
@@ -95,13 +93,56 @@ const PhotoExtract = {
         });
     },
     
+    // Auto-detect grid dimensions based on image size and typical class layouts
+    detectGridSize(width, contentHeight) {
+        // Typical cell aspect ratio in MyEd is roughly 1:1.3 (width:height)
+        // We'll try common grid sizes and pick the best fit
+        
+        const cellAspectRatio = 0.75; // width/height of a typical cell
+        
+        // Common class sizes and their grid layouts
+        const commonGrids = [
+            { cols: 5, rows: 4 },  // 20 students
+            { cols: 5, rows: 5 },  // 25 students
+            { cols: 6, rows: 4 },  // 24 students
+            { cols: 6, rows: 5 },  // 30 students
+            { cols: 6, rows: 6 },  // 36 students
+            { cols: 7, rows: 5 },  // 35 students
+            { cols: 4, rows: 4 },  // 16 students
+            { cols: 4, rows: 5 },  // 20 students
+        ];
+        
+        let bestGrid = { cols: 6, rows: 5 }; // Default
+        let bestScore = Infinity;
+        
+        for (const grid of commonGrids) {
+            const cellWidth = width / grid.cols;
+            const cellHeight = contentHeight / grid.rows;
+            const actualRatio = cellWidth / cellHeight;
+            
+            // Score based on how close to expected aspect ratio
+            const score = Math.abs(actualRatio - cellAspectRatio);
+            
+            if (score < bestScore) {
+                bestScore = score;
+                bestGrid = grid;
+            }
+        }
+        
+        return bestGrid;
+    },
+    
     async extractStudentsFromGrid(imageData) {
         const { image, width, height } = imageData;
-        const { cols, rows, headerHeight, nameHeight, photoPadding } = this.config;
+        const { headerHeight, nameHeight, photoPadding } = this.config;
         
         // Skip header row
         const contentTop = Math.floor(height * headerHeight);
         const contentHeight = height - contentTop;
+        
+        // Auto-detect grid size based on image aspect ratio and typical class sizes
+        const { cols, rows } = this.detectGridSize(width, contentHeight);
+        console.log(`Detected grid: ${cols} cols × ${rows} rows`);
         
         // Calculate cell dimensions
         const cellWidth = Math.floor(width / cols);
@@ -187,16 +228,28 @@ const PhotoExtract = {
                 
                 ctx.restore();
                 
-                const faceDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                
                 // Get name from OCR results or use placeholder
                 let studentName = names[nameIndex] || null;
                 
-                // Skip WITHDRAWN students
-                if (studentName && studentName.isWithdrawn) {
-                    nameIndex++;
-                    continue;
+                // Mark WITHDRAWN students but keep them in layout
+                const isWithdrawn = studentName && studentName.isWithdrawn;
+                
+                // If withdrawn, draw overlay text
+                if (isWithdrawn) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                    ctx.font = `bold ${Math.floor(cropSize / 6)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    // Rotate text diagonally
+                    ctx.translate(cropSize / 2, cropSize / 2);
+                    ctx.rotate(-Math.PI / 6);
+                    ctx.fillText('WITHDRAWN', 0, 0);
+                    ctx.restore();
                 }
+                
+                const faceDataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 
                 if (!studentName) {
                     studentName = {
@@ -209,12 +262,13 @@ const PhotoExtract = {
                 
                 students.push({
                     id: `extracted-${Date.now()}-${students.length}`,
-                    firstName: studentName.firstName,
-                    lastName: studentName.lastName,
-                    lastInitial: studentName.lastInitial,
-                    displayName: studentName.displayName,
+                    firstName: isWithdrawn ? 'WITHDRAWN' : studentName.firstName,
+                    lastName: studentName.lastName || '',
+                    lastInitial: studentName.lastInitial || '?',
+                    displayName: isWithdrawn ? 'WITHDRAWN' : studentName.displayName,
                     caricature: faceDataUrl,
-                    gridPosition: { row, col }
+                    gridPosition: { row, col },
+                    isWithdrawn: isWithdrawn
                 });
                 
                 nameIndex++;
