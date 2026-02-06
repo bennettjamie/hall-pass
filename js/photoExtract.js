@@ -337,8 +337,8 @@ const PhotoExtract = {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Face crop size
-        const faceSize = Math.min(cellWidth, cellHeight) * 0.65;
+        // Face crop size - LARGE to fill the circle, minimal whitespace
+        const faceSize = Math.min(cellWidth, cellHeight) * 0.85;
         canvas.width = faceSize;
         canvas.height = faceSize;
         
@@ -347,9 +347,10 @@ const PhotoExtract = {
         for (let i = 0; i < students.length; i++) {
             const studentName = students[i];
             
-            // Check if this is a blank/placeholder student
+            // Skip cells without names entirely - don't even add placeholder
             if (!studentName || studentName.trim() === '' || studentName.includes('[BLANK]')) {
-                this.extractedData.studentFaces.push(this.placeholderAvatar);
+                // Mark as null - we'll filter these out later
+                this.extractedData.studentFaces.push(null);
                 continue;
             }
             
@@ -441,19 +442,25 @@ const PhotoExtract = {
         const modal = document.getElementById('aiExtractModal');
         const { grid, students, studentFaces } = this.extractedData;
         
+        // Filter out blank cells (null faces or empty names)
+        const validCount = students.filter((name, i) => name && name.trim() && studentFaces[i]).length;
+        
         const studentsHtml = students.map((name, i) => {
+            // Skip blank cells entirely
+            if (!name || !name.trim() || !studentFaces[i]) return '';
+            
             const isWithdrawn = name.includes('[WITHDRAWN]');
             const cleanName = name.replace('[WITHDRAWN]', '').trim();
             
             return `
                 <div class="student-preview-item ${isWithdrawn ? 'withdrawn' : ''}">
-                    <img src="${studentFaces[i] || ''}" alt="${cleanName}">
+                    <img src="${studentFaces[i]}" alt="${cleanName}">
                     <div class="student-name">
                         <input type="text" value="${cleanName}" data-index="${i}" ${isWithdrawn ? 'disabled' : ''}>
                     </div>
                 </div>
             `;
-        }).join('');
+        }).filter(html => html).join(''); // Remove empty strings
         
         const stylesHtml = this.styles.map(s => `
             <div class="style-option ${s.id === this.selectedStyle ? 'selected' : ''}" 
@@ -473,7 +480,7 @@ const PhotoExtract = {
                 <div class="modal-body">
                     <div class="extract-stats">
                         <div class="extract-stat">
-                            <div class="stat-value">${students.length}</div>
+                            <div class="stat-value">${validCount}</div>
                             <div class="stat-label">Students Found</div>
                         </div>
                         <div class="extract-stat">
@@ -555,8 +562,7 @@ const PhotoExtract = {
         const inputs = document.querySelectorAll('.student-preview-item input');
         const finalNames = Array.from(inputs).map(input => input.value.trim());
         
-        // Include ALL students (including withdrawn) to preserve layout positions
-        // Withdrawn students are marked but kept for MyEd sync
+        // Include students with names (including withdrawn) - skip blank cells entirely
         const allStudents = finalNames
             .map((name, i) => ({ 
                 name: name.replace('[WITHDRAWN]', '').trim(), 
@@ -564,7 +570,7 @@ const PhotoExtract = {
                 index: i,
                 isWithdrawn: students[i]?.toUpperCase().includes('WITHDRAWN') || false
             }))
-            .filter(s => s.name); // Only filter out completely empty names
+            .filter(s => s.name && s.face); // Filter out empty names AND null faces (blank cells)
         
         if (allStudents.length === 0) {
             alert('No valid students to import.');
