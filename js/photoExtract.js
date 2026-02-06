@@ -353,6 +353,9 @@ const PhotoExtract = {
                 continue;
             }
             
+            // Check if WITHDRAWN - we'll add overlay after cropping
+            const isWithdrawn = studentName.toUpperCase().includes('WITHDRAWN');
+            
             const row = Math.floor(i / cols);
             const col = i % cols;
             
@@ -378,6 +381,26 @@ const PhotoExtract = {
             );
             
             ctx.restore();
+            
+            // Add WITHDRAWN overlay if applicable
+            if (isWithdrawn) {
+                // Semi-transparent dark overlay
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.beginPath();
+                ctx.arc(faceSize / 2, faceSize / 2, faceSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // WITHDRAWN text - large, diagonal, red
+                ctx.save();
+                ctx.translate(faceSize / 2, faceSize / 2);
+                ctx.rotate(-Math.PI / 6); // Diagonal angle
+                ctx.fillStyle = '#ef4444';
+                ctx.font = `bold ${Math.floor(faceSize / 5)}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('WITHDRAWN', 0, 0);
+                ctx.restore();
+            }
             
             this.extractedData.studentFaces.push(canvas.toDataURL('image/jpeg', 0.85));
         }
@@ -532,19 +555,25 @@ const PhotoExtract = {
         const inputs = document.querySelectorAll('.student-preview-item input');
         const finalNames = Array.from(inputs).map(input => input.value.trim());
         
-        // Filter out withdrawn and empty
-        const validStudents = finalNames
-            .map((name, i) => ({ name, face: studentFaces[i], index: i }))
-            .filter(s => s.name && !students[s.index]?.includes('[WITHDRAWN]'));
+        // Include ALL students (including withdrawn) to preserve layout positions
+        // Withdrawn students are marked but kept for MyEd sync
+        const allStudents = finalNames
+            .map((name, i) => ({ 
+                name: name.replace('[WITHDRAWN]', '').trim(), 
+                face: studentFaces[i], 
+                index: i,
+                isWithdrawn: students[i]?.toUpperCase().includes('WITHDRAWN') || false
+            }))
+            .filter(s => s.name); // Only filter out completely empty names
         
-        if (validStudents.length === 0) {
+        if (allStudents.length === 0) {
             alert('No valid students to import.');
             return;
         }
         
         try {
             const confirmClear = confirm(
-                `Import ${validStudents.length} students?\n\nThis will:\n• Clear existing students\n• Generate 4 avatar styles per student (Original, Disney, Anime, Ghibli)\n\nThis may take a few minutes.`
+                `Import ${allStudents.length} students?\n\nThis will:\n• Clear existing students\n• Generate 4 avatar styles per student (Original, Disney, Anime, Ghibli)\n\nThis may take a few minutes.`
             );
             
             if (!confirmClear) return;
@@ -557,12 +586,32 @@ const PhotoExtract = {
             
             const stylesToGenerate = this.pregenerateStyles.filter(s => s !== 'original');
             let completed = 0;
-            const total = validStudents.length;
+            const total = allStudents.length;
             
-            for (const student of validStudents) {
+            for (const student of allStudents) {
                 completed++;
                 document.querySelector('.ai-processing p').textContent = 
                     `Processing ${student.name} (${completed}/${total})...`;
+                
+                // Parse name into first/last
+                const parts = student.name.split(/\s+/);
+                const firstName = parts[0] || 'Student';
+                const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
+                
+                // WITHDRAWN students - just save with overlay, no style generation
+                if (student.isWithdrawn) {
+                    await DB.addStudent({
+                        displayName: student.name,
+                        firstName,
+                        lastInitial,
+                        caricature: student.face, // Already has WITHDRAWN overlay
+                        avatars: { original: student.face },
+                        activeStyle: 'original',
+                        isWithdrawn: true,
+                        sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
+                    });
+                    continue;
+                }
                 
                 // Start with original
                 const avatars = {
@@ -598,11 +647,6 @@ const PhotoExtract = {
                     avatars[result.styleId] = result.image;
                 });
                 
-                // Parse name into first/last
-                const parts = student.name.split(/\s+/);
-                const firstName = parts[0] || 'Student';
-                const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
-                
                 await DB.addStudent({
                     displayName: student.name,
                     firstName,
@@ -610,6 +654,7 @@ const PhotoExtract = {
                     caricature: avatars[this.selectedStyle] || avatars.original,
                     avatars: avatars, // Store ALL generated styles
                     activeStyle: this.selectedStyle,
+                    isWithdrawn: false,
                     sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
                 });
             }
@@ -619,7 +664,7 @@ const PhotoExtract = {
             updateStats();
             
             this.closeModal();
-            alert(`✨ Imported ${validStudents.length} students!\n\n4 avatar styles generated per student. Use Settings to swap styles anytime!`);
+            alert(`✨ Imported ${allStudents.length} students!\n\n4 avatar styles generated per student. Use Settings to swap styles anytime!`);
             
         } catch (error) {
             console.error('Failed to save:', error);
