@@ -1114,3 +1114,240 @@ body.display-mode .student-name {
         grid-template-columns: repeat(3, 1fr);
     }
 }
+
+/* Photo Import Section */
+.setting-help {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.primary-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.primary-btn:hover {
+    background: var(--primary-dark, #2563eb);
+    transform: translateY(-1px);
+}
+
+.secondary-btn {
+    background: var(--gray-200);
+    color: var(--gray-700);
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.secondary-btn:hover {
+    background: var(--gray-300);
+}
+
+.processing-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--gray-100);
+    border-radius: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.processing-spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--gray-300);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Modal Large */
+.modal-large {
+    max-width: 90vw;
+    width: 900px;
+    max-height: 90vh;
+}
+
+.modal-large .modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+/* Extracted Students Grid */
+.extracted-students-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+    padding: 1rem 0;
+}
+
+.extracted-student-card {
+    background: var(--gray-100);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    text-align: center;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.extracted-student-card:hover {
+    border-color: var(--primary);
+}
+
+.extracted-student-card img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.extracted-student-card input {
+    width: 100%;
+    text-align: center;
+    padding: 0.4rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 0.4rem;
+    font-size: 0.85rem;
+}
+
+.extracted-student-card input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.extracted-student-card .remove-btn {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--danger);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.extracted-student-card .remove-btn:hover {
+    text-decoration: underline;
+}
+
+/* Streak Celebration */
+.streak-celebration {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.streak-content {
+    text-align: center;
+    color: white;
+    animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes bounceIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+}
+
+.streak-emoji {
+    font-size: 6rem;
+    animation: pulse 0.5s ease infinite alternate;
+}
+
+@keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
+
+.streak-text {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-top: 1rem;
+}
+
+.streak-count {
+    color: #fbbf24;
+}
+
+.streak-subtext {
+    font-size: 1.25rem;
+    opacity: 0.8;
+    margin-top: 0.5rem;
+}
+
+/* Attendance indicators */
+.student-card.checked-in {
+    border-color: var(--success);
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), transparent);
+}
+
+.student-card.checked-in-late {
+    border-color: var(--warning);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), transparent);
+}
+
+.student-card .attendance-badge {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+}
+
+.attendance-badge.on-time {
+    background: var(--success);
+    color: white;
+}
+
+.attendance-badge.late {
+    background: var(--warning);
+    color: black;
+}
+
+.student-card .streak-badge {
+    position: absolute;
+    bottom: 0.25rem;
+    right: 0.25rem;
+    font-size: 0.65rem;
+    background: #fbbf24;
+    color: black;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+}

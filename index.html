@@ -176,6 +176,19 @@
                     </section>
 
                     <section class="settings-section">
+                        <h3>📸 Import Class Photo</h3>
+                        <p class="setting-help">Upload your class grid photo (JPEG) with student faces and names. We'll extract and create your seating chart automatically.</p>
+                        <div class="setting-row">
+                            <button id="importClassPhotoBtn" class="primary-btn">📷 Upload Class Photo</button>
+                            <input type="file" id="classPhotoInput" accept="image/*" style="display: none;">
+                        </div>
+                        <div id="photoProcessingStatus" class="processing-status" style="display: none;">
+                            <div class="processing-spinner"></div>
+                            <span id="processingText">Processing image...</span>
+                        </div>
+                    </section>
+
+                    <section class="settings-section">
                         <h3>👥 Roster</h3>
                         <div class="setting-row">
                             <button id="importRosterBtn">📤 Import CSV</button>
@@ -300,10 +313,43 @@
         </div>
     </div>
 
+    <!-- Photo Extraction Preview Modal -->
+    <div class="modal" id="photoPreviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>📸 Review Extracted Students</h2>
+                <button class="modal-close" id="closePhotoPreview">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="help-text">We found these students in your photo. Edit names if needed, then click Save.</p>
+                <div id="extractedStudentsGrid" class="extracted-students-grid">
+                    <!-- Extracted students will be rendered here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelPhotoImport" class="secondary-btn">Cancel</button>
+                <button id="saveExtractedStudents" class="primary-btn">✓ Save All Students</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Streak Celebration Overlay -->
+    <div id="streakCelebration" class="streak-celebration" style="display: none;">
+        <div class="streak-content">
+            <div class="streak-emoji">🔥</div>
+            <div class="streak-text">
+                <span class="streak-count">3</span> days on time!
+            </div>
+            <div class="streak-subtext">Keep it up!</div>
+        </div>
+    </div>
+
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="js/db.js"></script>
     <script src="js/schedule.js"></script>
     <script src="js/sounds.js"></script>
+    <script src="js/photoExtract.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

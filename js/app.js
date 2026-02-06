@@ -477,6 +477,12 @@ function showCheckInFeedback(student, timeStatus, streak) {
         if (state.isPreBell && !state.isMuted) {
             playCheckInSound(streak.currentStreak, student.firstCheckIn);
         }
+        
+        // Show streak celebration for milestone streaks (3, 5, 10, 20...)
+        if (streak.currentStreak === 3 || streak.currentStreak === 5 || 
+            streak.currentStreak === 10 || streak.currentStreak === 20) {
+            showStreakCelebration(streak.currentStreak);
+        }
     }
     
     // Show modal
@@ -487,6 +493,49 @@ function showCheckInFeedback(student, timeStatus, streak) {
     setTimeout(() => {
         modal.classList.remove('active');
     }, duration);
+}
+
+// Show streak celebration overlay
+function showStreakCelebration(streakCount) {
+    const celebration = document.getElementById('streakCelebration');
+    if (!celebration) return;
+    
+    const countEl = celebration.querySelector('.streak-count');
+    const subtextEl = celebration.querySelector('.streak-subtext');
+    
+    if (countEl) countEl.textContent = streakCount;
+    
+    // Custom messages for different milestones
+    if (subtextEl) {
+        if (streakCount === 3) {
+            subtextEl.textContent = "You're building momentum! 💪";
+        } else if (streakCount === 5) {
+            subtextEl.textContent = "A full week of excellence! ⭐";
+        } else if (streakCount === 10) {
+            subtextEl.textContent = "Double digits! You're on fire! 🔥🔥";
+        } else if (streakCount === 20) {
+            subtextEl.textContent = "Absolute LEGEND status! 👑";
+        } else {
+            subtextEl.textContent = "Keep it up!";
+        }
+    }
+    
+    celebration.style.display = 'flex';
+    
+    // Play celebration sound if not muted
+    if (!state.isMuted) {
+        SoundFX.playStreak(streakCount);
+    }
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        celebration.style.display = 'none';
+    }, 3000);
+    
+    // Also allow click to dismiss
+    celebration.onclick = () => {
+        celebration.style.display = 'none';
+    };
 }
 
 function playCheckInSound(streakCount, isFirstCheckIn = false) {

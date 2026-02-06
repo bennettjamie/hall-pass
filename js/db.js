@@ -473,6 +473,77 @@ async function importRosterCSV(csvText) {
     return students;
 }
 
+// Clear all students
+async function clearStudents() {
+    const students = await getAll('students');
+    for (const student of students) {
+        await remove('students', student.id);
+    }
+}
+
+// Get attendance history for a student
+async function getStudentAttendanceHistory(studentId, days = 30) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+    
+    return getStudentAttendance(studentId, startStr, endStr);
+}
+
+// Get class attendance stats
+async function getAttendanceStats(days = 30) {
+    const records = await getAll('attendance');
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const startStr = startDate.toISOString().split('T')[0];
+    
+    const recentRecords = records.filter(r => r.date >= startStr);
+    
+    const totalCheckins = recentRecords.length;
+    const onTimeCheckins = recentRecords.filter(r => !r.isLate).length;
+    const lateCheckins = recentRecords.filter(r => r.isLate).length;
+    
+    return {
+        totalCheckins,
+        onTimeCheckins,
+        lateCheckins,
+        onTimeRate: totalCheckins > 0 ? Math.round((onTimeCheckins / totalCheckins) * 100) : 0
+    };
+}
+
+// Export attendance to CSV
+async function exportAttendanceCSV(days = 30) {
+    const students = await getStudents();
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+    
+    let csv = 'Student Name,Date,Status,Check-in Time,Minutes Late\n';
+    
+    for (const student of students) {
+        const records = await getStudentAttendance(student.id, startStr, endStr);
+        const sortKey = `${student.lastInitial}, ${student.firstName}`;
+        
+        for (const record of records) {
+            const status = record.isLate ? 'Late' : 'On Time';
+            const checkInTime = new Date(record.checkInTime).toLocaleTimeString();
+            const minutesLate = record.isLate ? record.minutesLate : 0;
+            
+            csv += `"${sortKey}","${record.date}","${status}","${checkInTime}",${minutesLate}\n`;
+        }
+    }
+    
+    return csv;
+}
+
 // Export for use in app.js
 window.DB = {
     init: initDB,
@@ -482,10 +553,14 @@ window.DB = {
     saveStudent,
     addStudent,
     archiveStudent,
+    clearStudents,
     importRosterCSV,
     // Attendance
     getAttendanceForDate,
     getStudentAttendance,
+    getStudentAttendanceHistory,
+    getAttendanceStats,
+    exportAttendanceCSV,
     recordAttendance,
     // Streaks
     getStreak,

@@ -173,12 +173,12 @@ function getTimeUntilClass(dayType, periodNum) {
     };
 }
 
-// Check if current time is within grace period (default 2 minutes)
-function isOnTime(dayType, periodNum, checkInTime, graceMinutes = 2) {
+// Check if current time is within grace period (default 10 seconds)
+function isOnTime(dayType, periodNum, checkInTime, graceSeconds = 10) {
     const period = getPeriodInfo(dayType, periodNum);
     if (!period) return { onTime: false, minutesLate: 0 };
     
-    const graceEnd = new Date(period.startDate.getTime() + graceMinutes * 60000);
+    const graceEnd = new Date(period.startDate.getTime() + graceSeconds * 1000);
     const checkIn = new Date(checkInTime);
     
     if (checkIn <= graceEnd) {
@@ -189,7 +189,8 @@ function isOnTime(dayType, periodNum, checkInTime, graceMinutes = 2) {
     return {
         onTime: false,
         minutesLate: Math.floor(lateMs / 60000),
-        secondsLate: Math.floor((lateMs % 60000) / 1000)
+        secondsLate: Math.floor((lateMs % 60000) / 1000),
+        totalSecondsLate: Math.floor(lateMs / 1000)
     };
 }
 
