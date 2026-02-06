@@ -311,32 +311,53 @@ const PhotoExtract = {
     
     // Parse names from OCR text (MyEd format: "Last, First")
     parseNamesFromOCR(text) {
+        console.log('=== RAW OCR TEXT ===');
+        console.log(text);
+        console.log('====================');
+        
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         const names = [];
         
         for (const line of lines) {
+            console.log('Processing line:', JSON.stringify(line));
+            
             // Skip header/metadata lines
             if (line.includes('Schedule') || line.includes('Term') || 
                 line.includes('EDUCATION') || line.includes('MCLE') ||
                 line.includes('P1') || line.includes('P2') ||
                 line.match(/^S\d/) || line.match(/^\d+$/)) {
+                console.log('  -> Skipped (header/metadata)');
                 continue;
             }
             
             // Check for WITHDRAWN
             const isWithdrawn = line.toUpperCase().includes('WITHDRAWN');
             
-            // Match "Last, First" pattern
-            const commaMatch = line.match(/^([A-Za-z\-']+),?\s+([A-Za-z\-']+)/);
+            // More flexible name matching:
+            // Allow letters, hyphens, apostrophes, spaces within names
+            // Match "Last, First" or "Last First" patterns
+            const commaMatch = line.match(/^([A-Za-z][A-Za-z\-'.\s]*?),\s*([A-Za-z][A-Za-z\-'.\s]*?)$/);
+            const spaceMatch = !commaMatch && line.match(/^([A-Za-z][A-Za-z\-'.]*)\s+([A-Za-z][A-Za-z\-'.]*)/);
             
-            if (commaMatch) {
-                let lastName = commaMatch[1].trim();
-                let firstName = commaMatch[2].trim();
+            const match = commaMatch || spaceMatch;
+            
+            if (match) {
+                let lastName = match[1].trim();
+                let firstName = match[2].trim();
+                
+                // For space match, assume First Last order and swap
+                if (spaceMatch && !commaMatch) {
+                    [firstName, lastName] = [lastName, firstName];
+                }
                 
                 // Handle hyphenated names that might span lines
-                if (firstName.length < 2) continue;
+                if (firstName.length < 2) {
+                    console.log('  -> Skipped (firstName too short)');
+                    continue;
+                }
                 
                 const lastInitial = lastName.charAt(0).toUpperCase();
+                console.log(`  -> MATCHED: "${firstName} ${lastInitial}." (${lastName}, ${firstName})`);
                 
                 names.push({
                     firstName,
@@ -345,8 +366,13 @@ const PhotoExtract = {
                     displayName: `${firstName} ${lastInitial}.`,
                     isWithdrawn
                 });
+            } else {
+                console.log('  -> No match');
             }
         }
+        
+        console.log(`=== TOTAL NAMES FOUND: ${names.length} ===`);
+        console.log(names.map(n => n.displayName).join(', '));
         
         return names;
     },
