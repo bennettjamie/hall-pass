@@ -14,21 +14,23 @@ const PhotoExtract = {
     extractedData: null,
     selectedStyle: 'original',
     
-    // Available avatar styles - first 4 are pre-generated on import
+    // Available avatar styles - all are pre-generated on import for instant switching
+    // Chosen to be flattering, fun, and appealing to students
     styles: [
-        { id: 'original', name: 'Original Photo', icon: '📷', desc: 'Use actual photos', pregenerate: true },
-        { id: 'disney', name: 'Disney/Pixar', icon: '✨', desc: '3D animated style', pregenerate: true },
-        { id: 'anime', name: 'Anime', icon: '🎌', desc: 'Japanese anime style', pregenerate: true },
-        { id: 'ghibli', name: 'Studio Ghibli', icon: '🍃', desc: 'Soft, whimsical style', pregenerate: true },
-        { id: 'illustration', name: 'Illustration', icon: '💵', desc: 'Currency/engraving style', pregenerate: false },
-        { id: 'caricature', name: 'Caricature', icon: '🎨', desc: 'Fun exaggerated style', pregenerate: false },
-        { id: 'watercolor', name: 'Watercolor', icon: '🖼️', desc: 'Artistic painterly style', pregenerate: false },
-        { id: 'comic', name: 'Comic Book', icon: '💥', desc: 'Bold comic style', pregenerate: false },
-        { id: 'minimalist', name: 'Minimalist', icon: '⬜', desc: 'Simple flat design', pregenerate: false },
+        { id: 'original', name: 'Original Photo', icon: '📷', desc: 'Your actual photo', pregenerate: true },
+        { id: 'disney', name: 'Disney/Pixar', icon: '✨', desc: 'Friendly 3D animated', pregenerate: true },
+        { id: 'anime', name: 'Anime Hero', icon: '🎌', desc: 'Japanese anime style', pregenerate: true },
+        { id: 'ghibli', name: 'Studio Ghibli', icon: '🍃', desc: 'Soft & magical', pregenerate: true },
+        { id: 'superhero', name: 'Superhero', icon: '🦸', desc: 'Heroic comic style', pregenerate: true },
+        { id: 'videogame', name: 'Video Game', icon: '🎮', desc: 'Game character style', pregenerate: true },
+        { id: 'popart', name: 'Pop Art', icon: '🌈', desc: 'Colorful Warhol vibes', pregenerate: true },
+        { id: 'watercolor', name: 'Watercolor', icon: '🌸', desc: 'Soft artistic painting', pregenerate: true },
+        { id: 'sketch', name: 'Pencil Sketch', icon: '✏️', desc: 'Classic artistic drawing', pregenerate: true },
+        { id: 'fantasy', name: 'Fantasy', icon: '🔮', desc: 'Magical & enchanting', pregenerate: true },
     ],
     
-    // Styles to pre-generate on import
-    pregenerateStyles: ['original', 'disney', 'anime', 'ghibli'],
+    // All styles pre-generated (except original which is free)
+    pregenerateStyles: ['original', 'disney', 'anime', 'ghibli', 'superhero', 'videogame', 'popart', 'watercolor', 'sketch', 'fantasy'],
     
     init() {
         const importBtn = document.getElementById('importClassPhotoBtn');

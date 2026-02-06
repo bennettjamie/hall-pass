@@ -30,18 +30,19 @@ export default async function handler(req, res) {
         // Remove data URL prefix if present
         const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
         
-        // Style prompts for different looks
+        // Style prompts - designed to be FLATTERING (no feature exaggeration)
+        // Focus on art style transformation, not changing proportions
         const stylePrompts = {
             'original': null, // No transformation
-            'illustration': 'detailed pen and ink illustration style, like currency engraving, fine crosshatching',
-            'disney': 'Disney/Pixar 3D animated movie character style, expressive eyes, friendly appearance',
-            'anime': 'anime/manga style, large expressive eyes, clean lines, colorful',
-            'ghibli': 'Studio Ghibli anime style, soft watercolor textures, warm and whimsical',
-            'pixar': 'Pixar 3D animation style, smooth rendering, appealing character design',
-            'caricature': 'exaggerated caricature style, emphasizing distinctive features, humorous',
-            'watercolor': 'soft watercolor portrait style, artistic and painterly',
-            'comic': 'comic book style, bold outlines, dynamic coloring',
-            'minimalist': 'minimalist flat design, simple shapes, limited color palette',
+            'disney': 'Disney Pixar 3D animated character, big friendly eyes, warm smile, appealing proportions, soft lighting, movie quality render',
+            'anime': 'beautiful anime portrait, large sparkling eyes, soft features, clean linework, vibrant colors, heroic and confident expression, studio quality',
+            'ghibli': 'Studio Ghibli style portrait, soft watercolor textures, gentle expression, warm earth tones, magical atmosphere, Hayao Miyazaki inspired',
+            'superhero': 'heroic comic book portrait, confident expression, dynamic lighting, bold colors, Marvel/DC style, empowering and strong',
+            'videogame': 'video game character portrait, detailed digital art, RPG hero style, vibrant colors, confident pose, Overwatch or Final Fantasy inspired',
+            'popart': 'Andy Warhol pop art style, bold flat colors, high contrast, artistic halftone dots, vibrant and eye-catching, celebrity portrait style',
+            'watercolor': 'beautiful watercolor portrait painting, soft blended colors, artistic brush strokes, dreamy atmosphere, gallery quality fine art',
+            'sketch': 'detailed pencil sketch portrait, artistic shading, fine linework, classical drawing style, elegant and sophisticated',
+            'fantasy': 'fantasy portrait with magical elements, soft glowing light, ethereal beauty, enchanted atmosphere, fairy tale illustration style',
         };
         
         if (style === 'original') {
@@ -56,6 +57,7 @@ export default async function handler(req, res) {
         const styleDesc = stylePrompts[style] || stylePrompts['illustration'];
         
         // Step 1: Describe the person using Gemini Vision
+        // IMPORTANT: Prompt designed to be flattering, focus on positive features
         const describeResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
             {
@@ -65,15 +67,15 @@ export default async function handler(req, res) {
                     contents: [{
                         parts: [
                             {
-                                text: `Describe this person's appearance for an artist to recreate. Include:
-- Approximate age (child/teen/young adult)
-- Hair color, style, length
-- Skin tone
-- Any distinctive features
-- What they're wearing (if visible)
-- Their expression
+                                text: `Describe this student for an artist to create a flattering portrait. Focus on:
+- Age group (teen/young adult)
+- Hair: color and general style
+- Skin tone (use artistic terms like warm, cool, fair, medium, deep)
+- Eye color if visible
+- General expression (friendly, confident, cheerful, etc.)
+- Clothing style/colors if visible
 
-Be concise but specific. Just describe, no commentary.`
+Keep description positive and flattering. Do NOT mention body type or weight. Focus only on face and upper body features needed for a portrait. Be concise, 2-3 sentences max.`
                             },
                             {
                                 inline_data: {
@@ -85,7 +87,7 @@ Be concise but specific. Just describe, no commentary.`
                     }],
                     generationConfig: {
                         temperature: 0.3,
-                        maxOutputTokens: 500,
+                        maxOutputTokens: 300,
                     }
                 })
             }
@@ -103,9 +105,12 @@ Be concise but specific. Just describe, no commentary.`
         }
         
         // Step 2: Generate styled portrait using Imagen
-        const imagePrompt = `Portrait of a student: ${description}. 
-Style: ${styleDesc}. 
-Square format, centered face, school portrait composition, friendly expression, solid neutral background.`;
+        // Prompt designed for flattering, appealing results
+        const imagePrompt = `Beautiful flattering portrait of a young student: ${description}. 
+Art style: ${styleDesc}. 
+Composition: square format, head and shoulders, centered, looking at viewer with friendly confident expression. 
+Lighting: soft flattering studio lighting. Background: simple, clean, complements the subject.
+Important: attractive proportions, appealing features, positive representation.`;
         
         const imagenResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
