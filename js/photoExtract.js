@@ -347,8 +347,11 @@ const PhotoExtract = {
         const cols = grid.cols;
         const rows = grid.rows;
         
-        // Estimate header and margins
-        const headerHeight = height * 0.04;
+        // MyEd layout measurements (from analysis):
+        // - Header: ~2-3% of image height
+        // - Name text: ~20% of cell height (at TOP of cell)
+        // - Photo: ~80% of cell height (BELOW name)
+        const headerHeight = height * 0.025; // Small header
         const contentHeight = height - headerHeight;
         
         const cellWidth = width / cols;
@@ -383,9 +386,14 @@ const PhotoExtract = {
             const cellX = col * cellWidth;
             const cellY = headerHeight + (row * cellHeight);
             
-            // Face is in lower-middle of cell (name is at top)
+            // Face is in lower portion of cell (name text is top ~20%)
+            // Center horizontally, position vertically to capture face
+            const nameAreaHeight = cellHeight * 0.22; // ~22% for name text
+            const photoAreaHeight = cellHeight - nameAreaHeight;
+            
             const faceX = cellX + (cellWidth - faceSize) / 2;
-            const faceY = cellY + (cellHeight * 0.35); // Start below name area
+            // Center face in the photo area (below name)
+            const faceY = cellY + nameAreaHeight + (photoAreaHeight - faceSize) / 2;
             
             ctx.clearRect(0, 0, faceSize, faceSize);
             ctx.save();
