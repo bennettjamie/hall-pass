@@ -1,28 +1,31 @@
 /**
- * Photo Extract v2 — User-Assisted Grid Extraction
+ * Photo Extract v3 — AI-Powered Extraction
  * 
  * Flow:
  * 1. User uploads class photo
- * 2. User sets grid dimensions (rows × cols)
- * 3. User can adjust crop area by dragging corners
- * 4. Faces extracted based on user-defined grid
- * 5. User pastes names OR types them manually
+ * 2. AI (Gemini Vision) extracts names + grid automatically
+ * 3. User selects avatar style (Original, Disney, Anime, Ghibli, etc.)
+ * 4. AI generates styled avatars
+ * 5. Import complete!
  */
 
 const PhotoExtract = {
     originalImage: null,
-    extractedStudents: [],
+    extractedData: null,
+    selectedStyle: 'original',
     
-    // Grid settings (user-configurable)
-    gridConfig: {
-        cols: 5,
-        rows: 4,
-        // Crop area as percentages (0-1)
-        cropTop: 0.08,      // Skip header (start lower)
-        cropBottom: 0.98,
-        cropLeft: 0.01,
-        cropRight: 0.99,
-    },
+    // Available avatar styles
+    styles: [
+        { id: 'original', name: 'Original Photo', icon: '📷', desc: 'Use actual photos' },
+        { id: 'illustration', name: 'Illustration', icon: '💵', desc: 'Currency/engraving style' },
+        { id: 'disney', name: 'Disney/Pixar', icon: '✨', desc: '3D animated style' },
+        { id: 'anime', name: 'Anime', icon: '🎌', desc: 'Japanese anime style' },
+        { id: 'ghibli', name: 'Studio Ghibli', icon: '🍃', desc: 'Soft, whimsical style' },
+        { id: 'caricature', name: 'Caricature', icon: '🎨', desc: 'Fun exaggerated style' },
+        { id: 'watercolor', name: 'Watercolor', icon: '🎨', desc: 'Artistic painterly style' },
+        { id: 'comic', name: 'Comic Book', icon: '💥', desc: 'Bold comic style' },
+        { id: 'minimalist', name: 'Minimalist', icon: '⬜', desc: 'Simple flat design' },
+    ],
     
     init() {
         const importBtn = document.getElementById('importClassPhotoBtn');
@@ -35,6 +38,182 @@ const PhotoExtract = {
         if (fileInput) {
             fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         }
+        
+        this.addStyles();
+    },
+    
+    addStyles() {
+        if (document.getElementById('photoExtractStyles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'photoExtractStyles';
+        style.textContent = `
+            .ai-extract-modal .modal-content {
+                max-width: 900px;
+            }
+            
+            .ai-processing {
+                text-align: center;
+                padding: 3rem;
+            }
+            
+            .ai-processing .spinner {
+                width: 60px;
+                height: 60px;
+                border: 4px solid #e5e7eb;
+                border-top-color: #6366f1;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 1.5rem;
+            }
+            
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            
+            .ai-processing h3 {
+                margin-bottom: 0.5rem;
+                color: #1f2937;
+            }
+            
+            .ai-processing p {
+                color: #6b7280;
+            }
+            
+            .style-selector {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 1rem;
+                margin: 1.5rem 0;
+            }
+            
+            .style-option {
+                border: 2px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 1rem;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .style-option:hover {
+                border-color: #a5b4fc;
+                background: #f5f3ff;
+            }
+            
+            .style-option.selected {
+                border-color: #6366f1;
+                background: #eef2ff;
+            }
+            
+            .style-option .style-icon {
+                font-size: 2rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .style-option .style-name {
+                font-weight: 600;
+                color: #1f2937;
+                font-size: 0.9rem;
+            }
+            
+            .style-option .style-desc {
+                font-size: 0.75rem;
+                color: #6b7280;
+                margin-top: 0.25rem;
+            }
+            
+            .extracted-preview {
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 1rem;
+                background: #fafafa;
+            }
+            
+            .student-preview-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 1rem;
+            }
+            
+            .student-preview-item {
+                text-align: center;
+            }
+            
+            .student-preview-item img {
+                width: 70px;
+                height: 70px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid #e5e7eb;
+            }
+            
+            .student-preview-item .student-name {
+                font-size: 0.8rem;
+                margin-top: 0.5rem;
+                color: #374151;
+                word-break: break-word;
+            }
+            
+            .student-preview-item .student-name input {
+                width: 100%;
+                text-align: center;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 2px 4px;
+                font-size: 0.75rem;
+            }
+            
+            .student-preview-item.withdrawn img {
+                opacity: 0.5;
+            }
+            
+            .student-preview-item.withdrawn .student-name {
+                color: #ef4444;
+                text-decoration: line-through;
+            }
+            
+            .extract-stats {
+                display: flex;
+                gap: 2rem;
+                margin-bottom: 1rem;
+                padding: 1rem;
+                background: #f0fdf4;
+                border-radius: 8px;
+            }
+            
+            .extract-stat {
+                text-align: center;
+            }
+            
+            .extract-stat .stat-value {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: #16a34a;
+            }
+            
+            .extract-stat .stat-label {
+                font-size: 0.8rem;
+                color: #6b7280;
+            }
+            
+            .style-generating {
+                position: relative;
+            }
+            
+            .style-generating::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: rgba(255,255,255,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        `;
+        document.head.appendChild(style);
     },
     
     async handleFileSelect(event) {
@@ -44,10 +223,11 @@ const PhotoExtract = {
         try {
             const imageData = await this.loadImage(file);
             this.originalImage = imageData;
-            this.showGridSetup();
+            this.showProcessingModal();
+            await this.extractWithAI();
         } catch (error) {
-            console.error('Failed to load image:', error);
-            alert('Failed to load image: ' + error.message);
+            console.error('Failed to process image:', error);
+            alert('Failed to process image: ' + error.message);
         }
         
         event.target.value = '';
@@ -74,624 +254,295 @@ const PhotoExtract = {
         });
     },
     
-    showGridSetup() {
-        // Create or get the setup modal
-        let modal = document.getElementById('gridSetupModal');
+    showProcessingModal() {
+        let modal = document.getElementById('aiExtractModal');
         if (!modal) {
             modal = document.createElement('div');
-            modal.id = 'gridSetupModal';
-            modal.className = 'modal';
+            modal.id = 'aiExtractModal';
+            modal.className = 'modal ai-extract-modal';
             document.body.appendChild(modal);
         }
         
         modal.innerHTML = `
-            <div class="modal-content modal-xlarge">
-                <div class="modal-header">
-                    <h2>📐 Step 1: Define Grid</h2>
-                    <button class="modal-close" onclick="PhotoExtract.closeSetup()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="grid-setup-container">
-                        <div class="grid-controls">
-                            <div class="control-group">
-                                <label>Columns (students per row)</label>
-                                <select id="gridCols" onchange="PhotoExtract.updatePreview()">
-                                    ${[3,4,5,6,7,8].map(n => 
-                                        `<option value="${n}" ${n === this.gridConfig.cols ? 'selected' : ''}>${n}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
-                            <div class="control-group">
-                                <label>Rows</label>
-                                <select id="gridRows" onchange="PhotoExtract.updatePreview()">
-                                    ${[2,3,4,5,6,7,8].map(n => 
-                                        `<option value="${n}" ${n === this.gridConfig.rows ? 'selected' : ''}>${n}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
-                            <div class="control-group">
-                                <label>Total students: <strong id="totalStudents">${this.gridConfig.cols * this.gridConfig.rows}</strong></label>
-                            </div>
-                            <hr>
-                            <div class="control-group">
-                                <label>Adjust crop area (skip headers/margins)</label>
-                                <div class="crop-sliders">
-                                    <label>Top: <input type="range" id="cropTop" min="0" max="40" value="${this.gridConfig.cropTop * 100}" oninput="PhotoExtract.updatePreview()">
-                                    <span id="cropTopVal">${Math.round(this.gridConfig.cropTop * 100)}%</span></label>
-                                    <label>Bottom: <input type="range" id="cropBottom" min="60" max="100" value="${this.gridConfig.cropBottom * 100}" oninput="PhotoExtract.updatePreview()">
-                                    <span id="cropBottomVal">${Math.round(this.gridConfig.cropBottom * 100)}%</span></label>
-                                    <label>Left: <input type="range" id="cropLeft" min="0" max="20" value="${this.gridConfig.cropLeft * 100}" oninput="PhotoExtract.updatePreview()">
-                                    <span id="cropLeftVal">${Math.round(this.gridConfig.cropLeft * 100)}%</span></label>
-                                    <label>Right: <input type="range" id="cropRight" min="80" max="100" value="${this.gridConfig.cropRight * 100}" oninput="PhotoExtract.updatePreview()">
-                                    <span id="cropRightVal">${Math.round(this.gridConfig.cropRight * 100)}%</span></label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="grid-preview-container">
-                            <p class="help-text">Grid preview — adjust until boxes align with faces</p>
-                            <div class="grid-preview" id="gridPreview">
-                                <img id="previewImage" src="${this.originalImage.dataUrl}" alt="Class photo">
-                                <div class="grid-overlay" id="gridOverlay"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="secondary-btn" onclick="PhotoExtract.closeSetup()">Cancel</button>
-                    <button class="primary-btn" onclick="PhotoExtract.extractFaces()">Extract Faces →</button>
+            <div class="modal-content">
+                <div class="ai-processing">
+                    <div class="spinner"></div>
+                    <h3>🤖 AI is analyzing your class photo...</h3>
+                    <p>Extracting student names and faces</p>
                 </div>
             </div>
         `;
         
-        // Add styles if not present
-        this.addStyles();
-        
         modal.classList.add('active');
-        this.updatePreview();
     },
     
-    addStyles() {
-        if (document.getElementById('photoExtractStyles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'photoExtractStyles';
-        style.textContent = `
-            .modal-xlarge .modal-content { max-width: 1000px; }
-            .modal-xlarge { max-width: 95vw; }
+    async extractWithAI() {
+        try {
+            // Call our extraction API
+            const response = await fetch('/api/extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: this.originalImage.dataUrl })
+            });
             
-            .grid-setup-container {
-                display: flex;
-                gap: 2rem;
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Extraction failed');
             }
             
-            .grid-controls {
-                min-width: 200px;
-            }
+            this.extractedData = data;
             
-            .control-group {
-                margin-bottom: 1rem;
-            }
+            // Extract face crops from original image
+            await this.extractFaceCrops();
             
-            .control-group label {
-                display: block;
-                margin-bottom: 0.5rem;
-                font-weight: 500;
-            }
+            // Show results
+            this.showResults();
             
-            .control-group select {
-                width: 100%;
-                padding: 0.5rem;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                font-size: 1rem;
-            }
-            
-            .crop-sliders label {
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                margin-bottom: 0.5rem;
-            }
-            
-            .crop-sliders input[type="range"] {
-                flex: 1;
-            }
-            
-            .grid-preview-container {
-                flex: 1;
-                min-width: 0;
-            }
-            
-            .grid-preview {
-                position: relative;
-                border: 2px solid #ddd;
-                border-radius: 8px;
-                overflow: hidden;
-                background: #f5f5f5;
-            }
-            
-            .grid-preview img {
-                width: 100%;
-                height: auto;
-                display: block;
-            }
-            
-            .grid-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                pointer-events: none;
-            }
-            
-            .grid-cell {
-                position: absolute;
-                border: 2px solid rgba(99, 102, 241, 0.7);
-                background: rgba(99, 102, 241, 0.1);
-                box-sizing: border-box;
-            }
-            
-            .grid-cell-number {
-                position: absolute;
-                top: 2px;
-                left: 4px;
-                background: rgba(99, 102, 241, 0.9);
-                color: white;
-                font-size: 10px;
-                padding: 1px 4px;
-                border-radius: 3px;
-            }
-            
-            .grid-cell-adjustable {
-                border-color: rgba(255, 100, 100, 0.9);
-                border-width: 3px;
-                background: rgba(255, 100, 100, 0.15);
-            }
-            
-            .cell-resize-handle {
-                position: absolute;
-                bottom: -6px;
-                right: -6px;
-                width: 14px;
-                height: 14px;
-                background: #ff6464;
-                border: 2px solid white;
-                border-radius: 3px;
-                cursor: nwse-resize;
-                pointer-events: auto;
-                z-index: 10;
-            }
-            
-            .cell-resize-handle:hover {
-                background: #ff4444;
-                transform: scale(1.2);
-            }
-            
-            .crop-area {
-                position: absolute;
-                border: 3px dashed rgba(255, 100, 100, 0.8);
-                background: rgba(255, 100, 100, 0.05);
-            }
-            
-            /* Names input modal */
-            .names-input-container {
-                display: flex;
-                gap: 2rem;
-            }
-            
-            .names-input-left {
-                flex: 1;
-            }
-            
-            .names-input-right {
-                flex: 1;
-                max-height: 500px;
-                overflow-y: auto;
-            }
-            
-            .names-textarea {
-                width: 100%;
-                height: 300px;
-                font-family: monospace;
-                font-size: 14px;
-                padding: 1rem;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                resize: vertical;
-            }
-            
-            .extracted-face {
-                display: inline-flex;
-                flex-direction: column;
-                align-items: center;
-                margin: 0.5rem;
-                width: 100px;
-            }
-            
-            .extracted-face img {
-                width: 70px;
-                height: 70px;
-                border-radius: 50%;
-                object-fit: cover;
-                border: 2px solid #ddd;
-            }
-            
-            .extracted-face input {
-                width: 100%;
-                text-align: center;
-                margin-top: 0.5rem;
-                padding: 0.25rem;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 12px;
-            }
-            
-            .extracted-face .face-number {
-                font-size: 10px;
-                color: #666;
-            }
-        `;
-        document.head.appendChild(style);
-    },
-    
-    updatePreview() {
-        const cols = parseInt(document.getElementById('gridCols').value);
-        const rows = parseInt(document.getElementById('gridRows').value);
-        const cropTop = parseInt(document.getElementById('cropTop').value) / 100;
-        const cropBottom = parseInt(document.getElementById('cropBottom').value) / 100;
-        const cropLeft = parseInt(document.getElementById('cropLeft')?.value || this.gridConfig.cropLeft * 100) / 100;
-        const cropRight = parseInt(document.getElementById('cropRight')?.value || this.gridConfig.cropRight * 100) / 100;
-        
-        // Update config
-        this.gridConfig.cols = cols;
-        this.gridConfig.rows = rows;
-        this.gridConfig.cropTop = cropTop;
-        this.gridConfig.cropBottom = cropBottom;
-        this.gridConfig.cropLeft = cropLeft;
-        this.gridConfig.cropRight = cropRight;
-        
-        // Update display values
-        document.getElementById('totalStudents').textContent = cols * rows;
-        document.getElementById('cropTopVal').textContent = Math.round(cropTop * 100) + '%';
-        document.getElementById('cropBottomVal').textContent = Math.round(cropBottom * 100) + '%';
-        if (document.getElementById('cropLeftVal')) {
-            document.getElementById('cropLeftVal').textContent = Math.round(cropLeft * 100) + '%';
+        } catch (error) {
+            console.error('AI extraction failed:', error);
+            this.showError(error.message);
         }
-        if (document.getElementById('cropRightVal')) {
-            document.getElementById('cropRightVal').textContent = Math.round(cropRight * 100) + '%';
-        }
-        
-        // Update grid overlay
-        const overlay = document.getElementById('gridOverlay');
-        
-        const cellWidth = (cropRight - cropLeft) / cols * 100;
-        const cellHeight = (cropBottom - cropTop) / rows * 100;
-        
-        let html = '';
-        let cellNum = 1;
-        
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const left = (cropLeft + col * (cropRight - cropLeft) / cols) * 100;
-                const top = (cropTop + row * (cropBottom - cropTop) / rows) * 100;
-                
-                // First cell gets draggable corner handle
-                const isFirstCell = row === 0 && col === 0;
-                
-                html += `
-                    <div class="grid-cell ${isFirstCell ? 'grid-cell-adjustable' : ''}" style="
-                        left: ${left}%;
-                        top: ${top}%;
-                        width: ${cellWidth}%;
-                        height: ${cellHeight}%;
-                    ">
-                        <span class="grid-cell-number">${cellNum}</span>
-                        ${isFirstCell ? '<div class="cell-resize-handle" id="cellResizeHandle"></div>' : ''}
-                    </div>
-                `;
-                cellNum++;
-            }
-        }
-        
-        overlay.innerHTML = html;
-        
-        // Setup drag handler for first cell
-        this.setupCellDrag();
     },
     
-    setupCellDrag() {
-        const handle = document.getElementById('cellResizeHandle');
-        const overlay = document.getElementById('gridOverlay');
-        if (!handle || !overlay) return;
-        
-        let isDragging = false;
-        let startX, startY, startWidth, startHeight;
-        
-        handle.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            
-            const rect = overlay.getBoundingClientRect();
-            startWidth = this.gridConfig.cropRight - this.gridConfig.cropLeft;
-            startHeight = this.gridConfig.cropBottom - this.gridConfig.cropTop;
-            
-            e.preventDefault();
-        });
-        
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            
-            const rect = document.getElementById('gridPreview').getBoundingClientRect();
-            const deltaX = (e.clientX - startX) / rect.width;
-            const deltaY = (e.clientY - startY) / rect.height;
-            
-            // Adjust cell size by changing crop bounds
-            const cols = this.gridConfig.cols;
-            const rows = this.gridConfig.rows;
-            
-            // Delta per cell
-            const cellDeltaX = deltaX;
-            const cellDeltaY = deltaY;
-            
-            // New crop right/bottom based on drag
-            let newRight = this.gridConfig.cropLeft + (startWidth + cellDeltaX * cols);
-            let newBottom = this.gridConfig.cropTop + (startHeight + cellDeltaY * rows);
-            
-            // Clamp
-            newRight = Math.min(1, Math.max(this.gridConfig.cropLeft + 0.3, newRight));
-            newBottom = Math.min(1, Math.max(this.gridConfig.cropTop + 0.3, newBottom));
-            
-            this.gridConfig.cropRight = newRight;
-            this.gridConfig.cropBottom = newBottom;
-            
-            // Update slider to match
-            document.getElementById('cropBottom').value = newBottom * 100;
-            document.getElementById('cropBottomVal').textContent = Math.round(newBottom * 100) + '%';
-            
-            this.updatePreviewWithoutDrag();
-        });
-        
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-    },
-    
-    updatePreviewWithoutDrag() {
-        // Same as updatePreview but doesn't re-setup drag (prevents recursion)
-        const { cols, rows, cropTop, cropBottom, cropLeft, cropRight } = this.gridConfig;
-        
-        const overlay = document.getElementById('gridOverlay');
-        const cellWidth = (cropRight - cropLeft) / cols * 100;
-        const cellHeight = (cropBottom - cropTop) / rows * 100;
-        
-        let html = '';
-        let cellNum = 1;
-        
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const left = (cropLeft + col * (cropRight - cropLeft) / cols) * 100;
-                const top = (cropTop + row * (cropBottom - cropTop) / rows) * 100;
-                const isFirstCell = row === 0 && col === 0;
-                
-                html += `
-                    <div class="grid-cell ${isFirstCell ? 'grid-cell-adjustable' : ''}" style="
-                        left: ${left}%;
-                        top: ${top}%;
-                        width: ${cellWidth}%;
-                        height: ${cellHeight}%;
-                    ">
-                        <span class="grid-cell-number">${cellNum}</span>
-                        ${isFirstCell ? '<div class="cell-resize-handle" id="cellResizeHandle"></div>' : ''}
-                    </div>
-                `;
-                cellNum++;
-            }
-        }
-        
-        overlay.innerHTML = html;
-        this.setupCellDrag();
-    },
-    
-    closeSetup() {
-        const modal = document.getElementById('gridSetupModal');
-        if (modal) modal.classList.remove('active');
-    },
-    
-    extractFaces() {
-        const { cols, rows, cropTop, cropBottom, cropLeft, cropRight } = this.gridConfig;
+    async extractFaceCrops() {
+        const { grid, students } = this.extractedData;
         const { image, width, height } = this.originalImage;
         
-        // Calculate actual pixel positions
-        const startX = Math.floor(width * cropLeft);
-        const startY = Math.floor(height * cropTop);
-        const endX = Math.floor(width * cropRight);
-        const endY = Math.floor(height * cropBottom);
+        // Calculate cell dimensions based on detected grid
+        const cols = grid.cols;
+        const rows = grid.rows;
         
-        const cellWidth = (endX - startX) / cols;
-        const cellHeight = (endY - startY) / rows;
+        // Estimate header and margins
+        const headerHeight = height * 0.04;
+        const contentHeight = height - headerHeight;
         
-        // Create canvas for face extraction
+        const cellWidth = width / cols;
+        const cellHeight = contentHeight / rows;
+        
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Face crop size (square, 80% of cell width to leave margin)
-        const faceSize = Math.min(cellWidth, cellHeight) * 0.75;
+        // Face crop size
+        const faceSize = Math.min(cellWidth, cellHeight) * 0.65;
         canvas.width = faceSize;
         canvas.height = faceSize;
         
-        this.extractedStudents = [];
+        this.extractedData.studentFaces = [];
         
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const cellX = startX + col * cellWidth;
-                const cellY = startY + row * cellHeight;
-                
-                // Center the face crop in the cell
-                // Names are at TOP of cell, faces are BELOW — so offset downward
-                const faceX = cellX + (cellWidth - faceSize) / 2;
-                const faceY = cellY + (cellHeight - faceSize) * 0.55; // Lower in cell (below name text)
-                
-                // Clear and draw
-                ctx.clearRect(0, 0, faceSize, faceSize);
-                ctx.save();
-                
-                // Circular clip
-                ctx.beginPath();
-                ctx.arc(faceSize / 2, faceSize / 2, faceSize / 2, 0, Math.PI * 2);
-                ctx.clip();
-                
-                ctx.drawImage(
-                    image,
-                    faceX, faceY, faceSize, faceSize,
-                    0, 0, faceSize, faceSize
-                );
-                
-                ctx.restore();
-                
-                const faceDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                
-                this.extractedStudents.push({
-                    id: `student-${Date.now()}-${this.extractedStudents.length}`,
-                    faceDataUrl,
-                    gridPosition: { row, col },
-                    displayName: ''
-                });
-            }
+        for (let i = 0; i < students.length; i++) {
+            const row = Math.floor(i / cols);
+            const col = i % cols;
+            
+            const cellX = col * cellWidth;
+            const cellY = headerHeight + (row * cellHeight);
+            
+            // Face is in lower-middle of cell (name is at top)
+            const faceX = cellX + (cellWidth - faceSize) / 2;
+            const faceY = cellY + (cellHeight * 0.35); // Start below name area
+            
+            ctx.clearRect(0, 0, faceSize, faceSize);
+            ctx.save();
+            
+            // Circular clip
+            ctx.beginPath();
+            ctx.arc(faceSize / 2, faceSize / 2, faceSize / 2, 0, Math.PI * 2);
+            ctx.clip();
+            
+            ctx.drawImage(
+                image,
+                faceX, faceY, faceSize, faceSize,
+                0, 0, faceSize, faceSize
+            );
+            
+            ctx.restore();
+            
+            this.extractedData.studentFaces.push(canvas.toDataURL('image/jpeg', 0.85));
         }
-        
-        this.closeSetup();
-        this.showNamesInput();
     },
     
-    showNamesInput() {
-        let modal = document.getElementById('namesInputModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'namesInputModal';
-            modal.className = 'modal';
-            document.body.appendChild(modal);
-        }
+    showResults() {
+        const modal = document.getElementById('aiExtractModal');
+        const { grid, students, studentFaces } = this.extractedData;
         
-        const facesHtml = this.extractedStudents.map((s, i) => `
-            <div class="extracted-face">
-                <span class="face-number">#${i + 1}</span>
-                <img src="${s.faceDataUrl}" alt="Student ${i + 1}">
-                <input type="text" id="name-${i}" placeholder="First L." value="${s.displayName}">
+        const studentsHtml = students.map((name, i) => {
+            const isWithdrawn = name.includes('[WITHDRAWN]');
+            const cleanName = name.replace('[WITHDRAWN]', '').trim();
+            
+            return `
+                <div class="student-preview-item ${isWithdrawn ? 'withdrawn' : ''}">
+                    <img src="${studentFaces[i] || ''}" alt="${cleanName}">
+                    <div class="student-name">
+                        <input type="text" value="${cleanName}" data-index="${i}" ${isWithdrawn ? 'disabled' : ''}>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        const stylesHtml = this.styles.map(s => `
+            <div class="style-option ${s.id === this.selectedStyle ? 'selected' : ''}" 
+                 onclick="PhotoExtract.selectStyle('${s.id}')">
+                <div class="style-icon">${s.icon}</div>
+                <div class="style-name">${s.name}</div>
+                <div class="style-desc">${s.desc}</div>
             </div>
         `).join('');
         
         modal.innerHTML = `
-            <div class="modal-content modal-xlarge">
+            <div class="modal-content">
                 <div class="modal-header">
-                    <h2>✏️ Step 2: Add Names</h2>
-                    <button class="modal-close" onclick="PhotoExtract.closeNames()">&times;</button>
+                    <h2>✨ AI Extraction Complete!</h2>
+                    <button class="modal-close" onclick="PhotoExtract.closeModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div class="names-input-container">
-                        <div class="names-input-left">
-                            <p class="help-text"><strong>Option A:</strong> Paste names below (one per line, in order)</p>
-                            <textarea id="namesPaste" class="names-textarea" placeholder="Ahmad A.
-Evans A.
-Neda A.
-Grayer A.
-...
-
-Paste from MyEd or type names, one per line.
-Order: left-to-right, top-to-bottom."></textarea>
-                            <button class="secondary-btn" onclick="PhotoExtract.applyPastedNames()" style="margin-top: 1rem;">
-                                Apply Names →
-                            </button>
-                            <p class="help-text" style="margin-top: 1rem;"><strong>Option B:</strong> Or type directly in the boxes on the right →</p>
+                    <div class="extract-stats">
+                        <div class="extract-stat">
+                            <div class="stat-value">${students.length}</div>
+                            <div class="stat-label">Students Found</div>
                         </div>
-                        <div class="names-input-right">
-                            <p class="help-text">Extracted faces (${this.extractedStudents.length} students)</p>
-                            <div class="extracted-faces-grid">
-                                ${facesHtml}
-                            </div>
+                        <div class="extract-stat">
+                            <div class="stat-value">${grid.rows} × ${grid.cols}</div>
+                            <div class="stat-label">Grid Detected</div>
+                        </div>
+                    </div>
+                    
+                    <h3>Choose Avatar Style</h3>
+                    <p class="help-text">Pick a fun style for student avatars! You can change this anytime.</p>
+                    <div class="style-selector">
+                        ${stylesHtml}
+                    </div>
+                    
+                    <h3>Review Students</h3>
+                    <p class="help-text">Edit names if needed. Click a name to change it.</p>
+                    <div class="extracted-preview">
+                        <div class="student-preview-grid">
+                            ${studentsHtml}
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="secondary-btn" onclick="PhotoExtract.backToGrid()">← Back to Grid</button>
-                    <button class="secondary-btn" onclick="PhotoExtract.closeNames()">Cancel</button>
-                    <button class="primary-btn" onclick="PhotoExtract.saveStudents()">✓ Save All Students</button>
+                    <button class="secondary-btn" onclick="PhotoExtract.closeModal()">Cancel</button>
+                    <button class="primary-btn" onclick="PhotoExtract.saveStudents()">
+                        ✓ Import ${students.length} Students
+                    </button>
                 </div>
             </div>
         `;
-        
-        modal.classList.add('active');
     },
     
-    applyPastedNames() {
-        const textarea = document.getElementById('namesPaste');
-        const names = textarea.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    showError(message) {
+        const modal = document.getElementById('aiExtractModal');
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>❌ Extraction Failed</h2>
+                    <button class="modal-close" onclick="PhotoExtract.closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Sorry, the AI couldn't extract students from this image.</p>
+                    <p><strong>Error:</strong> ${message}</p>
+                    <p>Try a clearer image or contact support.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="primary-btn" onclick="PhotoExtract.closeModal()">Close</button>
+                </div>
+            </div>
+        `;
+    },
+    
+    selectStyle(styleId) {
+        this.selectedStyle = styleId;
         
-        names.forEach((name, i) => {
-            if (i < this.extractedStudents.length) {
-                this.extractedStudents[i].displayName = name;
-                const input = document.getElementById(`name-${i}`);
-                if (input) input.value = name;
-            }
+        // Update UI
+        document.querySelectorAll('.style-option').forEach(el => {
+            el.classList.toggle('selected', el.querySelector('.style-name').textContent.toLowerCase().includes(
+                this.styles.find(s => s.id === styleId)?.name.toLowerCase().split('/')[0] || ''
+            ) || el.onclick.toString().includes(styleId));
         });
         
-        if (names.length < this.extractedStudents.length) {
-            alert(`Applied ${names.length} names. ${this.extractedStudents.length - names.length} students still need names.`);
-        } else if (names.length > this.extractedStudents.length) {
-            alert(`Applied ${this.extractedStudents.length} names. ${names.length - this.extractedStudents.length} extra names were ignored.`);
-        } else {
-            alert(`Applied ${names.length} names!`);
-        }
+        // Re-render to update selection
+        document.querySelectorAll('.style-option').forEach(el => {
+            const isSelected = el.getAttribute('onclick')?.includes(`'${styleId}'`);
+            el.classList.toggle('selected', isSelected);
+        });
     },
     
-    closeNames() {
-        const modal = document.getElementById('namesInputModal');
+    closeModal() {
+        const modal = document.getElementById('aiExtractModal');
         if (modal) modal.classList.remove('active');
     },
     
-    backToGrid() {
-        this.closeNames();
-        this.showGridSetup();
-    },
-    
     async saveStudents() {
-        // Collect names from inputs
-        this.extractedStudents.forEach((student, i) => {
-            const input = document.getElementById(`name-${i}`);
-            if (input && input.value.trim()) {
-                student.displayName = input.value.trim();
-            }
-        });
+        const { students, studentFaces } = this.extractedData;
         
-        // Filter out students without names (empty cells)
-        const validStudents = this.extractedStudents.filter(s => s.displayName);
+        // Collect edited names from inputs
+        const inputs = document.querySelectorAll('.student-preview-item input');
+        const finalNames = Array.from(inputs).map(input => input.value.trim());
+        
+        // Filter out withdrawn and empty
+        const validStudents = finalNames
+            .map((name, i) => ({ name, face: studentFaces[i], index: i }))
+            .filter(s => s.name && !students[s.index]?.includes('[WITHDRAWN]'));
         
         if (validStudents.length === 0) {
-            alert('Please add at least one student name.');
+            alert('No valid students to import.');
             return;
         }
         
         try {
             const confirmClear = confirm(
-                `This will add ${validStudents.length} students. Clear existing students first?`
+                `Import ${validStudents.length} students? This will clear existing students.`
             );
             
-            if (confirmClear) {
-                await DB.clearStudents();
+            if (!confirmClear) return;
+            
+            await DB.clearStudents();
+            
+            // Show processing if generating styles
+            if (this.selectedStyle !== 'original') {
+                this.showProcessingModal();
+                document.querySelector('.ai-processing h3').textContent = '🎨 Generating styled avatars...';
+                document.querySelector('.ai-processing p').textContent = 'This may take a minute...';
             }
             
             for (const student of validStudents) {
-                // Parse display name into first/last
-                const parts = student.displayName.split(/\s+/);
+                let faceImage = student.face;
+                
+                // Generate styled avatar if not original
+                if (this.selectedStyle !== 'original') {
+                    try {
+                        const styleResponse = await fetch('/api/stylize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                image: student.face,
+                                style: this.selectedStyle,
+                                name: student.name
+                            })
+                        });
+                        
+                        const styleData = await styleResponse.json();
+                        if (styleData.success && styleData.image) {
+                            faceImage = styleData.image;
+                        }
+                    } catch (e) {
+                        console.error('Style generation failed for', student.name, e);
+                        // Use original face as fallback
+                    }
+                }
+                
+                // Parse name into first/last
+                const parts = student.name.split(/\s+/);
                 const firstName = parts[0] || 'Student';
                 const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
                 
                 await DB.addStudent({
-                    displayName: student.displayName,
+                    displayName: student.name,
                     firstName,
                     lastInitial,
-                    caricature: student.faceDataUrl,
+                    caricature: faceImage,
+                    originalPhoto: student.face, // Keep original for style changes later
+                    avatarStyle: this.selectedStyle,
                     sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
                 });
             }
@@ -700,8 +551,8 @@ Order: left-to-right, top-to-bottom."></textarea>
             renderGrid();
             updateStats();
             
-            this.closeNames();
-            alert(`Imported ${validStudents.length} students!`);
+            this.closeModal();
+            alert(`✨ Imported ${validStudents.length} students with ${this.styles.find(s => s.id === this.selectedStyle)?.name} style!`);
             
         } catch (error) {
             console.error('Failed to save:', error);
