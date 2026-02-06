@@ -134,7 +134,7 @@ const PhotoExtract = {
     
     async extractStudentsFromGrid(imageData) {
         const { image, width, height } = imageData;
-        const { headerHeight, nameHeight, photoPadding } = this.config;
+        const { headerHeight } = this.config;
         
         // Skip header row
         const contentTop = Math.floor(height * headerHeight);
@@ -148,50 +148,46 @@ const PhotoExtract = {
         const cellWidth = Math.floor(width / cols);
         const cellHeight = Math.floor(contentHeight / rows);
         
-        // Name area is at top of each cell
-        const nameAreaHeight = Math.floor(cellHeight * nameHeight);
-        
-        // Photo area starts after name
-        const photoTop = nameAreaHeight;
+        // MyEd layout: name text is at BOTTOM of cell (below photo)
+        // Name area is roughly bottom 15-18% of cell
+        const nameAreaHeight = Math.floor(cellHeight * 0.18);
         const photoHeight = cellHeight - nameAreaHeight;
         
-        // Create canvas for cropping
+        // Create canvas for cropping faces
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Also create a canvas for OCR on the full image
+        // Canvas for extracting name regions
+        const nameCanvas = document.createElement('canvas');
+        const nameCtx = nameCanvas.getContext('2d');
+        
+        // Also create a canvas for content checking
         const ocrCanvas = document.createElement('canvas');
         ocrCanvas.width = width;
         ocrCanvas.height = height;
         const ocrCtx = ocrCanvas.getContext('2d');
         ocrCtx.drawImage(image, 0, 0);
         
-        // Run OCR on the full image to get names
-        let names = [];
+        const students = [];
+        
+        // Crop size for face (square)
+        const cropSize = Math.min(cellWidth * 0.85, photoHeight * 0.85);
+        canvas.width = cropSize;
+        canvas.height = cropSize;
+        
+        // Initialize Tesseract worker once for efficiency
+        let tesseractWorker = null;
         if (typeof Tesseract !== 'undefined') {
             try {
-                this.showProcessing('Running OCR...');
-                const result = await Tesseract.recognize(imageData.dataUrl, 'eng', {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            this.showProcessing(`OCR: ${Math.round(m.progress * 100)}%`);
-                        }
-                    }
-                });
-                names = this.parseNamesFromOCR(result.data.text);
-                console.log('OCR found names:', names);
+                this.showProcessing('Initializing OCR...');
+                tesseractWorker = await Tesseract.createWorker('eng');
             } catch (e) {
-                console.error('OCR failed:', e);
+                console.error('Failed to create Tesseract worker:', e);
             }
         }
         
-        const students = [];
-        let nameIndex = 0;
-        
-        // Crop size for face (square)
-        const cropSize = Math.min(cellWidth * 0.85, photoHeight * 0.9);
-        canvas.width = cropSize;
-        canvas.height = cropSize;
+        let processedCells = 0;
+        const totalCells = rows * cols;
         
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
@@ -199,16 +195,19 @@ const PhotoExtract = {
                 const cellX = col * cellWidth;
                 const cellY = contentTop + (row * cellHeight);
                 
-                // Photo is in lower portion of cell, centered
-                const photoX = cellX + (cellWidth - cropSize) / 2;
-                const photoY = cellY + photoTop + (photoHeight - cropSize) / 2;
-                
                 // Check if this cell has content (not empty/white)
                 const hasContent = this.checkCellHasContent(ocrCtx, cellX, cellY, cellWidth, cellHeight);
                 
                 if (!hasContent) {
                     continue; // Skip empty cells
                 }
+                
+                processedCells++;
+                this.showProcessing(`Processing student ${processedCells}...`);
+                
+                // Photo is in upper portion of cell, centered
+                const photoX = cellX + (cellWidth - cropSize) / 2;
+                const photoY = cellY + (photoHeight - cropSize) / 2;
                 
                 // Crop the face
                 ctx.clearRect(0, 0, cropSize, cropSize);
@@ -228,8 +227,40 @@ const PhotoExtract = {
                 
                 ctx.restore();
                 
-                // Get name from OCR results or use placeholder
-                let studentName = names[nameIndex] || null;
+                // Extract name from this cell's name region (bottom of cell)
+                let studentName = null;
+                
+                if (tesseractWorker) {
+                    try {
+                        // Extract the name region for this cell
+                        const nameX = cellX;
+                        const nameY = cellY + photoHeight; // Name is below photo
+                        const nameW = cellWidth;
+                        const nameH = nameAreaHeight;
+                        
+                        // Draw name region to temp canvas with preprocessing
+                        nameCanvas.width = nameW * 2; // Scale up for better OCR
+                        nameCanvas.height = nameH * 2;
+                        nameCtx.fillStyle = 'white';
+                        nameCtx.fillRect(0, 0, nameCanvas.width, nameCanvas.height);
+                        nameCtx.drawImage(
+                            image,
+                            nameX, nameY, nameW, nameH,
+                            0, 0, nameW * 2, nameH * 2
+                        );
+                        
+                        // Run OCR on just this name region
+                        const result = await tesseractWorker.recognize(nameCanvas);
+                        const text = result.data.text.trim();
+                        
+                        if (text) {
+                            studentName = this.parseNameFromText(text);
+                            console.log(`Cell [${row},${col}] OCR: "${text}" -> `, studentName);
+                        }
+                    } catch (e) {
+                        console.error(`OCR failed for cell [${row},${col}]:`, e);
+                    }
+                }
                 
                 // Mark WITHDRAWN students but keep them in layout
                 const isWithdrawn = studentName && studentName.isWithdrawn;
@@ -254,9 +285,9 @@ const PhotoExtract = {
                 if (!studentName) {
                     studentName = {
                         firstName: `Student`,
-                        lastName: `${nameIndex + 1}`,
-                        lastInitial: `${nameIndex + 1}`,
-                        displayName: `Student ${nameIndex + 1}`
+                        lastName: `${students.length + 1}`,
+                        lastInitial: `${students.length + 1}`,
+                        displayName: `Student ${students.length + 1}`
                     };
                 }
                 
@@ -270,12 +301,64 @@ const PhotoExtract = {
                     gridPosition: { row, col },
                     isWithdrawn: isWithdrawn
                 });
-                
-                nameIndex++;
             }
         }
         
+        // Cleanup Tesseract worker
+        if (tesseractWorker) {
+            await tesseractWorker.terminate();
+        }
+        
         return students;
+    },
+    
+    // Parse a single name from OCR text
+    parseNameFromText(text) {
+        // Clean up the text
+        const cleaned = text.replace(/[^\w\s,\-']/g, '').trim();
+        
+        // Check for WITHDRAWN
+        const isWithdrawn = cleaned.toUpperCase().includes('WITHDRAWN');
+        
+        // Try "Last, First" format first
+        const commaMatch = cleaned.match(/^([A-Za-z\-']+),?\s+([A-Za-z\-']+)/);
+        
+        if (commaMatch) {
+            const lastName = commaMatch[1].trim();
+            const firstName = commaMatch[2].trim();
+            
+            if (firstName.length >= 2 && lastName.length >= 2) {
+                const lastInitial = lastName.charAt(0).toUpperCase();
+                return {
+                    firstName,
+                    lastName,
+                    lastInitial,
+                    displayName: `${firstName} ${lastInitial}.`,
+                    isWithdrawn
+                };
+            }
+        }
+        
+        // Try "First Last" format
+        const spaceMatch = cleaned.match(/^([A-Za-z\-']+)\s+([A-Za-z\-']+)/);
+        
+        if (spaceMatch) {
+            const firstName = spaceMatch[1].trim();
+            const lastName = spaceMatch[2].trim();
+            
+            if (firstName.length >= 2 && lastName.length >= 2) {
+                const lastInitial = lastName.charAt(0).toUpperCase();
+                return {
+                    firstName,
+                    lastName,
+                    lastInitial,
+                    displayName: `${firstName} ${lastInitial}.`,
+                    isWithdrawn
+                };
+            }
+        }
+        
+        return null;
     },
     
     // Check if a cell has actual content (not empty)
