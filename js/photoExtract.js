@@ -18,10 +18,10 @@ const PhotoExtract = {
         cols: 5,
         rows: 4,
         // Crop area as percentages (0-1)
-        cropTop: 0.05,      // Skip header
+        cropTop: 0.08,      // Skip header (start lower)
         cropBottom: 0.98,
-        cropLeft: 0.02,
-        cropRight: 0.98,
+        cropLeft: 0.01,
+        cropRight: 0.99,
     },
     
     init() {
@@ -116,10 +116,14 @@ const PhotoExtract = {
                             <div class="control-group">
                                 <label>Adjust crop area (skip headers/margins)</label>
                                 <div class="crop-sliders">
-                                    <label>Top: <input type="range" id="cropTop" min="0" max="30" value="${this.gridConfig.cropTop * 100}" onchange="PhotoExtract.updatePreview()">
+                                    <label>Top: <input type="range" id="cropTop" min="0" max="40" value="${this.gridConfig.cropTop * 100}" oninput="PhotoExtract.updatePreview()">
                                     <span id="cropTopVal">${Math.round(this.gridConfig.cropTop * 100)}%</span></label>
-                                    <label>Bottom: <input type="range" id="cropBottom" min="70" max="100" value="${this.gridConfig.cropBottom * 100}" onchange="PhotoExtract.updatePreview()">
+                                    <label>Bottom: <input type="range" id="cropBottom" min="60" max="100" value="${this.gridConfig.cropBottom * 100}" oninput="PhotoExtract.updatePreview()">
                                     <span id="cropBottomVal">${Math.round(this.gridConfig.cropBottom * 100)}%</span></label>
+                                    <label>Left: <input type="range" id="cropLeft" min="0" max="20" value="${this.gridConfig.cropLeft * 100}" oninput="PhotoExtract.updatePreview()">
+                                    <span id="cropLeftVal">${Math.round(this.gridConfig.cropLeft * 100)}%</span></label>
+                                    <label>Right: <input type="range" id="cropRight" min="80" max="100" value="${this.gridConfig.cropRight * 100}" oninput="PhotoExtract.updatePreview()">
+                                    <span id="cropRightVal">${Math.round(this.gridConfig.cropRight * 100)}%</span></label>
                                 </div>
                             </div>
                         </div>
@@ -336,22 +340,30 @@ const PhotoExtract = {
         const rows = parseInt(document.getElementById('gridRows').value);
         const cropTop = parseInt(document.getElementById('cropTop').value) / 100;
         const cropBottom = parseInt(document.getElementById('cropBottom').value) / 100;
+        const cropLeft = parseInt(document.getElementById('cropLeft')?.value || this.gridConfig.cropLeft * 100) / 100;
+        const cropRight = parseInt(document.getElementById('cropRight')?.value || this.gridConfig.cropRight * 100) / 100;
         
         // Update config
         this.gridConfig.cols = cols;
         this.gridConfig.rows = rows;
         this.gridConfig.cropTop = cropTop;
         this.gridConfig.cropBottom = cropBottom;
+        this.gridConfig.cropLeft = cropLeft;
+        this.gridConfig.cropRight = cropRight;
         
         // Update display values
         document.getElementById('totalStudents').textContent = cols * rows;
         document.getElementById('cropTopVal').textContent = Math.round(cropTop * 100) + '%';
         document.getElementById('cropBottomVal').textContent = Math.round(cropBottom * 100) + '%';
+        if (document.getElementById('cropLeftVal')) {
+            document.getElementById('cropLeftVal').textContent = Math.round(cropLeft * 100) + '%';
+        }
+        if (document.getElementById('cropRightVal')) {
+            document.getElementById('cropRightVal').textContent = Math.round(cropRight * 100) + '%';
+        }
         
         // Update grid overlay
         const overlay = document.getElementById('gridOverlay');
-        const cropLeft = this.gridConfig.cropLeft;
-        const cropRight = this.gridConfig.cropRight;
         
         const cellWidth = (cropRight - cropLeft) / cols * 100;
         const cellHeight = (cropBottom - cropTop) / rows * 100;
