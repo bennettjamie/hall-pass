@@ -577,8 +577,7 @@ const PhotoExtract = {
             console.error('Failed to save:', error);
             alert('Failed to save: ' + error.message);
         }
-    }
-};
+    },
 
     // Switch all students to a different pre-generated style
     async switchClassStyle(styleId) {
