@@ -177,7 +177,7 @@
 
                     <section class="settings-section">
                         <h3>📸 Import Class Photo</h3>
-                        <p class="setting-help">Upload your class grid photo (JPEG) with student faces and names. We'll extract and create your seating chart automatically.</p>
+                        <p class="setting-help">Upload your class grid photo (JPEG) with student faces and names. AI will extract names and generate 4 avatar styles automatically!</p>
                         <div class="setting-row">
                             <button id="importClassPhotoBtn" class="primary-btn">📷 Upload Class Photo</button>
                             <input type="file" id="classPhotoInput" accept="image/*" style="display: none;">
@@ -185,6 +185,14 @@
                         <div id="photoProcessingStatus" class="processing-status" style="display: none;">
                             <div class="processing-spinner"></div>
                             <span id="processingText">Processing image...</span>
+                        </div>
+                    </section>
+                    
+                    <section class="settings-section">
+                        <h3>🎨 Avatar Style</h3>
+                        <p class="setting-help">Switch between pre-generated avatar styles. Make it fun — try a different style each day!</p>
+                        <div class="setting-row">
+                            <button onclick="showStyleSwitcher()" class="secondary-btn">🎨 Change Avatar Style</button>
                         </div>
                     </section>
 

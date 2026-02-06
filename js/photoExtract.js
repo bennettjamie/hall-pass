@@ -14,18 +14,21 @@ const PhotoExtract = {
     extractedData: null,
     selectedStyle: 'original',
     
-    // Available avatar styles
+    // Available avatar styles - first 4 are pre-generated on import
     styles: [
-        { id: 'original', name: 'Original Photo', icon: '📷', desc: 'Use actual photos' },
-        { id: 'illustration', name: 'Illustration', icon: '💵', desc: 'Currency/engraving style' },
-        { id: 'disney', name: 'Disney/Pixar', icon: '✨', desc: '3D animated style' },
-        { id: 'anime', name: 'Anime', icon: '🎌', desc: 'Japanese anime style' },
-        { id: 'ghibli', name: 'Studio Ghibli', icon: '🍃', desc: 'Soft, whimsical style' },
-        { id: 'caricature', name: 'Caricature', icon: '🎨', desc: 'Fun exaggerated style' },
-        { id: 'watercolor', name: 'Watercolor', icon: '🎨', desc: 'Artistic painterly style' },
-        { id: 'comic', name: 'Comic Book', icon: '💥', desc: 'Bold comic style' },
-        { id: 'minimalist', name: 'Minimalist', icon: '⬜', desc: 'Simple flat design' },
+        { id: 'original', name: 'Original Photo', icon: '📷', desc: 'Use actual photos', pregenerate: true },
+        { id: 'disney', name: 'Disney/Pixar', icon: '✨', desc: '3D animated style', pregenerate: true },
+        { id: 'anime', name: 'Anime', icon: '🎌', desc: 'Japanese anime style', pregenerate: true },
+        { id: 'ghibli', name: 'Studio Ghibli', icon: '🍃', desc: 'Soft, whimsical style', pregenerate: true },
+        { id: 'illustration', name: 'Illustration', icon: '💵', desc: 'Currency/engraving style', pregenerate: false },
+        { id: 'caricature', name: 'Caricature', icon: '🎨', desc: 'Fun exaggerated style', pregenerate: false },
+        { id: 'watercolor', name: 'Watercolor', icon: '🖼️', desc: 'Artistic painterly style', pregenerate: false },
+        { id: 'comic', name: 'Comic Book', icon: '💥', desc: 'Bold comic style', pregenerate: false },
+        { id: 'minimalist', name: 'Minimalist', icon: '⬜', desc: 'Simple flat design', pregenerate: false },
     ],
+    
+    // Styles to pre-generate on import
+    pregenerateStyles: ['original', 'disney', 'anime', 'ghibli'],
     
     init() {
         const importBtn = document.getElementById('importClassPhotoBtn');
@@ -491,45 +494,59 @@ const PhotoExtract = {
         
         try {
             const confirmClear = confirm(
-                `Import ${validStudents.length} students? This will clear existing students.`
+                `Import ${validStudents.length} students?\n\nThis will:\n• Clear existing students\n• Generate 4 avatar styles per student (Original, Disney, Anime, Ghibli)\n\nThis may take a few minutes.`
             );
             
             if (!confirmClear) return;
             
             await DB.clearStudents();
             
-            // Show processing if generating styles
-            if (this.selectedStyle !== 'original') {
-                this.showProcessingModal();
-                document.querySelector('.ai-processing h3').textContent = '🎨 Generating styled avatars...';
-                document.querySelector('.ai-processing p').textContent = 'This may take a minute...';
-            }
+            // Show processing
+            this.showProcessingModal();
+            document.querySelector('.ai-processing h3').textContent = '🎨 Generating avatar styles...';
+            
+            const stylesToGenerate = this.pregenerateStyles.filter(s => s !== 'original');
+            let completed = 0;
+            const total = validStudents.length;
             
             for (const student of validStudents) {
-                let faceImage = student.face;
+                completed++;
+                document.querySelector('.ai-processing p').textContent = 
+                    `Processing ${student.name} (${completed}/${total})...`;
                 
-                // Generate styled avatar if not original
-                if (this.selectedStyle !== 'original') {
+                // Start with original
+                const avatars = {
+                    original: student.face
+                };
+                
+                // Generate other styles in parallel (but limit concurrency)
+                const stylePromises = stylesToGenerate.map(async (styleId) => {
                     try {
                         const styleResponse = await fetch('/api/stylize', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 image: student.face,
-                                style: this.selectedStyle,
+                                style: styleId,
                                 name: student.name
                             })
                         });
                         
                         const styleData = await styleResponse.json();
-                        if (styleData.success && styleData.image) {
-                            faceImage = styleData.image;
+                        if (styleData.success && styleData.image && !styleData.fallback) {
+                            return { styleId, image: styleData.image };
                         }
+                        return { styleId, image: student.face }; // Fallback to original
                     } catch (e) {
-                        console.error('Style generation failed for', student.name, e);
-                        // Use original face as fallback
+                        console.error(`Style ${styleId} failed for ${student.name}:`, e);
+                        return { styleId, image: student.face }; // Fallback
                     }
-                }
+                });
+                
+                const styleResults = await Promise.all(stylePromises);
+                styleResults.forEach(result => {
+                    avatars[result.styleId] = result.image;
+                });
                 
                 // Parse name into first/last
                 const parts = student.name.split(/\s+/);
@@ -540,9 +557,9 @@ const PhotoExtract = {
                     displayName: student.name,
                     firstName,
                     lastInitial,
-                    caricature: faceImage,
-                    originalPhoto: student.face, // Keep original for style changes later
-                    avatarStyle: this.selectedStyle,
+                    caricature: avatars[this.selectedStyle] || avatars.original,
+                    avatars: avatars, // Store ALL generated styles
+                    activeStyle: this.selectedStyle,
                     sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
                 });
             }
@@ -552,7 +569,7 @@ const PhotoExtract = {
             updateStats();
             
             this.closeModal();
-            alert(`✨ Imported ${validStudents.length} students with ${this.styles.find(s => s.id === this.selectedStyle)?.name} style!`);
+            alert(`✨ Imported ${validStudents.length} students!\n\n4 avatar styles generated per student. Use Settings to swap styles anytime!`);
             
         } catch (error) {
             console.error('Failed to save:', error);
@@ -560,6 +577,85 @@ const PhotoExtract = {
         }
     }
 };
+
+    // Switch all students to a different pre-generated style
+    async switchClassStyle(styleId) {
+        if (!this.pregenerateStyles.includes(styleId)) {
+            alert('This style was not pre-generated. Only Original, Disney, Anime, and Ghibli are available for instant switching.');
+            return;
+        }
+        
+        const students = await DB.getStudents();
+        let updated = 0;
+        
+        for (const student of students) {
+            if (student.avatars && student.avatars[styleId]) {
+                student.caricature = student.avatars[styleId];
+                student.activeStyle = styleId;
+                await DB.updateStudent(student.id, {
+                    caricature: student.caricature,
+                    activeStyle: styleId
+                });
+                updated++;
+            }
+        }
+        
+        if (updated > 0) {
+            state.students = await DB.getStudents();
+            renderGrid();
+            const styleName = this.styles.find(s => s.id === styleId)?.name || styleId;
+            alert(`✨ Switched ${updated} students to ${styleName} style!`);
+        } else {
+            alert('No students have pre-generated styles. Re-import your class photo to generate styles.');
+        }
+    },
+    
+    // Show style switcher modal
+    showStyleSwitcher() {
+        let modal = document.getElementById('styleSwitcherModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'styleSwitcherModal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
+        }
+        
+        const pregenStyles = this.styles.filter(s => s.pregenerate);
+        const stylesHtml = pregenStyles.map(s => `
+            <div class="style-option" onclick="PhotoExtract.switchClassStyle('${s.id}'); PhotoExtract.closeStyleSwitcher();">
+                <div class="style-icon">${s.icon}</div>
+                <div class="style-name">${s.name}</div>
+                <div class="style-desc">${s.desc}</div>
+            </div>
+        `).join('');
+        
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2>🎨 Change Avatar Style</h2>
+                    <button class="modal-close" onclick="PhotoExtract.closeStyleSwitcher()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="help-text">Instantly switch all student avatars to a different style. These were pre-generated during import!</p>
+                    <div class="style-selector">
+                        ${stylesHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modal.classList.add('active');
+    },
+    
+    closeStyleSwitcher() {
+        const modal = document.getElementById('styleSwitcherModal');
+        if (modal) modal.classList.remove('active');
+    }
+};
+
+// Make switchClassStyle available globally for settings menu
+window.switchClassStyle = (styleId) => PhotoExtract.switchClassStyle(styleId);
+window.showStyleSwitcher = () => PhotoExtract.showStyleSwitcher();
 
 document.addEventListener('DOMContentLoaded', () => {
     PhotoExtract.init();
