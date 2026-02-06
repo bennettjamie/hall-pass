@@ -180,8 +180,28 @@ const PhotoExtract = {
                 font-size: 0.75rem;
             }
             
+            .student-preview-item.withdrawn {
+                position: relative;
+            }
+            
             .student-preview-item.withdrawn img {
-                opacity: 0.5;
+                opacity: 0.6;
+                filter: grayscale(50%);
+            }
+            
+            .student-preview-item.withdrawn::after {
+                content: 'WITHDRAWN';
+                position: absolute;
+                top: 35px;
+                left: 50%;
+                transform: translateX(-50%) rotate(-15deg);
+                background: rgba(239, 68, 68, 0.9);
+                color: white;
+                font-size: 9px;
+                font-weight: bold;
+                padding: 2px 6px;
+                border-radius: 3px;
+                white-space: nowrap;
             }
             
             .student-preview-item.withdrawn .student-name {
@@ -383,26 +403,8 @@ const PhotoExtract = {
             
             ctx.restore();
             
-            // Add WITHDRAWN overlay if applicable
-            if (isWithdrawn) {
-                // Semi-transparent dark overlay
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.beginPath();
-                ctx.arc(faceSize / 2, faceSize / 2, faceSize / 2, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // WITHDRAWN text - large, diagonal, red
-                ctx.save();
-                ctx.translate(faceSize / 2, faceSize / 2);
-                ctx.rotate(-Math.PI / 6); // Diagonal angle
-                ctx.fillStyle = '#ef4444';
-                ctx.font = `bold ${Math.floor(faceSize / 5)}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('WITHDRAWN', 0, 0);
-                ctx.restore();
-            }
-            
+            // Save clean face - WITHDRAWN overlay added via CSS, not burned in
+            // This keeps styled avatars looking consistent
             this.extractedData.studentFaces.push(canvas.toDataURL('image/jpeg', 0.85));
         }
     },
@@ -604,22 +606,7 @@ const PhotoExtract = {
                 const firstName = parts[0] || 'Student';
                 const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
                 
-                // WITHDRAWN students - just save with overlay, no style generation
-                if (student.isWithdrawn) {
-                    await DB.addStudent({
-                        displayName: student.name,
-                        firstName,
-                        lastInitial,
-                        caricature: student.face, // Already has WITHDRAWN overlay
-                        avatars: { original: student.face },
-                        activeStyle: 'original',
-                        isWithdrawn: true,
-                        sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
-                    });
-                    continue;
-                }
-                
-                // Start with original
+                // Start with original (WITHDRAWN students get styled too for consistency)
                 const avatars = {
                     original: student.face
                 };
@@ -660,7 +647,7 @@ const PhotoExtract = {
                     caricature: avatars[this.selectedStyle] || avatars.original,
                     avatars: avatars, // Store ALL generated styles
                     activeStyle: this.selectedStyle,
-                    isWithdrawn: false,
+                    isWithdrawn: student.isWithdrawn || false,
                     sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
                 });
             }
