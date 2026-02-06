@@ -1,15 +1,24 @@
 /**
- * Photo Extract — Extract student faces and names from class photo
- * Uses Tesseract.js for OCR to get names
- * Grid-based face extraction
+ * Photo Extract — Extract student faces and names from MyEd class photo
+ * Optimized for MyEd BC export format:
+ * - Grid layout (typically 6 columns)
+ * - Names ABOVE photos (Last, First format)
+ * - Header row at top
  */
 
 const PhotoExtract = {
-    // Store extracted data
     extractedStudents: [],
     originalImage: null,
     
-    // Initialize photo extraction
+    // Grid configuration for MyEd exports
+    config: {
+        cols: 6,
+        rows: 5,
+        headerHeight: 0.04,    // Top header is ~4% of image
+        nameHeight: 0.035,     // Name text is ~3.5% of cell height
+        photoPadding: 0.05,    // Padding around photo
+    },
+    
     init() {
         const importBtn = document.getElementById('importClassPhotoBtn');
         const fileInput = document.getElementById('classPhotoInput');
@@ -38,30 +47,21 @@ const PhotoExtract = {
         }
     },
     
-    // Handle file selection
     async handleFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
         
-        // Show processing status
         this.showProcessing('Loading image...');
         
         try {
-            // Load image
             const imageData = await this.loadImage(file);
             this.originalImage = imageData;
             
-            // Run OCR to extract names
-            this.showProcessing('Extracting names with OCR...');
-            const names = await this.extractNames(imageData);
-            
-            // Detect grid and create face crops
-            this.showProcessing('Detecting faces...');
-            const students = await this.createStudentGrid(imageData, names);
+            this.showProcessing('Extracting students...');
+            const students = await this.extractStudentsFromGrid(imageData);
             
             this.extractedStudents = students;
             
-            // Hide processing, show preview
             this.hideProcessing();
             this.showPreview();
             
@@ -71,11 +71,9 @@ const PhotoExtract = {
             alert('Failed to process image: ' + error.message);
         }
         
-        // Reset file input
         event.target.value = '';
     },
     
-    // Load image as data URL and get dimensions
     loadImage(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -97,187 +95,208 @@ const PhotoExtract = {
         });
     },
     
-    // Extract names using Tesseract OCR
-    async extractNames(imageData) {
-        if (typeof Tesseract === 'undefined') {
-            console.warn('Tesseract not loaded, using manual entry');
-            return [];
-        }
-        
-        try {
-            const result = await Tesseract.recognize(
-                imageData.dataUrl,
-                'eng',
-                {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            this.showProcessing(`OCR: ${Math.round(m.progress * 100)}%`);
-                        }
-                    }
-                }
-            );
-            
-            // Parse names from OCR result
-            const text = result.data.text;
-            const names = this.parseNames(text);
-            
-            console.log('OCR extracted names:', names);
-            return names;
-            
-        } catch (error) {
-            console.error('OCR failed:', error);
-            return [];
-        }
-    },
-    
-    // Parse names from OCR text
-    parseNames(text) {
-        // Split by newlines and filter
-        const lines = text.split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-        
-        const names = [];
-        
-        for (const line of lines) {
-            // Look for name patterns: "First Last" or "First L" or "First L."
-            // Common patterns in class rosters
-            const namePattern = /^([A-Z][a-z]+)\s+([A-Z]\.?|[A-Z][a-z]+)$/i;
-            const match = line.match(namePattern);
-            
-            if (match) {
-                let firstName = match[1];
-                let lastInitial = match[2].replace('.', '');
-                
-                // If last part is a full name, just take first letter
-                if (lastInitial.length > 1) {
-                    lastInitial = lastInitial[0].toUpperCase();
-                }
-                
-                names.push({
-                    firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase(),
-                    lastInitial: lastInitial.toUpperCase(),
-                    displayName: `${firstName} ${lastInitial}.`
-                });
-            } else {
-                // Try to parse as single name parts
-                const words = line.split(/\s+/).filter(w => w.length > 1);
-                if (words.length >= 1) {
-                    const firstName = words[0];
-                    const lastInitial = words.length > 1 ? words[words.length - 1][0] : '?';
-                    
-                    // Only add if looks like a name (starts with capital)
-                    if (/^[A-Z]/.test(firstName)) {
-                        names.push({
-                            firstName: firstName,
-                            lastInitial: lastInitial.toUpperCase(),
-                            displayName: `${firstName} ${lastInitial}.`
-                        });
-                    }
-                }
-            }
-        }
-        
-        // Remove duplicates
-        const seen = new Set();
-        return names.filter(n => {
-            const key = n.displayName.toLowerCase();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-    },
-    
-    // Create student grid by dividing image
-    async createStudentGrid(imageData, names) {
-        const students = [];
+    async extractStudentsFromGrid(imageData) {
         const { image, width, height } = imageData;
+        const { cols, rows, headerHeight, nameHeight, photoPadding } = this.config;
         
-        // Try to detect grid dimensions from names count
-        const nameCount = names.length || 20; // Default to 20 if no names
-        
-        // Common class sizes: 20-35 students
-        // Try to find a reasonable grid
-        let cols, rows;
-        
-        if (nameCount <= 16) {
-            cols = 4; rows = 4;
-        } else if (nameCount <= 20) {
-            cols = 5; rows = 4;
-        } else if (nameCount <= 25) {
-            cols = 5; rows = 5;
-        } else if (nameCount <= 30) {
-            cols = 6; rows = 5;
-        } else {
-            cols = 6; rows = 6;
-        }
+        // Skip header row
+        const contentTop = Math.floor(height * headerHeight);
+        const contentHeight = height - contentTop;
         
         // Calculate cell dimensions
         const cellWidth = Math.floor(width / cols);
-        const cellHeight = Math.floor(height / rows);
+        const cellHeight = Math.floor(contentHeight / rows);
+        
+        // Name area is at top of each cell
+        const nameAreaHeight = Math.floor(cellHeight * nameHeight);
+        
+        // Photo area starts after name
+        const photoTop = nameAreaHeight;
+        const photoHeight = cellHeight - nameAreaHeight;
         
         // Create canvas for cropping
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Crop size for face (square, upper portion of cell)
-        const cropSize = Math.min(cellWidth, cellHeight) * 0.7;
+        // Also create a canvas for OCR on the full image
+        const ocrCanvas = document.createElement('canvas');
+        ocrCanvas.width = width;
+        ocrCanvas.height = height;
+        const ocrCtx = ocrCanvas.getContext('2d');
+        ocrCtx.drawImage(image, 0, 0);
+        
+        // Run OCR on the full image to get names
+        let names = [];
+        if (typeof Tesseract !== 'undefined') {
+            try {
+                this.showProcessing('Running OCR...');
+                const result = await Tesseract.recognize(imageData.dataUrl, 'eng', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            this.showProcessing(`OCR: ${Math.round(m.progress * 100)}%`);
+                        }
+                    }
+                });
+                names = this.parseNamesFromOCR(result.data.text);
+                console.log('OCR found names:', names);
+            } catch (e) {
+                console.error('OCR failed:', e);
+            }
+        }
+        
+        const students = [];
+        let nameIndex = 0;
+        
+        // Crop size for face (square)
+        const cropSize = Math.min(cellWidth * 0.85, photoHeight * 0.9);
         canvas.width = cropSize;
         canvas.height = cropSize;
         
-        let nameIndex = 0;
-        
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
-                // Calculate cell position
-                const x = col * cellWidth;
-                const y = row * cellHeight;
+                // Calculate cell position (accounting for header)
+                const cellX = col * cellWidth;
+                const cellY = contentTop + (row * cellHeight);
                 
-                // Crop face from upper-center of cell
-                const cropX = x + (cellWidth - cropSize) / 2;
-                const cropY = y + cellHeight * 0.05; // Start near top
+                // Photo is in lower portion of cell, centered
+                const photoX = cellX + (cellWidth - cropSize) / 2;
+                const photoY = cellY + photoTop + (photoHeight - cropSize) / 2;
                 
-                // Draw cropped region
+                // Check if this cell has content (not empty/white)
+                const hasContent = this.checkCellHasContent(ocrCtx, cellX, cellY, cellWidth, cellHeight);
+                
+                if (!hasContent) {
+                    continue; // Skip empty cells
+                }
+                
+                // Crop the face
                 ctx.clearRect(0, 0, cropSize, cropSize);
+                ctx.save();
+                
+                // Create circular clip
+                ctx.beginPath();
+                ctx.arc(cropSize / 2, cropSize / 2, cropSize / 2, 0, Math.PI * 2);
+                ctx.clip();
+                
+                // Draw the cropped region
                 ctx.drawImage(
                     image,
-                    cropX, cropY, cropSize, cropSize, // Source
-                    0, 0, cropSize, cropSize // Destination
+                    photoX, photoY, cropSize, cropSize,
+                    0, 0, cropSize, cropSize
                 );
                 
-                // Get data URL for this face
-                const faceDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                ctx.restore();
                 
-                // Assign name
-                const name = names[nameIndex] || {
-                    firstName: `Student`,
-                    lastInitial: String(nameIndex + 1),
-                    displayName: `Student ${nameIndex + 1}`
-                };
+                const faceDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                
+                // Get name from OCR results or use placeholder
+                let studentName = names[nameIndex] || null;
+                
+                // Skip WITHDRAWN students
+                if (studentName && studentName.isWithdrawn) {
+                    nameIndex++;
+                    continue;
+                }
+                
+                if (!studentName) {
+                    studentName = {
+                        firstName: `Student`,
+                        lastName: `${nameIndex + 1}`,
+                        lastInitial: `${nameIndex + 1}`,
+                        displayName: `Student ${nameIndex + 1}`
+                    };
+                }
                 
                 students.push({
-                    id: `extracted-${Date.now()}-${nameIndex}`,
-                    ...name,
+                    id: `extracted-${Date.now()}-${students.length}`,
+                    firstName: studentName.firstName,
+                    lastName: studentName.lastName,
+                    lastInitial: studentName.lastInitial,
+                    displayName: studentName.displayName,
                     caricature: faceDataUrl,
                     gridPosition: { row, col }
                 });
                 
                 nameIndex++;
-                
-                // Stop if we have enough students
-                if (nameIndex >= Math.max(names.length, rows * cols)) {
-                    break;
-                }
-            }
-            if (nameIndex >= Math.max(names.length, rows * cols)) {
-                break;
             }
         }
         
         return students;
     },
     
-    // Show processing status
+    // Check if a cell has actual content (not empty)
+    checkCellHasContent(ctx, x, y, width, height) {
+        try {
+            const imageData = ctx.getImageData(
+                Math.floor(x + width * 0.3),
+                Math.floor(y + height * 0.3),
+                Math.floor(width * 0.4),
+                Math.floor(height * 0.4)
+            );
+            
+            const data = imageData.data;
+            let nonWhitePixels = 0;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                
+                // Check if pixel is not white/light gray
+                if (r < 240 || g < 240 || b < 240) {
+                    nonWhitePixels++;
+                }
+            }
+            
+            // If more than 10% non-white pixels, has content
+            return nonWhitePixels > (data.length / 4) * 0.1;
+        } catch (e) {
+            return true; // Assume has content if can't check
+        }
+    },
+    
+    // Parse names from OCR text (MyEd format: "Last, First")
+    parseNamesFromOCR(text) {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const names = [];
+        
+        for (const line of lines) {
+            // Skip header/metadata lines
+            if (line.includes('Schedule') || line.includes('Term') || 
+                line.includes('EDUCATION') || line.includes('MCLE') ||
+                line.includes('P1') || line.includes('P2') ||
+                line.match(/^S\d/) || line.match(/^\d+$/)) {
+                continue;
+            }
+            
+            // Check for WITHDRAWN
+            const isWithdrawn = line.toUpperCase().includes('WITHDRAWN');
+            
+            // Match "Last, First" pattern
+            const commaMatch = line.match(/^([A-Za-z\-']+),?\s+([A-Za-z\-']+)/);
+            
+            if (commaMatch) {
+                let lastName = commaMatch[1].trim();
+                let firstName = commaMatch[2].trim();
+                
+                // Handle hyphenated names that might span lines
+                if (firstName.length < 2) continue;
+                
+                const lastInitial = lastName.charAt(0).toUpperCase();
+                
+                names.push({
+                    firstName,
+                    lastName,
+                    lastInitial,
+                    displayName: `${firstName} ${lastInitial}.`,
+                    isWithdrawn
+                });
+            }
+        }
+        
+        return names;
+    },
+    
     showProcessing(text) {
         const status = document.getElementById('photoProcessingStatus');
         const textEl = document.getElementById('processingText');
@@ -287,33 +306,27 @@ const PhotoExtract = {
         }
     },
     
-    // Hide processing status
     hideProcessing() {
         const status = document.getElementById('photoProcessingStatus');
-        if (status) {
-            status.style.display = 'none';
-        }
+        if (status) status.style.display = 'none';
     },
     
-    // Show preview modal
     showPreview() {
         const modal = document.getElementById('photoPreviewModal');
         const grid = document.getElementById('extractedStudentsGrid');
         
         if (!modal || !grid) return;
         
-        // Render extracted students
         grid.innerHTML = this.extractedStudents.map((student, index) => `
             <div class="extracted-student-card" data-index="${index}">
                 <img src="${student.caricature}" alt="${student.displayName}">
                 <input type="text" value="${student.displayName}" 
                        data-field="displayName" 
-                       placeholder="First Name L.">
+                       placeholder="First L.">
                 <button class="remove-btn" onclick="PhotoExtract.removeStudent(${index})">✕ Remove</button>
             </div>
         `).join('');
         
-        // Add input change listeners
         grid.querySelectorAll('input').forEach(input => {
             input.addEventListener('change', (e) => {
                 const index = parseInt(e.target.closest('.extracted-student-card').dataset.index);
@@ -324,16 +337,12 @@ const PhotoExtract = {
         modal.classList.add('active');
     },
     
-    // Close modal
     closeModal() {
         const modal = document.getElementById('photoPreviewModal');
-        if (modal) {
-            modal.classList.remove('active');
-        }
+        if (modal) modal.classList.remove('active');
         this.extractedStudents = [];
     },
     
-    // Update student name
     updateStudentName(index, displayName) {
         if (this.extractedStudents[index]) {
             const parts = displayName.trim().split(/\s+/);
@@ -346,13 +355,11 @@ const PhotoExtract = {
         }
     },
     
-    // Remove student from list
     removeStudent(index) {
         this.extractedStudents.splice(index, 1);
-        this.showPreview(); // Re-render
+        this.showPreview();
     },
     
-    // Save students to database
     async saveStudents() {
         if (this.extractedStudents.length === 0) {
             alert('No students to save!');
@@ -360,17 +367,15 @@ const PhotoExtract = {
         }
         
         try {
-            // Clear existing students (optional - could merge instead)
             const confirmClear = confirm(
                 `This will add ${this.extractedStudents.length} students. ` +
-                `Do you want to clear existing students first?`
+                `Clear existing students first?`
             );
             
             if (confirmClear) {
                 await DB.clearStudents();
             }
             
-            // Add each student
             for (const student of this.extractedStudents) {
                 await DB.addStudent({
                     displayName: student.displayName,
@@ -381,24 +386,21 @@ const PhotoExtract = {
                 });
             }
             
-            // Refresh the app
             state.students = await DB.getStudents();
             renderGrid();
             updateStats();
             
-            // Close modal
             this.closeModal();
             
-            alert(`Successfully imported ${this.extractedStudents.length} students!`);
+            alert(`Imported ${this.extractedStudents.length} students!`);
             
         } catch (error) {
-            console.error('Failed to save students:', error);
-            alert('Failed to save students: ' + error.message);
+            console.error('Failed to save:', error);
+            alert('Failed to save: ' + error.message);
         }
     }
 };
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     PhotoExtract.init();
 });
