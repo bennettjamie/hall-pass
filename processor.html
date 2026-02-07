@@ -986,8 +986,72 @@
             
             if (extractedStudents.length > 0 && students.length === 0) {
                 students = extractedStudents;
+                console.log('Using PDF-extracted students directly');
+            } else if (students.length > 0 && extractedStudents.length > 0) {
+                // Have both pasted names AND PDF students - merge positions
+                console.log(`Merging: ${students.length} pasted names with ${extractedStudents.length} PDF positions`);
+                
+                // Use PDF extraction order as the master - match pasted names to it
+                const mergedStudents = [];
+                const usedPastedIndexes = new Set();
+                
+                for (const pdfStudent of extractedStudents) {
+                    // Find matching pasted student by last name
+                    let bestMatch = null;
+                    let bestIdx = -1;
+                    let bestScore = 0;
+                    
+                    for (let i = 0; i < students.length; i++) {
+                        if (usedPastedIndexes.has(i)) continue;
+                        
+                        const pasted = students[i];
+                        const pdfLast = pdfStudent.lastName.toLowerCase();
+                        const pastedLast = pasted.lastName.toLowerCase();
+                        
+                        let score = 0;
+                        if (pdfLast === pastedLast) score = 10;
+                        else if (pdfLast.includes(pastedLast) || pastedLast.includes(pdfLast)) score = 5;
+                        
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMatch = pasted;
+                            bestIdx = i;
+                        }
+                    }
+                    
+                    if (bestMatch && bestScore >= 5) {
+                        usedPastedIndexes.add(bestIdx);
+                        // Merge: use pasted name data but PDF position
+                        mergedStudents.push({
+                            ...bestMatch,
+                            textX: pdfStudent.textX,
+                            textY: pdfStudent.textY,
+                            textWidth: pdfStudent.textWidth,
+                            position: pdfStudent.position,
+                            withdrawn: pdfStudent.withdrawn || bestMatch.withdrawn
+                        });
+                        console.log(`  Merged: ${bestMatch.lastName} → position (${pdfStudent.position.row}, ${pdfStudent.position.col})`);
+                    } else {
+                        // No match - use PDF student as-is
+                        mergedStudents.push(pdfStudent);
+                        console.log(`  No match for PDF student: ${pdfStudent.lastName}`);
+                    }
+                }
+                
+                // Add any unmatched pasted students at the end
+                for (let i = 0; i < students.length; i++) {
+                    if (!usedPastedIndexes.has(i)) {
+                        const unmatched = students[i];
+                        unmatched.position = { row: 99, col: i };
+                        mergedStudents.push(unmatched);
+                        console.log(`  Unmatched pasted student: ${unmatched.lastName} (added at end)`);
+                    }
+                }
+                
+                students = mergedStudents;
+                console.log(`Merged result: ${students.length} students in PDF visual order`);
             } else if (students.length > 0) {
-                // Already have names, just map text positions
+                // Have pasted names but no PDF extraction worked
                 await mapNamesToPositions(page, viewport);
             }
             
@@ -1007,6 +1071,12 @@
             
             // Sort students by visual position (top-to-bottom, left-to-right)
             sortStudentsByVisualOrder();
+            
+            // VERIFY the sort worked - log first 5 students
+            console.log('=== FINAL STUDENT ORDER (first 10) ===');
+            students.slice(0, 10).forEach((s, i) => {
+                console.log(`  ${i+1}. ${s.displayName} @ row ${s.position?.row}, col ${s.position?.col}`);
+            });
             
             students.forEach((s, i) => s.id = i + 1);
             
