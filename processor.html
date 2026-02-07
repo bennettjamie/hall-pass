@@ -29,93 +29,311 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
+        }
+        
+        /* Upload Section */
+        .upload-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
             padding: 24px;
         }
         
-        .container { max-width: 1200px; margin: 0 auto; }
-        
-        h1 { margin-bottom: 8px; }
-        .subtitle { color: var(--text-secondary); margin-bottom: 32px; }
-        
-        .section {
+        .upload-card {
             background: var(--bg-card);
-            border-radius: 20px;
-            padding: 32px;
-            margin-bottom: 24px;
+            border-radius: 24px;
+            padding: 48px;
+            text-align: center;
+            max-width: 500px;
         }
         
-        .section.hidden { display: none; }
+        .upload-card h1 { margin-bottom: 8px; }
+        .upload-card .subtitle { color: var(--text-secondary); margin-bottom: 32px; }
         
         .upload-zone {
             border: 2px dashed var(--border);
             border-radius: 16px;
-            padding: 48px;
-            text-align: center;
+            padding: 48px 24px;
             cursor: pointer;
             transition: all 0.2s;
         }
         
-        .upload-zone:hover, .upload-zone.dragover {
+        .upload-zone:hover {
             border-color: var(--accent);
             background: rgba(99, 102, 241, 0.1);
         }
         
         .upload-icon { font-size: 3rem; margin-bottom: 16px; }
-        .upload-text { font-size: 1.1rem; margin-bottom: 8px; }
-        .upload-hint { color: var(--text-secondary); font-size: 0.9rem; }
+        
+        /* Processing Section */
+        .processing-container {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
+        .processing-card {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 48px;
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--bg-secondary);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 24px;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .progress-text { color: var(--text-secondary); }
+        
+        /* Selection Section */
+        .selection-container {
+            display: none;
+            height: 100vh;
+        }
+        
+        .selection-layout {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            height: 100%;
+        }
+        
+        /* PDF Viewer */
+        .pdf-viewer {
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pdf-canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: auto;
+            cursor: crosshair;
+        }
+        
+        #pdfCanvas {
+            display: block;
+        }
+        
+        .selection-rect {
+            position: absolute;
+            border: 3px solid var(--accent);
+            background: rgba(99, 102, 241, 0.2);
+            pointer-events: none;
+        }
+        
+        .suggestion-rect {
+            position: absolute;
+            border: 3px dashed var(--success);
+            background: rgba(34, 197, 94, 0.2);
+            pointer-events: none;
+        }
+        
+        .name-marker {
+            position: absolute;
+            background: var(--warning);
+            color: black;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border);
+        }
+        
+        .sidebar-header {
+            margin-bottom: 24px;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
         
         .progress-bar {
-            height: 8px;
-            background: var(--bg-secondary);
-            border-radius: 4px;
+            height: 6px;
+            background: var(--bg-card);
+            border-radius: 3px;
+            margin-top: 12px;
             overflow: hidden;
-            margin: 16px 0;
         }
         
         .progress-fill {
             height: 100%;
             background: var(--accent);
-            width: 0%;
             transition: width 0.3s;
         }
         
-        .progress-status { color: var(--text-secondary); font-size: 0.9rem; }
-        
-        .log {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 16px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 0.8rem;
+        .current-student {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
         }
         
-        .log-entry { margin-bottom: 4px; }
-        .log-entry.success { color: var(--success); }
-        .log-entry.error { color: var(--danger); }
+        .current-student h3 {
+            font-size: 1.4rem;
+            margin-bottom: 4px;
+        }
+        
+        .current-student .instruction {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        
+        .current-preview {
+            width: 100px;
+            height: 100px;
+            background: var(--bg-secondary);
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            overflow: hidden;
+            border: 3px solid var(--border);
+        }
+        
+        .current-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+        
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-light); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-secondary { background: var(--bg-card); color: var(--text-primary); }
+        
+        .btn-row {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-row .btn {
+            flex: 1;
+        }
+        
+        .pattern-status {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+        }
+        
+        .pattern-status.learned {
+            border: 1px solid var(--success);
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .pattern-status .icon { margin-right: 8px; }
+        
+        .student-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+        
+        .student-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .student-item:hover { background: var(--bg-card); }
+        .student-item.current { background: var(--accent); }
+        .student-item.done { opacity: 0.6; }
+        
+        .student-item .photo {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            overflow: hidden;
+        }
+        
+        .student-item .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .student-item .name {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+        
+        .student-item .status {
+            font-size: 1.1rem;
+        }
         
         /* Review Section */
+        .review-container {
+            display: none;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
         .review-header {
+            max-width: 1200px;
+            margin: 0 auto 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
             flex-wrap: wrap;
             gap: 16px;
         }
         
-        .review-header h2 { margin: 0; }
+        .review-header h1 { font-size: 1.5rem; }
         
-        .class-name-input {
+        .class-input {
             display: flex;
             gap: 12px;
             align-items: center;
         }
         
-        .class-name-input input {
-            padding: 10px 16px;
+        .class-input input {
+            padding: 12px 16px;
             border-radius: 10px;
             border: 1px solid var(--border);
             background: var(--bg-secondary);
@@ -124,333 +342,172 @@
             width: 250px;
         }
         
-        .btn {
-            padding: 12px 24px;
-            border-radius: 10px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.95rem;
-        }
-        
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:hover { background: var(--accent-light); }
-        .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-small { padding: 6px 12px; font-size: 0.8rem; }
-        
-        .review-instructions {
-            background: var(--bg-secondary);
-            padding: 16px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-        
-        .review-instructions strong { color: var(--text-primary); }
-        
-        .student-grid {
+        .review-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 16px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         
-        .student-card {
-            background: var(--bg-secondary);
+        .review-card {
+            background: var(--bg-card);
             border-radius: 16px;
             padding: 16px;
             text-align: center;
-            position: relative;
-            border: 2px solid transparent;
-            transition: all 0.2s;
         }
         
-        .student-card:hover { border-color: var(--accent); }
-        
-        .student-card.error { border-color: var(--danger); background: rgba(239,68,68,0.1); }
-        .student-card.withdrawn { opacity: 0.5; }
-        
-        .card-actions {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            display: flex;
-            gap: 4px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        
-        .student-card:hover .card-actions { opacity: 1; }
-        
-        .card-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            border: none;
-            background: var(--bg-card);
-            color: var(--text-primary);
-            cursor: pointer;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .card-btn:hover { background: var(--accent); }
-        .card-btn.delete:hover { background: var(--danger); }
-        
-        .student-photo {
-            width: 100px;
-            height: 100px;
+        .review-card img {
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             object-fit: cover;
             margin-bottom: 12px;
-            border: 3px solid var(--border);
-            background: var(--bg-card);
+            border: 2px solid var(--border);
         }
         
-        .student-name {
+        .review-card .name {
             font-weight: 600;
-            font-size: 1rem;
             margin-bottom: 4px;
         }
         
-        .student-pos {
+        .review-card .pos {
             font-size: 0.75rem;
             color: var(--text-secondary);
         }
         
-        .student-name-input {
-            width: 100%;
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 0.9rem;
-            text-align: center;
-            margin-bottom: 4px;
-        }
-        
-        /* Edit Modal */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        
-        .modal-overlay.open { display: flex; }
-        
-        .modal {
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 32px;
-            width: 90%;
-            max-width: 500px;
-        }
-        
-        .modal h3 { margin-bottom: 20px; }
-        
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; margin-bottom: 6px; font-size: 0.9rem; color: var(--text-secondary); }
-        .form-group input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-size: 1rem;
-        }
-        
-        .modal-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            margin-top: 24px;
-        }
-        
-        /* Hidden canvases */
-        #pdfCanvas, #cropCanvas { display: none; }
-        
-        /* Summary bar */
-        .summary-bar {
-            display: flex;
-            gap: 24px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-        }
-        
-        .summary-stat {
-            background: var(--bg-secondary);
-            padding: 12px 20px;
-            border-radius: 10px;
-        }
-        
-        .summary-stat .value {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        
-        .summary-stat .label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
+        #cropCanvas { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎟️ Hall Pass — Import Class</h1>
-        <p class="subtitle">Upload a PDF seating chart from MyEd</p>
-        
-        <!-- Step 1: Upload -->
-        <div class="section" id="uploadSection">
+    <!-- Step 1: Upload -->
+    <div class="upload-container" id="uploadSection">
+        <div class="upload-card">
+            <h1>🎟️ Hall Pass</h1>
+            <p class="subtitle">Import class from PDF seating chart</p>
             <div class="upload-zone" id="uploadZone">
                 <div class="upload-icon">📄</div>
-                <div class="upload-text">Drop PDF seating chart here</div>
-                <div class="upload-hint">or click to browse</div>
+                <div>Drop PDF here or click to browse</div>
             </div>
             <input type="file" id="pdfInput" accept=".pdf" style="display:none">
         </div>
-        
-        <!-- Step 2: Processing -->
-        <div class="section hidden" id="progressSection">
-            <h2>⏳ Processing PDF...</h2>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-status" id="progressStatus">Starting...</div>
-            <div class="log" id="log"></div>
-        </div>
-        
-        <!-- Step 3: Review & Edit -->
-        <div class="section hidden" id="reviewSection">
-            <div class="review-header">
-                <h2>✓ Review Students</h2>
-                <div class="class-name-input">
-                    <label>Class Name:</label>
-                    <input type="text" id="className" placeholder="e.g., CLE 10 - Block 4">
-                    <button class="btn btn-primary" onclick="saveClass()">💾 Save Class</button>
-                </div>
-            </div>
-            
-            <div class="review-instructions">
-                <strong>Review before saving:</strong> Check that names and photos are correct. 
-                Hover over a card to edit ✏️ or delete 🗑️. 
-                Click a name to edit it directly.
-            </div>
-            
-            <div class="summary-bar" id="summaryBar"></div>
-            
-            <div class="student-grid" id="studentGrid"></div>
+    </div>
+    
+    <!-- Step 2: Processing -->
+    <div class="processing-container" id="processingSection">
+        <div class="processing-card">
+            <div class="spinner"></div>
+            <h2>Processing PDF...</h2>
+            <p class="progress-text" id="processingStatus">Loading PDF...</p>
         </div>
     </div>
     
-    <!-- Edit Student Modal -->
-    <div class="modal-overlay" id="editModal">
-        <div class="modal">
-            <h3>✏️ Edit Student</h3>
-            <div class="form-group">
-                <label>First Name</label>
-                <input type="text" id="editFirstName">
-            </div>
-            <div class="form-group">
-                <label>Last Name</label>
-                <input type="text" id="editLastName">
-            </div>
-            <div class="form-group">
-                <label>Position</label>
-                <div style="display:flex;gap:12px;">
-                    <input type="number" id="editRow" placeholder="Row" style="width:50%">
-                    <input type="number" id="editCol" placeholder="Col" style="width:50%">
+    <!-- Step 3: Face Selection -->
+    <div class="selection-container" id="selectionSection">
+        <div class="selection-layout">
+            <div class="pdf-viewer">
+                <div class="pdf-canvas-container" id="canvasContainer">
+                    <canvas id="pdfCanvas"></canvas>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Select Faces</h2>
+                    <p id="progressText">0 of 0 students</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+                
+                <div class="current-student" id="currentStudent">
+                    <h3 id="currentName">Loading...</h3>
+                    <p class="instruction" id="instruction">Draw a rectangle around this student's face</p>
+                    <div class="current-preview" id="currentPreview"></div>
+                    <button class="btn btn-primary" id="confirmBtn" disabled onclick="confirmSelection()">
+                        ✓ Confirm Face
+                    </button>
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="skipStudent()">Skip</button>
+                        <button class="btn btn-secondary" onclick="clearSelection()">Clear</button>
+                    </div>
+                </div>
+                
+                <div class="pattern-status" id="patternStatus">
+                    <span class="icon">🔍</span>
+                    <span>Learning pattern... Select a few faces</span>
+                </div>
+                
+                <div class="student-list" id="studentList"></div>
             </div>
         </div>
     </div>
     
-    <canvas id="pdfCanvas"></canvas>
+    <!-- Step 4: Review -->
+    <div class="review-container" id="reviewSection">
+        <div class="review-header">
+            <h1>✓ Review & Save</h1>
+            <div class="class-input">
+                <input type="text" id="className" placeholder="Class name">
+                <button class="btn btn-primary" style="width:auto" onclick="saveClass()">💾 Save Class</button>
+            </div>
+        </div>
+        <div class="review-grid" id="reviewGrid"></div>
+    </div>
+    
     <canvas id="cropCanvas"></canvas>
     
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         
-        let extractedStudents = [];
-        let editingIndex = -1;
+        // State
+        let students = [];
+        let currentIndex = 0;
         let pdfCanvas, pdfCtx;
+        let scale = 1;
+        
+        // Selection state
+        let isDrawing = false;
+        let startX, startY;
+        let currentRect = null;
+        let selectionDiv = null;
+        
+        // Pattern learning
+        let patterns = []; // Array of {nameX, nameY, photoOffsetX, photoOffsetY, photoWidth, photoHeight}
+        let patternLearned = false;
         
         // Upload handlers
-        const uploadZone = document.getElementById('uploadZone');
-        const pdfInput = document.getElementById('pdfInput');
-        
-        uploadZone.addEventListener('click', () => pdfInput.click());
-        
-        uploadZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadZone.classList.add('dragover');
+        document.getElementById('uploadZone').addEventListener('click', () => {
+            document.getElementById('pdfInput').click();
         });
         
-        uploadZone.addEventListener('dragleave', () => {
-            uploadZone.classList.remove('dragover');
+        document.getElementById('pdfInput').addEventListener('change', (e) => {
+            if (e.target.files[0]) processPDF(e.target.files[0]);
         });
         
-        uploadZone.addEventListener('drop', (e) => {
+        document.getElementById('uploadZone').addEventListener('dragover', (e) => {
             e.preventDefault();
-            uploadZone.classList.remove('dragover');
+            e.currentTarget.style.borderColor = 'var(--accent)';
+        });
+        
+        document.getElementById('uploadZone').addEventListener('drop', (e) => {
+            e.preventDefault();
             const file = e.dataTransfer.files[0];
             if (file?.type === 'application/pdf') processPDF(file);
         });
         
-        pdfInput.addEventListener('change', (e) => {
-            if (e.target.files[0]) processPDF(e.target.files[0]);
-        });
-        
-        function log(msg, type = 'info') {
-            const el = document.getElementById('log');
-            const entry = document.createElement('div');
-            entry.className = 'log-entry ' + type;
-            entry.textContent = msg;
-            el.appendChild(entry);
-            el.scrollTop = el.scrollHeight;
-        }
-        
-        function setProgress(pct, status) {
-            document.getElementById('progressFill').style.width = pct + '%';
-            document.getElementById('progressStatus').textContent = status;
-        }
-        
-        function showSection(id) {
-            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-        }
-        
         async function processPDF(file) {
-            showSection('progressSection');
-            document.getElementById('log').innerHTML = '';
-            extractedStudents = [];
+            showSection('processingSection');
             
             try {
-                // Step 1: Load PDF
-                log('Loading PDF: ' + file.name);
-                setProgress(5, 'Loading PDF...');
-                
+                // Load PDF
+                setStatus('Loading PDF...');
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                log('✓ PDF loaded, pages: ' + pdf.numPages, 'success');
                 
-                // Step 2: Render to canvas at high resolution
-                setProgress(10, 'Rendering page...');
+                // Render page
+                setStatus('Rendering page...');
                 const page = await pdf.getPage(1);
-                const scale = 3; // High res for better OCR
+                scale = 2;
                 const viewport = page.getViewport({ scale });
                 
                 pdfCanvas = document.getElementById('pdfCanvas');
@@ -459,360 +516,453 @@
                 pdfCanvas.height = viewport.height;
                 
                 await page.render({ canvasContext: pdfCtx, viewport }).promise;
-                log('✓ Page rendered: ' + pdfCanvas.width + 'x' + pdfCanvas.height, 'success');
                 
-                // Suggest class name from filename
-                const suggestedName = file.name.replace('.pdf', '').replace(/[_-]/g, ' ');
-                document.getElementById('className').value = suggestedName;
+                // Extract class name from filename
+                document.getElementById('className').value = file.name.replace('.pdf', '').replace(/[_-]/g, ' ');
                 
-                // Step 3: Run OCR
-                setProgress(20, 'Running OCR (this takes 30-60 seconds)...');
-                log('Starting OCR...');
-                
+                // Run OCR
+                setStatus('Finding names (this takes 30-60 seconds)...');
                 const worker = await Tesseract.createWorker('eng');
                 const { data } = await worker.recognize(pdfCanvas);
                 await worker.terminate();
                 
-                log('✓ OCR complete, analyzing text...', 'success');
-                setProgress(60, 'Finding names...');
+                // Find name patterns
+                setStatus('Analyzing names...');
+                const namePattern = /([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/g;
+                let match;
                 
-                // Step 4: Find name patterns with bounding boxes
-                // Pattern: "LastName, FirstName" - name is ABOVE the photo
-                const namePattern = /^([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/;
-                const foundNames = [];
-                
-                // Group words into lines based on Y position
-                const lines = groupWordsIntoLines(data.words);
-                
-                for (const line of lines) {
-                    const lineText = line.words.map(w => w.text).join(' ');
-                    const match = lineText.match(namePattern);
+                while ((match = namePattern.exec(data.text)) !== null) {
+                    const lastName = match[1];
+                    const firstName = match[2];
                     
-                    if (match) {
-                        const lastName = match[1];
-                        const firstName = match[2];
-                        
-                        // Get bounding box of the line
-                        const bbox = getLineBounds(line.words);
-                        
-                        foundNames.push({
-                            firstName,
-                            lastName,
-                            lastInitial: lastName[0],
-                            displayName: firstName + ' ' + lastName[0] + '.',
-                            bbox,
-                            confidence: line.words.reduce((sum, w) => sum + w.confidence, 0) / line.words.length
-                        });
-                        
-                        log('Found: ' + firstName + ' ' + lastName + ' @ y=' + Math.round(bbox.y));
-                    }
+                    // Find position in OCR data
+                    const wordData = findWordPosition(data.words, lastName);
+                    
+                    students.push({
+                        firstName,
+                        lastName,
+                        lastInitial: lastName[0],
+                        displayName: firstName + ' ' + lastName[0] + '.',
+                        namePosition: wordData ? { x: wordData.x, y: wordData.y, w: wordData.w, h: wordData.h } : null,
+                        photoRect: null,
+                        photoData: null,
+                        confirmed: false
+                    });
                 }
                 
-                log('✓ Found ' + foundNames.length + ' student names', foundNames.length > 0 ? 'success' : 'error');
-                
-                if (foundNames.length === 0) {
-                    log('No names found. Check PDF format.', 'error');
+                if (students.length === 0) {
+                    alert('No student names found in PDF. Please check the file.');
+                    showSection('uploadSection');
                     return;
                 }
                 
-                // Step 5: Calculate grid layout from name positions
-                setProgress(70, 'Calculating grid layout...');
-                
-                // Sort names by position (top to bottom, left to right)
-                foundNames.sort((a, b) => {
-                    const rowDiff = Math.floor(a.bbox.y / 100) - Math.floor(b.bbox.y / 100);
+                // Sort by position (top to bottom, left to right)
+                students.sort((a, b) => {
+                    if (!a.namePosition || !b.namePosition) return 0;
+                    const rowDiff = Math.floor(a.namePosition.y / 100) - Math.floor(b.namePosition.y / 100);
                     if (rowDiff !== 0) return rowDiff;
-                    return a.bbox.x - b.bbox.x;
+                    return a.namePosition.x - b.namePosition.x;
                 });
                 
-                // Determine row breaks
-                const rowThreshold = 100; // pixels between rows
-                let currentRow = 0;
-                let currentCol = 0;
-                let lastY = foundNames[0]?.bbox.y || 0;
-                
-                // Calculate typical cell dimensions from spacing
-                const cellHeight = estimateCellHeight(foundNames);
-                const cellWidth = estimateCellWidth(foundNames);
-                
-                log('Cell size estimate: ' + Math.round(cellWidth) + 'x' + Math.round(cellHeight));
-                
-                // Step 6: Extract photos (BELOW each name)
-                setProgress(80, 'Extracting photos...');
-                
-                const cropCanvas = document.getElementById('cropCanvas');
-                const cropCtx = cropCanvas.getContext('2d');
-                cropCanvas.width = 200;
-                cropCanvas.height = 200;
-                
-                for (let i = 0; i < foundNames.length; i++) {
-                    const name = foundNames[i];
-                    
-                    // Check for row break
-                    if (i > 0 && name.bbox.y - lastY > rowThreshold) {
-                        currentRow++;
-                        currentCol = 0;
+                // Assign IDs and positions
+                let row = 0, col = 0, lastY = -1;
+                students.forEach((s, i) => {
+                    s.id = i + 1;
+                    if (s.namePosition) {
+                        const currentY = Math.floor(s.namePosition.y / 150);
+                        if (lastY !== -1 && currentY > lastY) {
+                            row++;
+                            col = 0;
+                        }
+                        lastY = currentY;
                     }
-                    lastY = name.bbox.y;
-                    
-                    // Photo is BELOW the name
-                    // Calculate photo region
-                    const photoX = name.bbox.x - 20; // Slight left offset
-                    const photoY = name.bbox.y + name.bbox.height + 5; // Below name
-                    const photoW = Math.max(cellWidth, name.bbox.width + 40);
-                    const photoH = cellHeight * 0.7; // Photo portion of cell
-                    
-                    // Crop the photo region
-                    cropCtx.fillStyle = '#1a1a2e';
-                    cropCtx.fillRect(0, 0, 200, 200);
-                    
-                    cropCtx.drawImage(
-                        pdfCanvas,
-                        Math.max(0, photoX), 
-                        Math.max(0, photoY),
-                        photoW, 
-                        photoH,
-                        0, 0, 200, 200
-                    );
-                    
-                    const photoData = cropCanvas.toDataURL('image/jpeg', 0.85);
-                    
-                    extractedStudents.push({
-                        id: i + 1,
-                        firstName: name.firstName,
-                        lastName: name.lastName,
-                        lastInitial: name.lastInitial,
-                        displayName: name.displayName,
-                        position: { row: currentRow, col: currentCol },
-                        caricatures: { photo: photoData },
-                        caricature: photoData,
-                        status: 'active'
-                    });
-                    
-                    currentCol++;
-                }
+                    s.position = { row, col };
+                    col++;
+                });
                 
-                setProgress(100, 'Complete!');
-                log('✓ Extracted ' + extractedStudents.length + ' students', 'success');
-                
-                // Show review section
-                renderReview();
-                showSection('reviewSection');
+                // Start selection process
+                initSelection();
+                showSection('selectionSection');
                 
             } catch (err) {
-                log('Error: ' + err.message, 'error');
-                console.error(err);
+                alert('Error processing PDF: ' + err.message);
+                showSection('uploadSection');
             }
         }
         
-        function groupWordsIntoLines(words) {
-            // Group words that are on the same horizontal line
-            const lines = [];
-            const threshold = 15; // Y tolerance for same line
-            
+        function findWordPosition(words, searchText) {
             for (const word of words) {
-                if (word.confidence < 50) continue; // Skip low confidence
-                
-                const y = word.bbox.y0;
-                let foundLine = false;
-                
-                for (const line of lines) {
-                    if (Math.abs(line.y - y) < threshold) {
-                        line.words.push(word);
-                        foundLine = true;
-                        break;
-                    }
-                }
-                
-                if (!foundLine) {
-                    lines.push({ y, words: [word] });
+                if (word.text.includes(searchText) && word.confidence > 50) {
+                    return {
+                        x: word.bbox.x0,
+                        y: word.bbox.y0,
+                        w: word.bbox.x1 - word.bbox.x0,
+                        h: word.bbox.y1 - word.bbox.y0
+                    };
                 }
             }
-            
-            // Sort words within each line by X position
-            for (const line of lines) {
-                line.words.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-            }
-            
-            return lines;
+            return null;
         }
         
-        function getLineBounds(words) {
-            let minX = Infinity, minY = Infinity;
-            let maxX = 0, maxY = 0;
-            
-            for (const word of words) {
-                minX = Math.min(minX, word.bbox.x0);
-                minY = Math.min(minY, word.bbox.y0);
-                maxX = Math.max(maxX, word.bbox.x1);
-                maxY = Math.max(maxY, word.bbox.y1);
-            }
-            
-            return {
-                x: minX,
-                y: minY,
-                width: maxX - minX,
-                height: maxY - minY
-            };
+        function setStatus(text) {
+            document.getElementById('processingStatus').textContent = text;
         }
         
-        function estimateCellHeight(names) {
-            // Calculate typical vertical spacing between names
-            if (names.length < 2) return 300;
-            
-            const yPositions = names.map(n => n.bbox.y).sort((a, b) => a - b);
-            const gaps = [];
-            
-            for (let i = 1; i < yPositions.length; i++) {
-                const gap = yPositions[i] - yPositions[i-1];
-                if (gap > 50) gaps.push(gap); // Ignore same-row gaps
-            }
-            
-            if (gaps.length === 0) return 300;
-            return gaps.reduce((a, b) => a + b) / gaps.length;
+        function showSection(id) {
+            ['uploadSection', 'processingSection', 'selectionSection', 'reviewSection'].forEach(s => {
+                document.getElementById(s).style.display = 'none';
+            });
+            document.getElementById(id).style.display = id.includes('selection') ? 'block' : 'flex';
         }
         
-        function estimateCellWidth(names) {
-            // Calculate typical horizontal spacing
-            if (names.length < 2) return 200;
+        function initSelection() {
+            const container = document.getElementById('canvasContainer');
             
-            // Group by approximate row
-            const rows = {};
-            for (const name of names) {
-                const rowKey = Math.floor(name.bbox.y / 100);
-                if (!rows[rowKey]) rows[rowKey] = [];
-                rows[rowKey].push(name.bbox.x);
-            }
+            // Mouse events for drawing
+            container.addEventListener('mousedown', startDraw);
+            container.addEventListener('mousemove', draw);
+            container.addEventListener('mouseup', endDraw);
+            container.addEventListener('mouseleave', endDraw);
             
-            const widths = [];
-            for (const row of Object.values(rows)) {
-                row.sort((a, b) => a - b);
-                for (let i = 1; i < row.length; i++) {
-                    widths.push(row[i] - row[i-1]);
+            // Render student list
+            renderStudentList();
+            
+            // Show first student
+            showStudent(0);
+            
+            // Add name markers to PDF
+            addNameMarkers();
+        }
+        
+        function addNameMarkers() {
+            const container = document.getElementById('canvasContainer');
+            
+            students.forEach((s, i) => {
+                if (s.namePosition) {
+                    const marker = document.createElement('div');
+                    marker.className = 'name-marker';
+                    marker.textContent = s.displayName;
+                    marker.style.left = s.namePosition.x + 'px';
+                    marker.style.top = (s.namePosition.y - 20) + 'px';
+                    container.appendChild(marker);
                 }
-            }
-            
-            if (widths.length === 0) return 200;
-            return widths.reduce((a, b) => a + b) / widths.length;
+            });
         }
         
-        function renderReview() {
-            // Summary
-            const summary = document.getElementById('summaryBar');
-            const maxRow = Math.max(...extractedStudents.map(s => s.position.row));
-            const maxCol = Math.max(...extractedStudents.map(s => s.position.col));
-            
-            summary.innerHTML = `
-                <div class="summary-stat">
-                    <div class="value">${extractedStudents.length}</div>
-                    <div class="label">Students</div>
-                </div>
-                <div class="summary-stat">
-                    <div class="value">${maxRow + 1} × ${maxCol + 1}</div>
-                    <div class="label">Grid Size</div>
-                </div>
-            `;
-            
-            // Student cards
-            const grid = document.getElementById('studentGrid');
-            grid.innerHTML = extractedStudents.map((s, i) => `
-                <div class="student-card" data-index="${i}">
-                    <div class="card-actions">
-                        <button class="card-btn" onclick="editStudent(${i})" title="Edit">✏️</button>
-                        <button class="card-btn delete" onclick="deleteStudent(${i})" title="Delete">🗑️</button>
+        function renderStudentList() {
+            const list = document.getElementById('studentList');
+            list.innerHTML = students.map((s, i) => `
+                <div class="student-item ${i === currentIndex ? 'current' : ''} ${s.confirmed ? 'done' : ''}" 
+                     onclick="showStudent(${i})">
+                    <div class="photo">
+                        ${s.photoData ? `<img src="${s.photoData}">` : ''}
                     </div>
-                    <img class="student-photo" src="${s.caricature}" alt="${s.firstName}">
-                    <input class="student-name-input" value="${s.displayName}" 
-                           onchange="updateName(${i}, this.value)"
-                           title="Click to edit name">
-                    <div class="student-pos">Row ${s.position.row + 1}, Col ${s.position.col + 1}</div>
+                    <div class="name">${s.displayName}</div>
+                    <div class="status">${s.confirmed ? '✓' : ''}</div>
                 </div>
             `).join('');
         }
         
-        function updateName(index, value) {
-            // Parse "FirstName L." format
-            const parts = value.trim().split(' ');
-            if (parts.length >= 2) {
-                extractedStudents[index].firstName = parts[0];
-                extractedStudents[index].lastInitial = parts[1].replace('.', '')[0];
-                extractedStudents[index].displayName = parts[0] + ' ' + parts[1].replace('.', '')[0] + '.';
+        function showStudent(index) {
+            currentIndex = index;
+            const student = students[index];
+            
+            document.getElementById('currentName').textContent = student.displayName;
+            document.getElementById('progressText').textContent = `${index + 1} of ${students.length} students`;
+            document.getElementById('progressFill').style.width = ((index + 1) / students.length * 100) + '%';
+            
+            // Update preview
+            const preview = document.getElementById('currentPreview');
+            if (student.photoData) {
+                preview.innerHTML = `<img src="${student.photoData}">`;
+            } else {
+                preview.innerHTML = '';
+            }
+            
+            // Clear any existing selection
+            clearSelectionRect();
+            
+            // Check if we can suggest based on pattern
+            if (patternLearned && student.namePosition && !student.confirmed) {
+                suggestPhotoPosition(student);
+            }
+            
+            // Scroll to name position
+            if (student.namePosition) {
+                const container = document.getElementById('canvasContainer');
+                container.scrollTop = Math.max(0, student.namePosition.y - 100);
+                container.scrollLeft = Math.max(0, student.namePosition.x - 100);
+            }
+            
+            // Update button state
+            document.getElementById('confirmBtn').disabled = !currentRect;
+            
+            // Update list highlight
+            renderStudentList();
+        }
+        
+        function startDraw(e) {
+            const rect = pdfCanvas.getBoundingClientRect();
+            const container = document.getElementById('canvasContainer');
+            startX = e.clientX - rect.left + container.scrollLeft;
+            startY = e.clientY - rect.top + container.scrollTop;
+            isDrawing = true;
+            
+            clearSelectionRect();
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = pdfCanvas.getBoundingClientRect();
+            const container = document.getElementById('canvasContainer');
+            const currentX = e.clientX - rect.left + container.scrollLeft;
+            const currentY = e.clientY - rect.top + container.scrollTop;
+            
+            const x = Math.min(startX, currentX);
+            const y = Math.min(startY, currentY);
+            const w = Math.abs(currentX - startX);
+            const h = Math.abs(currentY - startY);
+            
+            if (!selectionDiv) {
+                selectionDiv = document.createElement('div');
+                selectionDiv.className = 'selection-rect';
+                container.appendChild(selectionDiv);
+            }
+            
+            selectionDiv.style.left = x + 'px';
+            selectionDiv.style.top = y + 'px';
+            selectionDiv.style.width = w + 'px';
+            selectionDiv.style.height = h + 'px';
+            
+            currentRect = { x, y, w, h };
+        }
+        
+        function endDraw() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            if (currentRect && currentRect.w > 20 && currentRect.h > 20) {
+                // Crop and preview
+                cropAndPreview();
+                document.getElementById('confirmBtn').disabled = false;
             }
         }
         
-        function editStudent(index) {
-            editingIndex = index;
-            const s = extractedStudents[index];
-            document.getElementById('editFirstName').value = s.firstName;
-            document.getElementById('editLastName').value = s.lastName || '';
-            document.getElementById('editRow').value = s.position.row + 1;
-            document.getElementById('editCol').value = s.position.col + 1;
-            document.getElementById('editModal').classList.add('open');
-        }
-        
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('open');
-            editingIndex = -1;
-        }
-        
-        function saveEdit() {
-            if (editingIndex < 0) return;
+        function cropAndPreview() {
+            if (!currentRect) return;
             
-            const s = extractedStudents[editingIndex];
-            s.firstName = document.getElementById('editFirstName').value;
-            s.lastName = document.getElementById('editLastName').value;
-            s.lastInitial = s.lastName ? s.lastName[0] : 'X';
-            s.displayName = s.firstName + ' ' + s.lastInitial + '.';
-            s.position.row = parseInt(document.getElementById('editRow').value) - 1;
-            s.position.col = parseInt(document.getElementById('editCol').value) - 1;
+            const cropCanvas = document.getElementById('cropCanvas');
+            const cropCtx = cropCanvas.getContext('2d');
+            cropCanvas.width = 150;
+            cropCanvas.height = 150;
             
-            closeEditModal();
-            renderReview();
+            cropCtx.drawImage(
+                pdfCanvas,
+                currentRect.x, currentRect.y, currentRect.w, currentRect.h,
+                0, 0, 150, 150
+            );
+            
+            const photoData = cropCanvas.toDataURL('image/jpeg', 0.85);
+            
+            // Update preview
+            document.getElementById('currentPreview').innerHTML = `<img src="${photoData}">`;
+            
+            // Store temporarily
+            students[currentIndex].tempPhotoData = photoData;
+            students[currentIndex].tempRect = { ...currentRect };
         }
         
-        function deleteStudent(index) {
-            if (confirm('Remove ' + extractedStudents[index].displayName + '?')) {
-                extractedStudents.splice(index, 1);
-                // Re-index
-                extractedStudents.forEach((s, i) => s.id = i + 1);
-                renderReview();
+        function confirmSelection() {
+            const student = students[currentIndex];
+            
+            if (student.tempPhotoData) {
+                student.photoData = student.tempPhotoData;
+                student.photoRect = student.tempRect;
+                student.confirmed = true;
+                
+                // Learn pattern if we have name position
+                if (student.namePosition && student.photoRect) {
+                    learnPattern(student);
+                }
+                
+                // Move to next unconfirmed student
+                const nextIndex = students.findIndex((s, i) => i > currentIndex && !s.confirmed);
+                if (nextIndex !== -1) {
+                    showStudent(nextIndex);
+                } else {
+                    // Check if all done
+                    const allDone = students.every(s => s.confirmed);
+                    if (allDone) {
+                        showReview();
+                    } else {
+                        // Find first unconfirmed
+                        const firstUnconfirmed = students.findIndex(s => !s.confirmed);
+                        if (firstUnconfirmed !== -1) {
+                            showStudent(firstUnconfirmed);
+                        }
+                    }
+                }
             }
+            
+            renderStudentList();
+        }
+        
+        function learnPattern(student) {
+            const pattern = {
+                offsetX: student.photoRect.x - student.namePosition.x,
+                offsetY: student.photoRect.y - student.namePosition.y,
+                width: student.photoRect.w,
+                height: student.photoRect.h
+            };
+            
+            patterns.push(pattern);
+            
+            // Check if pattern is consistent (learned)
+            if (patterns.length >= 2) {
+                const avgOffsetX = patterns.reduce((a, p) => a + p.offsetX, 0) / patterns.length;
+                const avgOffsetY = patterns.reduce((a, p) => a + p.offsetY, 0) / patterns.length;
+                const avgWidth = patterns.reduce((a, p) => a + p.width, 0) / patterns.length;
+                const avgHeight = patterns.reduce((a, p) => a + p.height, 0) / patterns.length;
+                
+                // Check variance
+                const consistent = patterns.every(p => 
+                    Math.abs(p.offsetX - avgOffsetX) < 50 &&
+                    Math.abs(p.offsetY - avgOffsetY) < 50
+                );
+                
+                if (consistent && patterns.length >= 2) {
+                    patternLearned = true;
+                    document.getElementById('patternStatus').className = 'pattern-status learned';
+                    document.getElementById('patternStatus').innerHTML = 
+                        '<span class="icon">✓</span><span>Pattern learned! Auto-suggesting faces</span>';
+                }
+            }
+        }
+        
+        function suggestPhotoPosition(student) {
+            if (patterns.length === 0 || !student.namePosition) return;
+            
+            // Calculate average pattern
+            const avgOffsetX = patterns.reduce((a, p) => a + p.offsetX, 0) / patterns.length;
+            const avgOffsetY = patterns.reduce((a, p) => a + p.offsetY, 0) / patterns.length;
+            const avgWidth = patterns.reduce((a, p) => a + p.width, 0) / patterns.length;
+            const avgHeight = patterns.reduce((a, p) => a + p.height, 0) / patterns.length;
+            
+            const suggestedRect = {
+                x: student.namePosition.x + avgOffsetX,
+                y: student.namePosition.y + avgOffsetY,
+                w: avgWidth,
+                h: avgHeight
+            };
+            
+            // Show suggestion
+            const container = document.getElementById('canvasContainer');
+            let suggestionDiv = container.querySelector('.suggestion-rect');
+            if (!suggestionDiv) {
+                suggestionDiv = document.createElement('div');
+                suggestionDiv.className = 'suggestion-rect';
+                container.appendChild(suggestionDiv);
+            }
+            
+            suggestionDiv.style.left = suggestedRect.x + 'px';
+            suggestionDiv.style.top = suggestedRect.y + 'px';
+            suggestionDiv.style.width = suggestedRect.w + 'px';
+            suggestionDiv.style.height = suggestedRect.h + 'px';
+            suggestionDiv.style.display = 'block';
+            
+            // Auto-apply suggestion
+            currentRect = suggestedRect;
+            cropAndPreview();
+            document.getElementById('confirmBtn').disabled = false;
+            document.getElementById('instruction').textContent = 'Suggested face - confirm or draw a new rectangle';
+        }
+        
+        function clearSelectionRect() {
+            if (selectionDiv) {
+                selectionDiv.remove();
+                selectionDiv = null;
+            }
+            
+            const container = document.getElementById('canvasContainer');
+            const suggestion = container.querySelector('.suggestion-rect');
+            if (suggestion) suggestion.style.display = 'none';
+            
+            currentRect = null;
+            document.getElementById('confirmBtn').disabled = true;
+            document.getElementById('instruction').textContent = 'Draw a rectangle around this student\'s face';
+        }
+        
+        function clearSelection() {
+            clearSelectionRect();
+            document.getElementById('currentPreview').innerHTML = '';
+            students[currentIndex].tempPhotoData = null;
+            students[currentIndex].tempRect = null;
+        }
+        
+        function skipStudent() {
+            const nextIndex = students.findIndex((s, i) => i > currentIndex && !s.confirmed);
+            if (nextIndex !== -1) {
+                showStudent(nextIndex);
+            } else {
+                // Show first unconfirmed
+                const firstUnconfirmed = students.findIndex(s => !s.confirmed);
+                if (firstUnconfirmed !== -1) {
+                    showStudent(firstUnconfirmed);
+                }
+            }
+        }
+        
+        function showReview() {
+            showSection('reviewSection');
+            
+            const grid = document.getElementById('reviewGrid');
+            grid.innerHTML = students.filter(s => s.confirmed).map(s => `
+                <div class="review-card">
+                    <img src="${s.photoData}" alt="${s.firstName}">
+                    <div class="name">${s.displayName}</div>
+                    <div class="pos">Row ${s.position.row + 1}, Col ${s.position.col + 1}</div>
+                </div>
+            `).join('');
         }
         
         function saveClass() {
             const className = document.getElementById('className').value.trim() || 'Unnamed Class';
+            const confirmedStudents = students.filter(s => s.confirmed);
             
-            if (extractedStudents.length === 0) {
+            if (confirmedStudents.length === 0) {
                 alert('No students to save.');
                 return;
             }
-            
-            const maxRow = Math.max(...extractedStudents.map(s => s.position.row));
-            const maxCol = Math.max(...extractedStudents.map(s => s.position.col));
             
             const classData = {
                 version: 4,
                 settings: {
                     classId: 'class_' + Date.now(),
                     className: className,
-                    gridSize: { rows: maxRow + 1, cols: maxCol + 1 }
+                    gridSize: { 
+                        rows: Math.max(...confirmedStudents.map(s => s.position.row)) + 1,
+                        cols: Math.max(...confirmedStudents.map(s => s.position.col)) + 1
+                    }
                 },
                 styles: {
                     available: [{ id: 'photo', name: 'Photo', emoji: '📷' }],
                     default: 'photo'
                 },
-                students: extractedStudents
+                students: confirmedStudents.map((s, i) => ({
+                    id: i + 1,
+                    firstName: s.firstName,
+                    lastInitial: s.lastInitial,
+                    position: s.position,
+                    caricatures: { photo: s.photoData },
+                    caricature: s.photoData,
+                    status: 'active'
+                }))
             };
             
-            // Save to localStorage
             localStorage.setItem('hallpass_class', JSON.stringify(classData));
             
-            // Also save to class list
-            const classes = JSON.parse(localStorage.getItem('hallpass_classes') || '{}');
-            classes[classData.settings.classId] = classData;
-            localStorage.setItem('hallpass_classes', JSON.stringify(classes));
-            
-            alert('✓ Saved "' + className + '" with ' + extractedStudents.length + ' students!');
+            alert('✓ Saved "' + className + '" with ' + confirmedStudents.length + ' students!');
             window.location.href = 'index.html';
         }
     </script>
