@@ -1286,39 +1286,69 @@
     }
     
     async function mapNamesToPositions(page, viewport) {
-        const textContent = await page.getTextContent();
-        const items = textContent.items.map(item => {
-            const tx = item.transform;
-            return {
-                text: item.str.trim().toLowerCase(),
-                x: tx[4] * viewport.scale,
-                y: (page.view[3] - tx[5]) * viewport.scale
-            };
-        });
+        // Extract students directly from PDF with their positions
+        const pdfStudents = await extractStudentsFromPDF(page, viewport);
+        
+        if (pdfStudents.length === 0) {
+            console.warn('Could not extract positions from PDF');
+            return;
+        }
+        
+        console.log(`Mapping ${students.length} pasted names to ${pdfStudents.length} PDF positions`);
+        
+        // Match each pasted student to a PDF student by last name (exact match first, then fuzzy)
+        const usedPdfIndexes = new Set();
         
         for (const student of students) {
-            const lastName = student.lastName.toLowerCase();
-            const firstName = student.firstName.toLowerCase();
+            const lastName = student.lastName.toLowerCase().trim();
+            const firstName = student.firstName.toLowerCase().trim();
             
+            // Try exact last name match first
             let bestMatch = null;
+            let bestMatchIdx = -1;
             let bestScore = 0;
             
-            for (const item of items) {
+            for (let i = 0; i < pdfStudents.length; i++) {
+                if (usedPdfIndexes.has(i)) continue;
+                
+                const pdfStudent = pdfStudents[i];
+                const pdfLastName = pdfStudent.lastName.toLowerCase().trim();
+                const pdfFirstName = pdfStudent.firstName.toLowerCase().trim();
+                
                 let score = 0;
-                if (item.text.includes(lastName)) score += 2;
-                if (item.text.includes(firstName)) score += 1;
+                
+                // Exact last name match = 10 points
+                if (pdfLastName === lastName) score += 10;
+                // Partial last name match = 3 points
+                else if (pdfLastName.includes(lastName) || lastName.includes(pdfLastName)) score += 3;
+                
+                // First name match bonus
+                if (pdfFirstName === firstName) score += 5;
+                else if (pdfFirstName.includes(firstName) || firstName.includes(pdfFirstName)) score += 2;
+                
                 if (score > bestScore) {
                     bestScore = score;
-                    bestMatch = item;
+                    bestMatch = pdfStudent;
+                    bestMatchIdx = i;
                 }
             }
             
-            if (bestMatch && bestScore > 0) {
-                student.textX = bestMatch.x;
-                student.textY = bestMatch.y;
-                student.ocrConfidence = bestScore >= 2 ? 1.0 : 0.6;
+            // Require at least a partial last name match (score >= 3)
+            if (bestMatch && bestScore >= 3) {
+                usedPdfIndexes.add(bestMatchIdx);
+                student.textX = bestMatch.textX;
+                student.textY = bestMatch.textY;
+                student.textWidth = bestMatch.textWidth;
+                student.withdrawn = bestMatch.withdrawn || student.withdrawn;
+                student.ocrConfidence = bestScore >= 10 ? 1.0 : 0.7;
+                console.log(`  Matched: ${student.lastName} → PDF position (${Math.round(bestMatch.textX)}, ${Math.round(bestMatch.textY)}) score=${bestScore}`);
+            } else {
+                console.warn(`  No match for: ${student.lastName}, ${student.firstName}`);
             }
         }
+        
+        const matched = students.filter(s => s.textX !== undefined).length;
+        console.log(`Matched ${matched}/${students.length} students to PDF positions`);
     }
     
     // OCR extraction
