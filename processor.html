@@ -356,24 +356,62 @@
         .stu-item .nm { flex: 1; }
         .stu-item .chk { color: var(--success); }
         
-        /* Review */
-        .rev-grid {
+        /* Review - Seating Grid */
+        .seating-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 14px;
+            gap: 12px;
+            justify-content: center;
         }
         
-        .rev-card {
+        .seat {
+            width: 100px;
+            height: 120px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .seat:hover { border-color: var(--accent); }
+        .seat.empty {
+            border: 2px dashed var(--border);
+            background: transparent;
+            cursor: pointer;
+        }
+        .seat.empty:hover { border-color: var(--accent); background: rgba(99, 102, 241, 0.1); }
+        .seat.dragging { opacity: 0.5; transform: scale(0.95); }
+        .seat.drag-over { border-color: var(--success); background: rgba(34, 197, 94, 0.2); }
+        
+        .seat img {
+            width: 60px; height: 60px; border-radius: 50%;
+            object-fit: cover; margin-bottom: 6px; border: 2px solid var(--border);
+        }
+        .seat .nm { font-weight: 600; font-size: 0.75rem; text-align: center; }
+        .seat .empty-label { color: var(--text-secondary); font-size: 0.7rem; }
+        
+        .unassigned-area {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .unassigned-area h4 { margin-bottom: 12px; font-size: 0.9rem; }
+        .unassigned-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .unassigned-student {
             background: var(--bg-card);
-            border-radius: 14px;
-            padding: 14px;
-            text-align: center;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: grab;
+            font-size: 0.85rem;
+            display: flex; align-items: center; gap: 8px;
         }
-        .rev-card img {
-            width: 65px; height: 65px; border-radius: 50%;
-            object-fit: cover; margin-bottom: 8px; border: 2px solid var(--border);
+        .unassigned-student img {
+            width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
         }
-        .rev-card .nm { font-weight: 600; font-size: 0.85rem; }
+        .unassigned-student:hover { background: var(--accent); }
         
         #cropCanvas { display: none; }
     </style>
@@ -451,7 +489,10 @@
                         <button class="btn btn-secondary" onclick="skipStudent()">Skip</button>
                         <button class="btn btn-secondary" onclick="clearRect()">Clear</button>
                     </div>
-                    <button class="btn btn-primary" onclick="addStudentDuringSelection()">+ Add Student</button>
+                    <div class="btn-row">
+                        <button class="btn btn-primary" onclick="addStudentDuringSelection()">+ Add</button>
+                        <button class="btn btn-danger" onclick="deleteCurrentStudent()">🗑️ Delete</button>
+                    </div>
                 </div>
                 <div class="kb-hint">
                     <kbd>↑↓←→</kbd> Move &nbsp;<kbd>Shift</kbd>+Arrow = Big move<br>
@@ -469,17 +510,24 @@
     <div class="container">
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:16px;">
-                <h2>✓ Review & Save</h2>
+                <h2>✓ Review & Arrange Seating</h2>
                 <div style="display:flex;gap:12px;align-items:center;">
                     <input type="text" id="classNameInput" placeholder="Class name" 
                            style="padding:10px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);width:200px;">
                     <button class="btn btn-primary" onclick="saveClass()">💾 Save</button>
                 </div>
             </div>
-            <div class="rev-grid" id="revGrid"></div>
-            <div style="margin-top:24px;">
+            <p style="color:var(--text-secondary);margin-bottom:16px;">
+                Drag students to rearrange seating. Click empty seat to assign.
+            </p>
+            <div class="seating-grid" id="seatingGrid"></div>
+            <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
                 <button class="btn btn-secondary" onclick="goToStep(4)">← Back</button>
+                <button class="btn btn-secondary" onclick="addRowToGrid()">+ Add Row</button>
+                <button class="btn btn-secondary" onclick="addColToGrid()">+ Add Column</button>
+                <button class="btn btn-secondary" onclick="autoArrange()">Auto-Arrange</button>
             </div>
+            <div id="unassignedStudents" style="margin-top:24px;"></div>
         </div>
     </div>
 </div>
@@ -935,12 +983,20 @@
         
         const crop = document.getElementById('cropCanvas');
         const ctx = crop.getContext('2d');
-        crop.width = 150;
-        crop.height = 150;
         
-        ctx.drawImage(pdfCanvas, rect.x, rect.y, rect.w, rect.h, 0, 0, 150, 150);
+        // Make square crop from CENTER of selection (no aspect ratio distortion)
+        const size = Math.min(rect.w, rect.h);
+        const srcX = rect.x + (rect.w - size) / 2;
+        const srcY = rect.y + (rect.h - size) / 2;
         
-        students[currentIdx].tempPhoto = crop.toDataURL('image/jpeg', 0.85);
+        // Higher res for quality (will display smaller)
+        crop.width = 300;
+        crop.height = 300;
+        
+        // Draw square region into square canvas (1:1 aspect ratio preserved)
+        ctx.drawImage(pdfCanvas, srcX, srcY, size, size, 0, 0, 300, 300);
+        
+        students[currentIdx].tempPhoto = crop.toDataURL('image/jpeg', 0.9);
         document.getElementById('previewBox').innerHTML = `<img src="${students[currentIdx].tempPhoto}">`;
     }
     
@@ -1040,6 +1096,37 @@
         currentIdx = next !== -1 ? next : (currentIdx + 1) % students.length;
         showCurrentStudent();
         renderStuList();
+    }
+    
+    function deleteCurrentStudent() {
+        if (students.length <= 1) {
+            alert('Cannot delete the last student.');
+            return;
+        }
+        
+        const name = students[currentIdx].displayName;
+        if (!confirm(`Delete "${name}" from the class?`)) return;
+        
+        // Track as deletion for learning (might have been OCR error)
+        if (students[currentIdx].ocrOriginal) {
+            corrections.push({ ocr: students[currentIdx].ocrOriginal, fixed: 'DELETED' });
+        }
+        
+        // Remove student
+        students.splice(currentIdx, 1);
+        
+        // Re-index
+        students.forEach((s, i) => s.id = i + 1);
+        
+        // Move to next (or stay at end)
+        if (currentIdx >= students.length) {
+            currentIdx = students.length - 1;
+        }
+        
+        showCurrentStudent();
+        renderStuList();
+        
+        console.log(`Deleted student: ${name}`);
     }
     
     function updateCurName(val) {
@@ -1164,15 +1251,190 @@
         }
     }
     
-    // Step 5: Review
+    // Step 5: Review with Seating Grid
+    let gridRows = 5;
+    let gridCols = 6;
+    let seatingMap = {}; // { "row-col": studentId }
+    
     function renderReview() {
         const confirmed = students.filter(s => s.confirmed);
-        document.getElementById('revGrid').innerHTML = confirmed.map(s => `
-            <div class="rev-card">
-                <img src="${s.photoData}" alt="${s.displayName}">
-                <div class="nm">${s.displayName}</div>
-            </div>
-        `).join('');
+        
+        // Determine grid size from student positions
+        let maxRow = 0, maxCol = 0;
+        confirmed.forEach(s => {
+            if (s.position) {
+                maxRow = Math.max(maxRow, s.position.row);
+                maxCol = Math.max(maxCol, s.position.col);
+            }
+        });
+        gridRows = Math.max(gridRows, maxRow + 1);
+        gridCols = Math.max(gridCols, maxCol + 1);
+        
+        // Build seating map
+        seatingMap = {};
+        confirmed.forEach(s => {
+            if (s.position) {
+                const key = `${s.position.row}-${s.position.col}`;
+                seatingMap[key] = s.id;
+            }
+        });
+        
+        // Render grid
+        const grid = document.getElementById('seatingGrid');
+        grid.style.gridTemplateColumns = `repeat(${gridCols}, 100px)`;
+        
+        let html = '';
+        for (let r = 0; r < gridRows; r++) {
+            for (let c = 0; c < gridCols; c++) {
+                const key = `${r}-${c}`;
+                const studentId = seatingMap[key];
+                const student = studentId ? students.find(s => s.id === studentId) : null;
+                
+                if (student && student.confirmed) {
+                    html += `
+                        <div class="seat" draggable="true" data-row="${r}" data-col="${c}" data-id="${student.id}"
+                             ondragstart="dragStart(event)" ondragend="dragEnd(event)"
+                             ondragover="dragOver(event)" ondrop="dropSeat(event)">
+                            <img src="${student.photoData}" alt="${student.displayName}">
+                            <div class="nm">${student.displayName}</div>
+                        </div>`;
+                } else {
+                    html += `
+                        <div class="seat empty" data-row="${r}" data-col="${c}"
+                             ondragover="dragOver(event)" ondrop="dropSeat(event)"
+                             onclick="assignToSeat(${r}, ${c})">
+                            <div class="empty-label">Empty</div>
+                        </div>`;
+                }
+            }
+        }
+        grid.innerHTML = html;
+        
+        // Show unassigned students
+        renderUnassigned();
+    }
+    
+    function renderUnassigned() {
+        const confirmed = students.filter(s => s.confirmed);
+        const assignedIds = new Set(Object.values(seatingMap));
+        const unassigned = confirmed.filter(s => !assignedIds.has(s.id));
+        
+        const container = document.getElementById('unassignedStudents');
+        if (unassigned.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="unassigned-area">
+                <h4>📋 Unassigned Students (drag to seat)</h4>
+                <div class="unassigned-list">
+                    ${unassigned.map(s => `
+                        <div class="unassigned-student" draggable="true" data-id="${s.id}"
+                             ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+                            ${s.photoData ? `<img src="${s.photoData}">` : ''}
+                            ${s.displayName}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    }
+    
+    // Drag and drop handlers
+    let draggedId = null;
+    let draggedFromSeat = null;
+    
+    function dragStart(e) {
+        draggedId = parseInt(e.target.dataset.id);
+        draggedFromSeat = e.target.dataset.row !== undefined ? 
+            { row: parseInt(e.target.dataset.row), col: parseInt(e.target.dataset.col) } : null;
+        e.target.classList.add('dragging');
+    }
+    
+    function dragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
+    
+    function dragOver(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add('drag-over');
+    }
+    
+    function dropSeat(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        
+        const targetRow = parseInt(e.currentTarget.dataset.row);
+        const targetCol = parseInt(e.currentTarget.dataset.col);
+        const targetKey = `${targetRow}-${targetCol}`;
+        const existingId = seatingMap[targetKey];
+        
+        if (draggedFromSeat) {
+            // Swap or move from another seat
+            const fromKey = `${draggedFromSeat.row}-${draggedFromSeat.col}`;
+            
+            if (existingId) {
+                // Swap
+                seatingMap[fromKey] = existingId;
+                const existingStudent = students.find(s => s.id === existingId);
+                if (existingStudent) {
+                    existingStudent.position = { row: draggedFromSeat.row, col: draggedFromSeat.col };
+                }
+            } else {
+                // Just move
+                delete seatingMap[fromKey];
+            }
+        }
+        
+        // Place dragged student
+        seatingMap[targetKey] = draggedId;
+        const draggedStudent = students.find(s => s.id === draggedId);
+        if (draggedStudent) {
+            draggedStudent.position = { row: targetRow, col: targetCol };
+        }
+        
+        renderReview();
+    }
+    
+    function assignToSeat(row, col) {
+        // Find first unassigned student
+        const assignedIds = new Set(Object.values(seatingMap));
+        const unassigned = students.find(s => s.confirmed && !assignedIds.has(s.id));
+        
+        if (unassigned) {
+            const key = `${row}-${col}`;
+            seatingMap[key] = unassigned.id;
+            unassigned.position = { row, col };
+            renderReview();
+        }
+    }
+    
+    function addRowToGrid() {
+        gridRows++;
+        renderReview();
+    }
+    
+    function addColToGrid() {
+        gridCols++;
+        renderReview();
+    }
+    
+    function autoArrange() {
+        // Reset all positions and auto-fill left-to-right, top-to-bottom
+        const confirmed = students.filter(s => s.confirmed);
+        seatingMap = {};
+        
+        let idx = 0;
+        for (let r = 0; r < gridRows && idx < confirmed.length; r++) {
+            for (let c = 0; c < gridCols && idx < confirmed.length; c++) {
+                confirmed[idx].position = { row: r, col: c };
+                seatingMap[`${r}-${c}`] = confirmed[idx].id;
+                idx++;
+            }
+        }
+        
+        renderReview();
     }
     
     async function saveClass() {
