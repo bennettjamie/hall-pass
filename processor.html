@@ -735,14 +735,14 @@
         return students;
     }
     
-    // LOCAL OCR with improved Tesseract settings (privacy-safe, no external APIs)
+    // GRID-AWARE OCR - detects columns and reads each cell separately
     async function extractStudentsWithOCR() {
-        setStatus('Reading names locally (this may take 30-60 seconds)...');
+        setStatus('Analyzing grid layout...');
         
         // Preprocess image for better OCR
         const processedCanvas = preprocessForOCR(pdfCanvas);
         
-        // Initialize Tesseract with optimized settings
+        // Initialize Tesseract with word-level bounding boxes
         const worker = await Tesseract.createWorker('eng', 1, {
             logger: m => {
                 if (m.status === 'recognizing text') {
@@ -751,48 +751,128 @@
             }
         });
         
-        // Set parameters for better name recognition
         await worker.setParameters({
-            tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,.- '",
-            tessedit_pageseg_mode: '6', // Assume uniform block of text
+            tessedit_pageseg_mode: '6',
             preserve_interword_spaces: '1'
         });
         
         const { data } = await worker.recognize(processedCanvas);
         await worker.terminate();
         
-        console.log('OCR raw text:', data.text);
+        console.log('OCR words:', data.words?.length || 0);
         
-        // Multiple regex patterns to catch different formats
-        const patterns = [
-            /([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)/g,  // LastName, FirstName
-            /([A-Z][a-zA-Z'-]+)\s*,\s*([A-Z][a-zA-Z'-]+)/g,  // LastName , FirstName (extra space)
-        ];
+        // Get all words with their bounding boxes
+        const words = (data.words || []).filter(w => w.text.trim().length > 0).map(w => ({
+            text: w.text.trim(),
+            x: w.bbox.x0,
+            y: w.bbox.y0,
+            width: w.bbox.x1 - w.bbox.x0,
+            height: w.bbox.y1 - w.bbox.y0,
+            centerX: (w.bbox.x0 + w.bbox.x1) / 2
+        }));
         
-        const foundNames = new Set();
+        if (words.length === 0) {
+            console.log('No words found, falling back to text regex');
+            return extractStudentsFromText(data.text);
+        }
+        
+        // STEP 1: Detect columns by clustering X positions
+        const colThreshold = processedCanvas.width / 8; // ~6 columns expected
+        const columns = clusterByPosition(words, 'centerX', colThreshold);
+        console.log(`Detected ${columns.length} columns`);
+        
+        // STEP 2: For each column, detect rows by Y position
         const students = [];
+        const rowThreshold = 150; // Approximate cell height
         
-        for (const regex of patterns) {
-            let match;
-            while ((match = regex.exec(data.text)) !== null) {
-                const key = `${match[1]},${match[2]}`.toLowerCase();
-                if (!foundNames.has(key)) {
-                    foundNames.add(key);
+        columns.forEach((colWords, colIdx) => {
+            // Cluster words in this column by Y position
+            const rows = clusterByPosition(colWords, 'y', rowThreshold);
+            
+            rows.forEach((rowWords, rowIdx) => {
+                // Combine words in this cell
+                // Sort by Y then X to get reading order
+                rowWords.sort((a, b) => a.y - b.y || a.x - b.x);
+                const cellText = rowWords.map(w => w.text).join(' ');
+                
+                // Try to parse as "LastName, FirstName"
+                const nameMatch = cellText.match(/([A-Za-z'-]+),?\s+([A-Za-z'-]+)/);
+                if (nameMatch) {
+                    // Check if it looks like a name (has comma or typical format)
+                    const hasComma = cellText.includes(',');
+                    const lastName = hasComma ? nameMatch[1] : nameMatch[1];
+                    const firstName = hasComma ? nameMatch[2] : nameMatch[2];
+                    
+                    // Skip if it's header text like "Seating Chart"
+                    if (lastName.toLowerCase() === 'seating' || lastName.toLowerCase() === 'schedule') {
+                        return;
+                    }
+                    
                     students.push({
                         id: students.length + 1,
-                        firstName: match[2],
-                        lastName: match[1],
-                        displayName: formatDisplayName(match[2], match[1]),
-                        ocrOriginal: match[0],
+                        firstName: firstName,
+                        lastName: lastName,
+                        displayName: formatDisplayName(firstName, lastName),
+                        ocrOriginal: cellText,
                         photoData: null,
                         confirmed: false,
-                        position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+                        position: { row: rowIdx, col: colIdx },
+                        // Store position for face prediction
+                        textX: colWords[0]?.x || 0,
+                        textY: rowWords[0]?.y || 0
                     });
                 }
+            });
+        });
+        
+        // Re-sort by row then column for proper order
+        students.sort((a, b) => a.position.row - b.position.row || a.position.col - b.position.col);
+        students.forEach((s, i) => s.id = i + 1);
+        
+        console.log(`Grid-aware OCR found ${students.length} students`);
+        return students;
+    }
+    
+    // Cluster items by a position property
+    function clusterByPosition(items, prop, threshold) {
+        if (items.length === 0) return [];
+        
+        // Sort by the position property
+        const sorted = [...items].sort((a, b) => a[prop] - b[prop]);
+        
+        const clusters = [[sorted[0]]];
+        for (let i = 1; i < sorted.length; i++) {
+            const lastCluster = clusters[clusters.length - 1];
+            const lastItem = lastCluster[lastCluster.length - 1];
+            
+            if (sorted[i][prop] - lastItem[prop] < threshold) {
+                lastCluster.push(sorted[i]);
+            } else {
+                clusters.push([sorted[i]]);
             }
         }
         
-        console.log(`OCR found ${students.length} students`);
+        return clusters;
+    }
+    
+    // Fallback: extract from plain text
+    function extractStudentsFromText(text) {
+        const regex = /([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)/g;
+        let match;
+        const students = [];
+        
+        while ((match = regex.exec(text)) !== null) {
+            students.push({
+                id: students.length + 1,
+                firstName: match[2],
+                lastName: match[1],
+                displayName: formatDisplayName(match[2], match[1]),
+                ocrOriginal: match[0],
+                photoData: null,
+                confirmed: false,
+                position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+            });
+        }
         return students;
     }
     
