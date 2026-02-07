@@ -604,6 +604,190 @@
         return `${firstName} ${initial}.`;
     }
     
+    // SMART PDF TEXT EXTRACTION (no OCR needed!)
+    async function extractStudentsFromPDF(page, viewport) {
+        const textContent = await page.getTextContent();
+        const textItems = textContent.items;
+        
+        if (textItems.length === 0) return [];
+        
+        console.log(`Found ${textItems.length} text items in PDF`);
+        
+        // Extract items with positions (scaled to canvas coordinates)
+        const items = textItems.map(item => {
+            const tx = item.transform;
+            return {
+                text: item.str.trim(),
+                x: tx[4] * viewport.scale,
+                y: (page.view[3] - tx[5]) * viewport.scale, // Flip Y (PDF coords are bottom-up)
+                width: item.width * viewport.scale,
+                height: item.height * viewport.scale
+            };
+        }).filter(item => item.text.length > 0);
+        
+        // Find name patterns: "LastName, FirstName" or nearby text that forms names
+        const namePattern = /^([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)$/;
+        const nameItems = [];
+        
+        // First pass: look for complete "LastName, FirstName" items
+        for (const item of items) {
+            const match = item.text.match(namePattern);
+            if (match) {
+                nameItems.push({
+                    lastName: match[1],
+                    firstName: match[2],
+                    fullText: item.text,
+                    x: item.x,
+                    y: item.y
+                });
+            }
+        }
+        
+        // If no complete names found, try to combine nearby text items
+        if (nameItems.length === 0) {
+            console.log('No complete names found, trying to combine text items...');
+            
+            // Sort by Y then X
+            items.sort((a, b) => a.y - b.y || a.x - b.x);
+            
+            // Combine items on same line (within 10px Y)
+            const lines = [];
+            let currentLine = [];
+            let lastY = -999;
+            
+            for (const item of items) {
+                if (Math.abs(item.y - lastY) > 10) {
+                    if (currentLine.length > 0) lines.push(currentLine);
+                    currentLine = [];
+                }
+                currentLine.push(item);
+                lastY = item.y;
+            }
+            if (currentLine.length > 0) lines.push(currentLine);
+            
+            // Look for names in combined line text
+            for (const line of lines) {
+                const lineText = line.map(i => i.text).join(' ');
+                const match = lineText.match(/([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)/);
+                if (match) {
+                    nameItems.push({
+                        lastName: match[1],
+                        firstName: match[2],
+                        fullText: match[0],
+                        x: line[0].x,
+                        y: line[0].y
+                    });
+                }
+            }
+        }
+        
+        console.log(`Found ${nameItems.length} names in PDF text`);
+        
+        if (nameItems.length === 0) return [];
+        
+        // Sort names into grid by position
+        // Cluster by Y to find rows, then by X to find columns
+        const yThreshold = 100; // Names within 100px are same row
+        const xThreshold = 80;  // Names within 80px are same column
+        
+        // Cluster Y positions into rows
+        nameItems.sort((a, b) => a.y - b.y);
+        const rows = [];
+        let currentRow = [nameItems[0]];
+        
+        for (let i = 1; i < nameItems.length; i++) {
+            if (nameItems[i].y - currentRow[0].y < yThreshold) {
+                currentRow.push(nameItems[i]);
+            } else {
+                rows.push(currentRow);
+                currentRow = [nameItems[i]];
+            }
+        }
+        rows.push(currentRow);
+        
+        // Sort each row by X and assign grid positions
+        const students = [];
+        rows.forEach((row, rowIdx) => {
+            row.sort((a, b) => a.x - b.x);
+            row.forEach((name, colIdx) => {
+                students.push({
+                    id: students.length + 1,
+                    firstName: name.firstName,
+                    lastName: name.lastName,
+                    displayName: formatDisplayName(name.firstName, name.lastName),
+                    ocrOriginal: name.fullText,
+                    photoData: null,
+                    confirmed: false,
+                    position: { row: rowIdx, col: colIdx },
+                    // Store text position for face prediction (face is BELOW name)
+                    textX: name.x,
+                    textY: name.y
+                });
+            });
+        });
+        
+        console.log(`Organized into ${rows.length} rows, ${students.length} total students`);
+        return students;
+    }
+    
+    // FALLBACK: OCR extraction (when PDF has no text layer)
+    async function extractStudentsWithOCR() {
+        const worker = await Tesseract.createWorker('eng');
+        const { data } = await worker.recognize(pdfCanvas);
+        await worker.terminate();
+        
+        // Find "LastName, FirstName" patterns
+        const regex = /([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)/g;
+        let match;
+        const students = [];
+        
+        while ((match = regex.exec(data.text)) !== null) {
+            students.push({
+                id: students.length + 1,
+                firstName: match[2],
+                lastName: match[1],
+                displayName: formatDisplayName(match[2], match[1]),
+                ocrOriginal: match[0],
+                photoData: null,
+                confirmed: false,
+                position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+            });
+        }
+        
+        return students;
+    }
+    
+    // Apply learned corrections to student names
+    function applyLearnedCorrections() {
+        const localCorr = window.learnedCorrections || {};
+        const charCorr = window.charPatterns || {};
+        
+        for (const student of students) {
+            let name = `${student.lastName}, ${student.firstName}`;
+            
+            // Apply local corrections
+            for (const [wrong, right] of Object.entries(localCorr)) {
+                if (name.includes(wrong)) {
+                    name = name.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
+                    console.log(`✓ Corrected: ${student.lastName}, ${student.firstName}`);
+                }
+            }
+            
+            // Apply char patterns
+            for (const [wrong, right] of Object.entries(charCorr)) {
+                name = name.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
+            }
+            
+            // Parse back
+            const parts = name.split(',').map(s => s.trim());
+            if (parts.length >= 2) {
+                student.lastName = parts[0];
+                student.firstName = parts[1];
+                student.displayName = formatDisplayName(student.firstName, student.lastName);
+            }
+        }
+    }
+    
     async function loadPDF(file) {
         goToStep(2);
         fileName = file.name.replace('.pdf', '').replace(/[_-]/g, ' ');
@@ -626,57 +810,22 @@
             
             await page.render({ canvasContext: pdfCtx, viewport }).promise;
             
-            setStatus('Finding names (30-60 seconds)...');
-            const worker = await Tesseract.createWorker('eng');
-            const { data } = await worker.recognize(pdfCanvas);
-            await worker.terminate();
+            // TRY 1: Extract text directly from PDF (much more accurate than OCR!)
+            setStatus('Extracting text from PDF...');
+            let extractedStudents = await extractStudentsFromPDF(page, viewport);
             
-            // Apply learned corrections to OCR text
-            let ocrText = data.text;
-            let correctionsApplied = 0;
-            
-            // 1. Apply LOCAL word-level corrections (teacher's own, stays on device)
-            const localCorr = window.learnedCorrections || {};
-            for (const [wrong, right] of Object.entries(localCorr)) {
-                if (ocrText.includes(wrong)) {
-                    ocrText = ocrText.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
-                    correctionsApplied++;
-                    console.log(`✓ Local correction: "${wrong}" → "${right}"`);
-                }
+            if (extractedStudents.length > 0) {
+                console.log(`✓ Extracted ${extractedStudents.length} students from PDF text layer`);
+                students = extractedStudents;
+            } else {
+                // TRY 2: Fall back to OCR (slower, less accurate)
+                console.log('No text layer found, falling back to OCR...');
+                setStatus('No text layer - using OCR (30-60 seconds)...');
+                students = await extractStudentsWithOCR();
             }
             
-            // 2. Apply GLOBAL character patterns (privacy-safe, from all users)
-            // These are patterns like "ll" → "I" (common OCR confusions)
-            const charCorr = window.charPatterns || {};
-            for (const [wrong, right] of Object.entries(charCorr)) {
-                if (ocrText.includes(wrong)) {
-                    ocrText = ocrText.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
-                    correctionsApplied++;
-                    console.log(`✓ Global char pattern: "${wrong}" → "${right}"`);
-                }
-            }
-            
-            if (correctionsApplied > 0) {
-                console.log(`Applied ${correctionsApplied} total corrections (local + global patterns)`);
-            }
-            
-            // Find "LastName, FirstName" patterns
-            const regex = /([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/g;
-            let match;
-            students = [];
-            
-            while ((match = regex.exec(ocrText)) !== null) {
-                const lastName = match[1];
-                const firstName = match[2];
-                students.push({
-                    firstName,
-                    lastName,
-                    displayName: formatDisplayName(firstName, lastName),
-                    ocrOriginal: match[0],
-                    photoData: null,
-                    confirmed: false
-                });
-            }
+            // Apply learned corrections
+            applyLearnedCorrections();
             
             if (students.length === 0) {
                 alert('No names found. Check PDF format.');
@@ -684,9 +833,12 @@
                 return;
             }
             
+            // Only assign default positions if not already set from PDF extraction
             students.forEach((s, i) => {
                 s.id = i + 1;
-                s.position = { row: Math.floor(i / 6), col: i % 6 };
+                if (!s.position) {
+                    s.position = { row: Math.floor(i / 6), col: i % 6 };
+                }
             });
             
             renderNameList();
@@ -834,6 +986,24 @@
     }
     
     function predictNextPosition() {
+        const student = students[currentIdx];
+        
+        // If we have text position from PDF extraction, use it!
+        // Face is typically BELOW the name text
+        if (student && student.textX !== undefined && student.textY !== undefined) {
+            const faceOffsetY = 30; // Face starts below name
+            const faceWidth = gridLearn.avgWidth || 120;
+            const faceHeight = gridLearn.avgHeight || 150;
+            
+            showPredictedRect(
+                student.textX - 10,  // Slightly left of text
+                student.textY + faceOffsetY,  // Below name
+                faceWidth,
+                faceHeight
+            );
+            return;
+        }
+        
         if (gridLearn.confirmedPositions.length < 1) {
             // No data yet - place in center-ish
             showPredictedRect(pdfCanvas.width / 2 - 75, 100, 150, 180);
