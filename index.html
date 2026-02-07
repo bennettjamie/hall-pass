@@ -631,7 +631,8 @@
                     <div class="style-option" onclick="setStyle('pixel-art', '🎮', 'Pixel')">🎮 Pixel</div>
                 </div>
             </div>
-            <button class="icon-btn" title="Settings">⚙️</button>
+            <button class="icon-btn" title="Settings" onclick="openSettings()">⚙️</button>
+            <button class="icon-btn" title="Help" onclick="openHelp()">❓</button>
         </div>
     </nav>
 
@@ -734,8 +735,211 @@
         </div>
     </main>
 
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>⚙️ Settings</h2>
+                <button class="close-btn" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-section">
+                    <h3>📥 Import Class</h3>
+                    <p>Upload a JSON file with student data</p>
+                    <div class="upload-zone" onclick="document.getElementById('settingsImportFile').click()">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">Click to select file</div>
+                    </div>
+                    <input type="file" id="settingsImportFile" accept=".json" style="display:none" onchange="handleImport(event)">
+                </div>
+                <div class="setting-section">
+                    <h3>🎨 Avatar Style</h3>
+                    <select id="styleSelect" onchange="setStyleFromSelect()">
+                        <option value="photo">📷 Photo</option>
+                        <option value="line-art">🎨 Line Art</option>
+                        <option value="disney">🏰 Disney</option>
+                        <option value="anime">🌸 Anime</option>
+                        <option value="comic-book">📰 Comic</option>
+                        <option value="pixel-art">🎮 Pixel</option>
+                    </select>
+                </div>
+                <div class="setting-section">
+                    <h3>📤 Export Data</h3>
+                    <button class="btn btn-secondary" onclick="exportData()">Download Backup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal" onclick="if(event.target===this)closeHelp()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>❓ How to Use Hall Pass</h2>
+                <button class="close-btn" onclick="closeHelp()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h3>🚀 Getting Started</h3>
+                    <ol>
+                        <li>Click ⚙️ Settings → Import Class</li>
+                        <li>Upload your class JSON file</li>
+                        <li>Students will appear in the grid</li>
+                    </ol>
+                </div>
+                <div class="help-section">
+                    <h3>📋 Taking Attendance</h3>
+                    <ol>
+                        <li>Students tap their face when they arrive</li>
+                        <li>Green border = On time</li>
+                        <li>Orange border = Late (after bell)</li>
+                        <li>Gray = Not checked in yet</li>
+                    </ol>
+                </div>
+                <div class="help-section">
+                    <h3>🚪 Hall Pass</h3>
+                    <ol>
+                        <li>Click "Hall Pass" tab</li>
+                        <li>Student taps their card to request</li>
+                        <li>Timer tracks how long they're out</li>
+                        <li>Max 1 out, 2 in queue</li>
+                    </ol>
+                </div>
+                <div class="help-section">
+                    <h3>🎨 Fun Features</h3>
+                    <ul>
+                        <li>Click style dropdown to change avatar art</li>
+                        <li>Some students have multiple art styles!</li>
+                        <li>Switch styles weekly for variety</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.open {
+            display: flex;
+        }
+        .modal {
+            background: var(--bg-card);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-header h2 {
+            font-size: 1.2rem;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .setting-section, .help-section {
+            margin-bottom: 24px;
+        }
+        .setting-section h3, .help-section h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        .setting-section p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .setting-section select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        .help-section ol, .help-section ul {
+            margin-left: 20px;
+            color: var(--text-secondary);
+        }
+        .help-section li {
+            margin-bottom: 8px;
+        }
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        .upload-text {
+            color: var(--text-secondary);
+        }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--success);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            z-index: 2000;
+            display: none;
+        }
+        .toast.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    </style>
+
+    <div class="toast" id="toast">✓ Class imported successfully!</div>
+
     <script>
-        // Demo data
+        // App state
+        let students = [];
+        let classData = null;
+        let currentStyle = 'photo';
+
+        // Demo data (shown when no class imported)
         const demoStudents = [
             { id: 1, firstName: 'Ahmad', lastInitial: 'A', status: 'ontime' },
             { id: 2, firstName: 'Ariel', lastInitial: 'C', status: 'withdrawn' },
@@ -807,8 +1011,163 @@
             }
         });
 
-        // Initial render
+        // Settings & Help modals
+        function openSettings() {
+            document.getElementById('settingsModal').classList.add('open');
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('open');
+        }
+        
+        function openHelp() {
+            document.getElementById('helpModal').classList.add('open');
+        }
+        
+        function closeHelp() {
+            document.getElementById('helpModal').classList.remove('open');
+        }
+
+        // Import handler
+        async function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                if (data.students && Array.isArray(data.students)) {
+                    classData = data;
+                    students = data.students.map(s => ({
+                        ...s,
+                        status: 'absent'  // Reset attendance for new day
+                    }));
+                    
+                    // Update class name in selector
+                    if (data.settings?.className) {
+                        document.getElementById('classSelect').innerHTML = 
+                            `<option>${data.settings.className}</option>`;
+                    }
+                    
+                    // Update available styles
+                    if (data.styles?.available) {
+                        updateStyleOptions(data.styles.available);
+                    }
+                    
+                    renderGrid();
+                    closeSettings();
+                    showToast('✓ Class imported! ' + students.length + ' students loaded');
+                    
+                    // Save to localStorage
+                    localStorage.setItem('hallpass_class', JSON.stringify(data));
+                } else {
+                    alert('Invalid file format. Please use a Hall Pass JSON export.');
+                }
+            } catch (e) {
+                alert('Error reading file: ' + e.message);
+            }
+        }
+        
+        function updateStyleOptions(styles) {
+            const select = document.getElementById('styleSelect');
+            select.innerHTML = styles.map(s => 
+                `<option value="${s.id}">${s.emoji} ${s.name}</option>`
+            ).join('');
+        }
+        
+        function setStyleFromSelect() {
+            const select = document.getElementById('styleSelect');
+            currentStyle = select.value;
+            renderGrid();
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        function exportData() {
+            if (!classData) {
+                alert('No class data to export');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(classData, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'hallpass-backup.json';
+            a.click();
+        }
+        
+        // Get caricature for current style
+        function getStudentImage(student) {
+            if (student.caricatures && student.caricatures[currentStyle]) {
+                return student.caricatures[currentStyle];
+            }
+            if (student.caricatures && student.caricatures.photo) {
+                return student.caricatures.photo;
+            }
+            if (student.caricature) {
+                return student.caricature;
+            }
+            // Fallback to dicebear
+            return `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.firstName}`;
+        }
+
+        // Updated render function
+        function renderGrid() {
+            const grid = document.getElementById('attendanceGrid');
+            const displayStudents = students.length > 0 ? students : demoStudents;
+            
+            grid.innerHTML = displayStudents.map(s => `
+                <div class="student-card ${s.status}" onclick="toggleCheckin(${s.id})">
+                    <img class="student-avatar" src="${getStudentImage(s)}" alt="${s.firstName}">
+                    <div class="student-name">${s.firstName} ${s.lastInitial}.</div>
+                    <div class="student-status">${getStatusText(s.status)}</div>
+                </div>
+            `).join('');
+        }
+        
+        // Load saved class on startup
+        function loadSavedClass() {
+            const saved = localStorage.getItem('hallpass_class');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    classData = data;
+                    students = data.students.map(s => ({
+                        ...s,
+                        status: 'absent'
+                    }));
+                    
+                    if (data.settings?.className) {
+                        document.getElementById('classSelect').innerHTML = 
+                            `<option>${data.settings.className}</option>`;
+                    }
+                    
+                    if (data.styles?.available) {
+                        updateStyleOptions(data.styles.available);
+                    }
+                } catch (e) {
+                    console.error('Error loading saved class:', e);
+                }
+            }
+        }
+
+        // Initial load
+        loadSavedClass();
         renderGrid();
+        
+        // Show help on first visit
+        if (!localStorage.getItem('hallpass_seen_help')) {
+            setTimeout(() => {
+                openHelp();
+                localStorage.setItem('hallpass_seen_help', 'true');
+            }, 500);
+        }
     </script>
 </body>
 </html>
