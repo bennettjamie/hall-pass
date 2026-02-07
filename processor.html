@@ -2378,7 +2378,12 @@
         s.noPhoto = false;
         s.faceRect = { ...rect };
         
-        console.log(`✓ Confirmed: ${s.displayName} (${currentIdx + 1}/${students.length})`);
+        // Calculate visual grid position from face rectangle
+        // This determines where student appears in the seating layout
+        s.visualX = rect.x;
+        s.visualY = rect.y;
+        
+        console.log(`✓ Confirmed: ${s.displayName} (${currentIdx + 1}/${students.length}) at (${Math.round(rect.x)}, ${Math.round(rect.y)})`);
         console.log(`  Total confirmed: ${students.filter(x => x.confirmed).length}`);
         
         // Learn from this confirmation
@@ -2733,8 +2738,80 @@
     }
     
     function finishSelection() {
+        // Recalculate grid positions based on where faces were actually placed
+        recalculatePositionsFromVisual();
         saveLearningData();
         goToStep(5);
+    }
+    
+    // Recalculate student positions based on their visual face locations
+    function recalculatePositionsFromVisual() {
+        const confirmed = students.filter(s => s.confirmed && s.visualX !== undefined && s.visualY !== undefined);
+        
+        if (confirmed.length === 0) {
+            console.log('No confirmed faces with visual positions - keeping original layout');
+            return;
+        }
+        
+        console.log(`=== RECALCULATING POSITIONS from ${confirmed.length} confirmed faces ===`);
+        
+        // Get all Y values and cluster into rows
+        const yValues = confirmed.map(s => s.visualY).sort((a, b) => a - b);
+        const ROW_THRESHOLD = gridLearn.avgHeight ? gridLearn.avgHeight * 0.6 : 100;
+        
+        // Cluster Y values into rows
+        const rowCenters = [];
+        let currentCluster = [yValues[0]];
+        
+        for (let i = 1; i < yValues.length; i++) {
+            if (yValues[i] - currentCluster[currentCluster.length - 1] < ROW_THRESHOLD) {
+                currentCluster.push(yValues[i]);
+            } else {
+                rowCenters.push(currentCluster.reduce((a, b) => a + b) / currentCluster.length);
+                currentCluster = [yValues[i]];
+            }
+        }
+        rowCenters.push(currentCluster.reduce((a, b) => a + b) / currentCluster.length);
+        
+        console.log(`Detected ${rowCenters.length} rows at Y: ${rowCenters.map(y => Math.round(y)).join(', ')}`);
+        
+        // Assign row/col to each confirmed student
+        for (const s of confirmed) {
+            // Find which row
+            let row = 0;
+            let minDist = Infinity;
+            for (let r = 0; r < rowCenters.length; r++) {
+                const dist = Math.abs(s.visualY - rowCenters[r]);
+                if (dist < minDist) {
+                    minDist = dist;
+                    row = r;
+                }
+            }
+            s.position = { row, col: 0 }; // Col will be set next
+        }
+        
+        // Within each row, sort by X and assign columns
+        for (let r = 0; r < rowCenters.length; r++) {
+            const rowStudents = confirmed.filter(s => s.position.row === r);
+            rowStudents.sort((a, b) => a.visualX - b.visualX);
+            rowStudents.forEach((s, col) => {
+                s.position.col = col;
+            });
+        }
+        
+        // For unconfirmed students, put them at the end
+        const unconfirmed = students.filter(s => !s.confirmed || s.visualX === undefined);
+        const maxRow = rowCenters.length;
+        unconfirmed.forEach((s, i) => {
+            s.position = { row: maxRow, col: i };
+        });
+        
+        console.log('Final positions:');
+        students.forEach(s => {
+            console.log(`  ${s.displayName}: row=${s.position.row}, col=${s.position.col}`);
+        });
+        
+        console.log('=== POSITION RECALCULATION COMPLETE ===');
     }
     
     // Save learning data
