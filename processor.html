@@ -679,7 +679,9 @@
                 <button class="btn btn-secondary" onclick="addRowToGrid()">+ Row</button>
                 <button class="btn btn-secondary" onclick="addColToGrid()">+ Column</button>
                 <button class="btn btn-secondary" onclick="autoArrange()">Auto-Arrange</button>
+                <button class="btn btn-primary" onclick="document.getElementById('layoutFileInput').click()">📐 Re-import Layout</button>
             </div>
+            <input type="file" id="layoutFileInput" accept=".png,.jpg,.jpeg,.pdf" style="display:none" onchange="reimportLayout(event)">
             <div id="unassignedStudents" style="margin-top:24px;"></div>
         </div>
     </div>
@@ -2449,14 +2451,13 @@
         modal.id = 'avatarPickerModal';
         modal.innerHTML = `
             <div class="modal-content" style="max-width:500px;padding:24px;">
-                <h3 style="margin-bottom:8px;">Choose Avatar for ${s.displayName}</h3>
+                <h3 style="margin-bottom:8px;">Choose Placeholder for ${s.displayName}</h3>
                 <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem;">
-                    Select a placeholder. You can upload a real photo later.
+                    Pick a color. You can replace with a real photo later.
                 </p>
                 
-                <div style="display:flex;gap:12px;margin-bottom:16px;">
-                    <button class="btn btn-secondary avatar-gender-btn active" data-gender="male" onclick="setAvatarGender('male')">👨 Male</button>
-                    <button class="btn btn-secondary avatar-gender-btn" data-gender="female" onclick="setAvatarGender('female')">👩 Female</button>
+                <div style="display:none;">
+                    <button class="btn btn-secondary avatar-gender-btn active" data-gender="male">👨 Male</button>
                 </div>
                 
                 <div id="avatarOptions" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
@@ -2486,18 +2487,19 @@
             }
         });
         
-        // Avatar seeds for variety (different appearances)
-        const maleSeeds = ['James', 'Marcus', 'Chen', 'Ahmed', 'Carlos', 'Kofi', 'Raj', 'Ivan'];
-        const femaleSeeds = ['Emma', 'Aisha', 'Mei', 'Sofia', 'Fatima', 'Nia', 'Priya', 'Anna'];
-        
-        const seeds = gender === 'male' ? maleSeeds : femaleSeeds;
+        // Simple silhouette colors (professional, not cartoony)
+        const colors = ['6366f1', '8b5cf6', 'ec4899', 'f43f5e', 'f97316', 'eab308', '22c55e', '14b8a6'];
         const container = document.getElementById('avatarOptions');
+        const student = students[currentIdx];
+        const initials = (student.firstName[0] + student.lastName[0]).toUpperCase();
         
-        container.innerHTML = seeds.map(seed => `
-            <div class="avatar-option" onclick="selectAvatar('${seed}')" 
+        // Use simple initials-based avatars with different background colors
+        container.innerHTML = colors.map((color, i) => `
+            <div class="avatar-option" onclick="selectAvatar('${color}')" 
                  style="cursor:pointer;border-radius:12px;padding:8px;text-align:center;border:2px solid transparent;transition:all 0.2s;">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf" 
-                     style="width:60px;height:60px;border-radius:50%;">
+                <div style="width:60px;height:60px;border-radius:50%;background:#${color};display:flex;align-items:center;justify-content:center;margin:0 auto;">
+                    <span style="color:white;font-size:1.5rem;font-weight:600;">${initials}</span>
+                </div>
             </div>
         `).join('');
         
@@ -2508,9 +2510,11 @@
         });
     }
     
-    function selectAvatar(seed) {
+    function selectAvatar(color) {
         const s = students[currentIdx];
-        const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        const initials = (s.firstName[0] + s.lastName[0]).toUpperCase();
+        // Create a simple SVG with initials - clean and professional
+        const avatarUrl = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#${color}"/><text x="50" y="50" text-anchor="middle" dy=".35em" font-family="system-ui,sans-serif" font-size="40" font-weight="600" fill="white">${initials}</text></svg>`)}`;
         
         undoStack.push({
             idx: currentIdx,
@@ -3023,6 +3027,197 @@
             }
         }
         renderReview();
+    }
+    
+    // Re-import layout from a new seating chart (keeps photos, updates positions)
+    async function reimportLayout(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const confirmed = students.filter(s => s.confirmed || s.noPhoto);
+        if (confirmed.length === 0) {
+            alert('No students to re-layout.');
+            return;
+        }
+        
+        // Show progress
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'reimportStatus';
+        statusDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);padding:32px;border-radius:16px;z-index:1000;text-align:center;min-width:300px;';
+        statusDiv.innerHTML = '<div class="spinner"></div><p style="margin-top:16px;">Loading seating chart...</p>';
+        document.body.appendChild(statusDiv);
+        
+        const updateStatus = (msg) => {
+            statusDiv.querySelector('p').textContent = msg;
+        };
+        
+        try {
+            // Load the file as an image (render PDF first page if PDF)
+            let imgCanvas;
+            const ext = file.name.split('.').pop().toLowerCase();
+            
+            if (ext === 'pdf') {
+                updateStatus('Loading PDF...');
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const page = await pdf.getPage(1);
+                const scale = 3;
+                const viewport = page.getViewport({ scale });
+                
+                imgCanvas = document.createElement('canvas');
+                const ctx = imgCanvas.getContext('2d');
+                imgCanvas.width = viewport.width;
+                imgCanvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport }).promise;
+            } else {
+                updateStatus('Loading image...');
+                imgCanvas = document.createElement('canvas');
+                const ctx = imgCanvas.getContext('2d');
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = URL.createObjectURL(file);
+                });
+                imgCanvas.width = img.width;
+                imgCanvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            }
+            
+            // Run OCR to find names and positions
+            updateStatus('Scanning for names (this takes ~30 seconds)...');
+            const processed = preprocessForOCR(imgCanvas);
+            
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        updateStatus(`Scanning... ${Math.round(m.progress * 100)}%`);
+                    }
+                }
+            });
+            
+            await worker.setParameters({ tessedit_pageseg_mode: '6' });
+            const { data } = await worker.recognize(processed);
+            await worker.terminate();
+            
+            const words = (data.words || []).filter(w => w.text.trim().length > 1).map(w => ({
+                text: w.text.trim().toLowerCase(),
+                x: w.bbox.x0,
+                y: w.bbox.y0,
+                x2: w.bbox.x1,
+                y2: w.bbox.y1
+            }));
+            
+            updateStatus('Matching names to positions...');
+            console.log(`OCR found ${words.length} words`);
+            
+            // Match each student to an OCR word by last name
+            let matched = 0;
+            for (const student of confirmed) {
+                const lastName = student.lastName.toLowerCase();
+                const firstName = student.firstName.toLowerCase();
+                
+                let bestWord = null;
+                let bestScore = 0;
+                
+                for (const word of words) {
+                    let score = 0;
+                    if (word.text === lastName || word.text.includes(lastName)) {
+                        score = 10;
+                    } else if (lastName.length >= 4 && word.text.includes(lastName.substring(0, 4))) {
+                        score = 5;
+                    } else if (word.text === firstName || word.text.includes(firstName)) {
+                        score = 3;
+                    }
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestWord = word;
+                    }
+                }
+                
+                if (bestWord && bestScore >= 3) {
+                    student.layoutX = bestWord.x;
+                    student.layoutY = bestWord.y;
+                    matched++;
+                    console.log(`Matched: ${student.lastName} at (${bestWord.x}, ${bestWord.y})`);
+                }
+            }
+            
+            console.log(`Matched ${matched}/${confirmed.length} students`);
+            
+            if (matched < confirmed.length / 2) {
+                const proceed = confirm(`Only matched ${matched} of ${confirmed.length} students.\n\nProceed anyway? Unmatched students will be placed at the end.`);
+                if (!proceed) {
+                    statusDiv.remove();
+                    event.target.value = '';
+                    return;
+                }
+            }
+            
+            // Calculate grid positions from layout coordinates
+            updateStatus('Calculating grid positions...');
+            
+            const withLayout = confirmed.filter(s => s.layoutX !== undefined);
+            const withoutLayout = confirmed.filter(s => s.layoutX === undefined);
+            
+            if (withLayout.length > 0) {
+                // Cluster Y values into rows
+                const yValues = withLayout.map(s => s.layoutY).sort((a, b) => a - b);
+                const ROW_THRESHOLD = 60;
+                
+                // Sort by Y then X
+                withLayout.sort((a, b) => {
+                    const sameRow = Math.abs(a.layoutY - b.layoutY) < ROW_THRESHOLD;
+                    if (sameRow) return a.layoutX - b.layoutX;
+                    return a.layoutY - b.layoutY;
+                });
+                
+                // Assign row/col
+                let currentRow = 0;
+                let currentCol = 0;
+                let lastY = withLayout[0].layoutY;
+                
+                for (const s of withLayout) {
+                    if (Math.abs(s.layoutY - lastY) >= ROW_THRESHOLD) {
+                        currentRow++;
+                        currentCol = 0;
+                    }
+                    s.position = { row: currentRow, col: currentCol };
+                    lastY = s.layoutY;
+                    currentCol++;
+                }
+                
+                // Put unmatched at the end
+                const maxRow = currentRow + 1;
+                withoutLayout.forEach((s, i) => {
+                    s.position = { row: maxRow, col: i };
+                });
+            }
+            
+            // Update grid dimensions
+            let maxRow = 0, maxCol = 0;
+            confirmed.forEach(s => {
+                if (s.position) {
+                    maxRow = Math.max(maxRow, s.position.row);
+                    maxCol = Math.max(maxCol, s.position.col);
+                }
+            });
+            gridRows = maxRow + 1;
+            gridCols = Math.min(maxCol + 1, 10);
+            
+            statusDiv.remove();
+            event.target.value = '';
+            
+            alert(`✅ Layout updated!\n\nMatched ${matched} of ${confirmed.length} students from the seating chart.`);
+            renderReview();
+            
+        } catch (err) {
+            console.error('Re-import failed:', err);
+            statusDiv.remove();
+            event.target.value = '';
+            alert('Error re-importing layout: ' + err.message);
+        }
     }
     
     async function saveClass() {
