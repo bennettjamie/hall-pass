@@ -1024,6 +1024,15 @@
                 // No PDF extraction - fall back to position mapping
                 console.log('PDF extraction failed, using position mapping');
                 await mapNamesToPositions(page, viewport);
+                
+                // Check if position mapping worked
+                const hasPositions = students.some(s => s.textX !== undefined && s.textY !== undefined);
+                if (!hasPositions) {
+                    // Position mapping also failed - try OCR to get positions
+                    console.log('Position mapping failed - trying OCR for positions...');
+                    setStatus('Reading positions from image (30-60 seconds)...');
+                    await extractPositionsWithOCR();
+                }
             }
             
             applyLearnedCorrections();
@@ -1420,7 +1429,7 @@
         console.log(`Matched ${matched}/${students.length} students to PDF positions`);
     }
     
-    // OCR extraction
+    // OCR extraction - creates new students from OCR
     async function extractStudentsWithOCR() {
         const processed = preprocessForOCR(pdfCanvas);
         
@@ -1470,6 +1479,94 @@
         }
         
         return result;
+    }
+    
+    // OCR extraction for POSITIONS ONLY - matches OCR results to existing pasted students
+    async function extractPositionsWithOCR() {
+        console.log('=== OCR POSITION EXTRACTION ===');
+        const processed = preprocessForOCR(pdfCanvas);
+        
+        const worker = await Tesseract.createWorker('eng', 1, {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    setStatus(`Finding name positions... ${Math.round(m.progress * 100)}%`);
+                }
+            }
+        });
+        
+        await worker.setParameters({ tessedit_pageseg_mode: '6' });
+        const { data } = await worker.recognize(processed);
+        await worker.terminate();
+        
+        const words = (data.words || []).filter(w => w.text.trim().length > 1).map(w => ({
+            text: w.text.trim(),
+            x: w.bbox.x0,
+            y: w.bbox.y0,
+            x2: w.bbox.x1,
+            y2: w.bbox.y1,
+            confidence: w.confidence
+        }));
+        
+        console.log(`OCR found ${words.length} words`);
+        
+        // Group into cells (potential name locations)
+        const cells = groupWordsIntoCells(words);
+        console.log(`Grouped into ${cells.length} cells`);
+        
+        // Try to match each pasted student to an OCR cell by last name
+        let matched = 0;
+        for (const student of students) {
+            const lastName = student.lastName.toLowerCase().trim();
+            const firstName = student.firstName.toLowerCase().trim();
+            
+            // Find best matching cell
+            let bestCell = null;
+            let bestScore = 0;
+            
+            for (const cell of cells) {
+                const cellText = cell.text.toLowerCase();
+                let score = 0;
+                
+                // Check for last name match
+                if (cellText.includes(lastName)) {
+                    score += 10;
+                    // Bonus for first name too
+                    if (cellText.includes(firstName)) score += 5;
+                }
+                // Partial match - check if any word starts with the last name
+                else {
+                    const cellWords = cellText.split(/[\s,]+/);
+                    for (const word of cellWords) {
+                        if (word.startsWith(lastName.substring(0, 3)) || lastName.startsWith(word.substring(0, 3))) {
+                            score += 3;
+                            break;
+                        }
+                    }
+                }
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCell = cell;
+                }
+            }
+            
+            // Require at least partial match
+            if (bestCell && bestScore >= 3) {
+                student.textX = bestCell.x;
+                student.textY = bestCell.y2; // Use bottom of text box
+                student.textWidth = bestCell.x2 - bestCell.x;
+                console.log(`  Matched: ${student.lastName} → OCR at (${Math.round(bestCell.x)}, ${Math.round(bestCell.y2)}) score=${bestScore}`);
+                matched++;
+                
+                // Remove this cell so it's not matched again
+                const idx = cells.indexOf(bestCell);
+                if (idx > -1) cells.splice(idx, 1);
+            } else {
+                console.log(`  No OCR match for: ${student.lastName}, ${student.firstName}`);
+            }
+        }
+        
+        console.log(`=== OCR POSITION EXTRACTION COMPLETE: ${matched}/${students.length} matched ===`);
     }
     
     function groupWordsIntoCells(words) {
