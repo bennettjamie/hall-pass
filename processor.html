@@ -640,6 +640,17 @@
         if (e.target.files[0]) handleFileUpload(e.target.files[0]);
     });
     
+    // Check URL mode parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    
+    if (mode === 'pdf' || mode === 'screenshot') {
+        // Show file upload hint
+        document.getElementById('pasteArea').placeholder = mode === 'pdf' 
+            ? 'Or paste class list here if you have it...'
+            : 'Or paste class list here for better accuracy...';
+    }
+    
     // Handle file upload (PDF or image)
     function handleFileUpload(file) {
         const ext = file.name.split('.').pop().toLowerCase();
