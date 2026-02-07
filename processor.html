@@ -198,6 +198,7 @@
         .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
         .btn-success { background: var(--success); color: white; }
         .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: black; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .spinner {
@@ -491,13 +492,16 @@
                     </div>
                     <div class="btn-row">
                         <button class="btn btn-primary" onclick="addStudentDuringSelection()">+ Add</button>
-                        <button class="btn btn-danger" onclick="deleteCurrentStudent()">🗑️ Delete</button>
+                        <button class="btn btn-warning" onclick="fixCurrentName()">✏️ Fix Name</button>
                     </div>
                 </div>
                 <div class="kb-hint">
                     <kbd>↑↓←→</kbd> Move &nbsp;<kbd>Shift</kbd>+Arrow = Big move<br>
-                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>Esc</kbd> Clear
+                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>Esc</kbd> Clear &nbsp;<kbd>F</kbd> Fix Name
                 </div>
+                <button class="btn" style="background:transparent;color:var(--text-secondary);font-size:0.75rem;margin-top:8px;padding:6px 12px;" onclick="deleteCurrentStudent()">
+                    🗑️ Delete student
+                </button>
                 <div class="learn-status" id="learnStatus">🔍 Learning grid pattern...</div>
             </div>
             <div class="side-card stu-list" id="stuList"></div>
@@ -1048,6 +1052,18 @@
                 clearRect();
                 e.preventDefault();
                 break;
+            case 'f':
+            case 'F':
+                fixCurrentName();
+                e.preventDefault();
+                break;
+            case 'd':
+            case 'D':
+                if (e.shiftKey) { // Shift+D to delete (harder to hit accidentally)
+                    deleteCurrentStudent();
+                    e.preventDefault();
+                }
+                break;
         }
     }
     
@@ -1098,18 +1114,61 @@
         renderStuList();
     }
     
+    function fixCurrentName() {
+        const student = students[currentIdx];
+        const ocrFound = student.ocrOriginal || student.displayName;
+        
+        // Show what OCR found and ask for correction
+        const corrected = prompt(
+            `OCR found: "${ocrFound}"\n\nEnter the correct name:\nLastName, FirstName\n\n(e.g., "Powell, Ilya")`,
+            ocrFound
+        );
+        
+        if (!corrected || corrected.trim() === '') return;
+        
+        // Parse the correction
+        const parts = corrected.split(',').map(s => s.trim());
+        const lastName = parts[0] || '';
+        const firstName = parts[1] || parts[0];
+        
+        // Track correction for global learning (preserves position!)
+        corrections.push({ 
+            ocr: ocrFound, 
+            fixed: corrected,
+            position: student.position  // Keep position for layout learning
+        });
+        
+        // Update student
+        student.lastName = lastName;
+        student.firstName = firstName;
+        student.displayName = formatDisplayName(firstName, lastName);
+        student.ocrOriginal = ocrFound; // Remember what OCR saw
+        student.wasCorrected = true;
+        
+        // Update UI
+        document.getElementById('curNameInput').value = student.displayName;
+        renderStuList();
+        
+        console.log(`Corrected: "${ocrFound}" → "${corrected}" at position`, student.position);
+    }
+    
     function deleteCurrentStudent() {
         if (students.length <= 1) {
             alert('Cannot delete the last student.');
             return;
         }
         
-        const name = students[currentIdx].displayName;
-        if (!confirm(`Delete "${name}" from the class?`)) return;
+        const student = students[currentIdx];
+        const name = student.displayName;
         
-        // Track as deletion for learning (might have been OCR error)
-        if (students[currentIdx].ocrOriginal) {
-            corrections.push({ ocr: students[currentIdx].ocrOriginal, fixed: 'DELETED' });
+        // Suggest fixing instead
+        if (student.ocrOriginal) {
+            const choice = confirm(
+                `"${name}" will be removed.\n\nTip: Use "Fix Name" instead to correct OCR errors — this helps the app learn!\n\nStill delete?`
+            );
+            if (!choice) return;
+        } else {
+            if (!confirm(`Delete "${name}" from the class?`)) return;
         }
         
         // Remove student
@@ -1118,15 +1177,13 @@
         // Re-index
         students.forEach((s, i) => s.id = i + 1);
         
-        // Move to next (or stay at end)
+        // Move to next
         if (currentIdx >= students.length) {
             currentIdx = students.length - 1;
         }
         
         showCurrentStudent();
         renderStuList();
-        
-        console.log(`Deleted student: ${name}`);
     }
     
     function updateCurName(val) {
