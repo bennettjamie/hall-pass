@@ -1009,6 +1009,16 @@
             sortStudentsByVisualOrder();
             
             students.forEach((s, i) => s.id = i + 1);
+            
+            // Notify about withdrawn students
+            const withdrawnCount = students.filter(s => s.withdrawn).length;
+            if (withdrawnCount > 0) {
+                console.log(`Auto-detected ${withdrawnCount} WITHDRAWN student(s)`);
+                setTimeout(() => {
+                    alert(`Found ${withdrawnCount} WITHDRAWN student(s).\nThey will be skipped during face selection but kept in the seating layout.`);
+                }, 100);
+            }
+            
             renderNameList();
             goToStep(3);
             
@@ -1201,15 +1211,28 @@
         const namePattern = /^([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)$/;
         const nameItems = [];
         
+        // Find "WITHDRAWN" text positions for auto-detection
+        const withdrawnPositions = items
+            .filter(item => item.text.toUpperCase().includes('WITHDRAWN'))
+            .map(item => ({ x: item.x, y: item.y }));
+        
         for (const item of items) {
             const match = item.text.match(namePattern);
             if (match) {
+                // Check if "WITHDRAWN" appears near this name (within 200px vertically)
+                const isWithdrawn = withdrawnPositions.some(wp => 
+                    Math.abs(wp.x - item.x) < 150 && 
+                    wp.y > item.y && 
+                    wp.y - item.y < 200
+                );
+                
                 nameItems.push({
                     lastName: match[1],
                     firstName: match[2],
                     x: item.x,
                     y: item.y,
-                    width: item.width
+                    width: item.width,
+                    withdrawn: isWithdrawn
                 });
             }
         }
@@ -1252,8 +1275,9 @@
             ocrOriginal: `${name.lastName}, ${name.firstName}`,
             ocrConfidence: 1.0,
             photoData: null,
-            confirmed: false,
+            confirmed: name.withdrawn ? true : false, // Auto-confirm withdrawn students
             noPhoto: false,
+            withdrawn: name.withdrawn || false,
             position: { row: 0, col: 0 },
             textX: name.x,
             textY: name.y,
@@ -1603,15 +1627,24 @@
         document.getElementById('stuList').innerHTML = students.map((s, i) => {
             let classes = 'stu-item';
             if (i === currentIdx) classes += ' active';
-            if (s.confirmed) classes += ' done';
+            if (s.confirmed && !s.withdrawn) classes += ' done';
             if (s.noPhoto) classes += ' no-photo';
+            if (s.withdrawn) classes += ' withdrawn';
+            
+            let badge = '';
+            if (s.withdrawn) {
+                badge = '<span class="no-photo-badge" style="color:#ef4444;">WITHDRAWN</span>';
+            } else if (s.confirmed) {
+                badge = '<span class="chk">✓</span>';
+            } else if (s.noPhoto) {
+                badge = '<span class="no-photo-badge">no photo</span>';
+            }
             
             return `
-                <div class="${classes}" onclick="jumpTo(${i})">
+                <div class="${classes}" onclick="jumpTo(${i})" style="${s.withdrawn ? 'opacity:0.4;text-decoration:line-through;' : ''}">
                     <div class="thumb">${s.photoData ? `<img src="${s.photoData}">` : ''}</div>
                     <span class="nm">${s.displayName}</span>
-                    ${s.confirmed ? '<span class="chk">✓</span>' : ''}
-                    ${s.noPhoto ? '<span class="no-photo-badge">no photo</span>' : ''}
+                    ${badge}
                 </div>
             `;
         }).join('');
@@ -2054,6 +2087,104 @@
     }
     
     function markNoPhoto() {
+        // Show avatar picker instead of just marking as no photo
+        showAvatarPicker();
+    }
+    
+    // Avatar picker for students without photos
+    function showAvatarPicker() {
+        const s = students[currentIdx];
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'avatarPickerModal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:500px;padding:24px;">
+                <h3 style="margin-bottom:8px;">Choose Avatar for ${s.displayName}</h3>
+                <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.9rem;">
+                    Select a placeholder. You can upload a real photo later.
+                </p>
+                
+                <div style="display:flex;gap:12px;margin-bottom:16px;">
+                    <button class="btn btn-secondary avatar-gender-btn active" data-gender="male" onclick="setAvatarGender('male')">👨 Male</button>
+                    <button class="btn btn-secondary avatar-gender-btn" data-gender="female" onclick="setAvatarGender('female')">👩 Female</button>
+                </div>
+                
+                <div id="avatarOptions" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+                    <!-- Avatars will be populated here -->
+                </div>
+                
+                <div class="btn-row" style="justify-content:flex-end;">
+                    <button class="btn btn-secondary" onclick="closeAvatarPicker()">Cancel</button>
+                    <button class="btn btn-warning" onclick="skipWithoutAvatar()">Skip (No Avatar)</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Populate with male avatars by default
+        setAvatarGender('male');
+    }
+    
+    function setAvatarGender(gender) {
+        // Update button states
+        document.querySelectorAll('.avatar-gender-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.gender === gender);
+            if (btn.dataset.gender === gender) {
+                btn.style.background = 'var(--accent)';
+            } else {
+                btn.style.background = 'var(--bg-secondary)';
+            }
+        });
+        
+        // Avatar seeds for variety (different appearances)
+        const maleSeeds = ['James', 'Marcus', 'Chen', 'Ahmed', 'Carlos', 'Kofi', 'Raj', 'Ivan'];
+        const femaleSeeds = ['Emma', 'Aisha', 'Mei', 'Sofia', 'Fatima', 'Nia', 'Priya', 'Anna'];
+        
+        const seeds = gender === 'male' ? maleSeeds : femaleSeeds;
+        const container = document.getElementById('avatarOptions');
+        
+        container.innerHTML = seeds.map(seed => `
+            <div class="avatar-option" onclick="selectAvatar('${seed}')" 
+                 style="cursor:pointer;border-radius:12px;padding:8px;text-align:center;border:2px solid transparent;transition:all 0.2s;">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf" 
+                     style="width:60px;height:60px;border-radius:50%;">
+            </div>
+        `).join('');
+        
+        // Add hover effects
+        container.querySelectorAll('.avatar-option').forEach(opt => {
+            opt.onmouseenter = () => opt.style.borderColor = 'var(--accent)';
+            opt.onmouseleave = () => { if (!opt.classList.contains('selected')) opt.style.borderColor = 'transparent'; };
+        });
+    }
+    
+    function selectAvatar(seed) {
+        const s = students[currentIdx];
+        const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        
+        undoStack.push({
+            idx: currentIdx,
+            photoData: s.photoData,
+            confirmed: s.confirmed,
+            noPhoto: s.noPhoto,
+            faceRect: s.faceRect
+        });
+        
+        s.photoData = avatarUrl;
+        s.confirmed = true;
+        s.noPhoto = false;
+        s.isPlaceholder = true; // Flag so we know to allow replacement later
+        s.faceRect = null;
+        
+        closeAvatarPicker();
+        autoSave();
+        renderConfirmedOverlays();
+        updateConfirmedCount();
+        moveToNextUnconfirmed();
+    }
+    
+    function skipWithoutAvatar() {
         const s = students[currentIdx];
         
         undoStack.push({
@@ -2069,9 +2200,15 @@
         s.photoData = null;
         s.faceRect = null;
         
+        closeAvatarPicker();
         autoSave();
         updateConfirmedCount();
         moveToNextUnconfirmed();
+    }
+    
+    function closeAvatarPicker() {
+        const modal = document.getElementById('avatarPickerModal');
+        if (modal) modal.remove();
     }
     
     function undoLast() {
@@ -2494,7 +2631,8 @@
                 caricatures: s.photoData ? { photo: s.photoData } : {},
                 caricature: s.photoData || null,
                 noPhoto: s.noPhoto || false,
-                status: 'active'
+                isPlaceholder: s.isPlaceholder || false,
+                status: s.withdrawn ? 'withdrawn' : 'active'
             }))
         };
         
