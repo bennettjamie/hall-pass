@@ -1190,7 +1190,9 @@
             return {
                 text: item.str.trim(),
                 x: tx[4] * viewport.scale,
-                y: (page.view[3] - tx[5]) * viewport.scale
+                y: (page.view[3] - tx[5]) * viewport.scale,
+                width: (item.width || 100) * viewport.scale,
+                height: (item.height || 12) * viewport.scale
             };
         }).filter(item => item.text.length > 0);
         
@@ -1206,7 +1208,8 @@
                     lastName: match[1],
                     firstName: match[2],
                     x: item.x,
-                    y: item.y
+                    y: item.y,
+                    width: item.width
                 });
             }
         }
@@ -1253,7 +1256,8 @@
             noPhoto: false,
             position: { row: 0, col: 0 },
             textX: name.x,
-            textY: name.y
+            textY: name.y,
+            textWidth: name.width || 120
         }));
     }
     
@@ -1624,70 +1628,92 @@
         document.getElementById('confirmedCount').textContent = `${done} / ${students.length} done`;
     }
     
-    // Prediction
+    // Prediction - uses student's name position from PDF
     function predictNextPosition() {
         const student = students[currentIdx];
         
+        // Highlight which name we're looking for
+        highlightStudentName(student);
+        
         // Use text position from PDF if available
         if (student && student.textX !== undefined && student.textY !== undefined) {
-            const faceOffsetY = 30;
-            const w = gridLearn.avgWidth || 120;
-            const h = gridLearn.avgHeight || 150;
+            // Use learned offset if we have it, otherwise start with reasonable default
+            // MyEd PDFs typically have faces ~100-150px below the name at 3x scale
+            const faceOffsetY = gridLearn.learnedOffsetY || 120;
+            const w = gridLearn.avgWidth || 140;
+            const h = gridLearn.avgHeight || 170;
+            
+            // Center the prediction box under the name
+            // Name width is roughly 100-150px, so center the face box
+            const nameWidth = student.textWidth || 120;
+            const centeredX = student.textX + (nameWidth / 2) - (w / 2);
             
             predictedRect = {
-                x: student.textX - 10,
+                x: Math.max(0, centeredX),
                 y: student.textY + faceOffsetY,
                 w,
                 h
             };
+            
+            console.log(`Predicting for ${student.displayName} at (${Math.round(predictedRect.x)}, ${Math.round(predictedRect.y)})`);
             showPredictedRect(predictedRect.x, predictedRect.y, w, h);
             return;
         }
         
-        // Use grid learning
+        // Fallback: use grid learning from confirmed positions
         if (gridLearn.confirmedPositions.length >= 1) {
-            const positions = gridLearn.confirmedPositions;
-            const lastPos = positions[positions.length - 1];
+            const lastPos = gridLearn.confirmedPositions[gridLearn.confirmedPositions.length - 1];
+            const w = gridLearn.avgWidth || 140;
+            const h = gridLearn.avgHeight || 170;
             
-            // Detect columns
-            const xValues = positions.map(p => p.x).sort((a, b) => a - b);
-            const cols = clusterValues(xValues, 100);
+            // Move right if possible, otherwise next row
+            let nextX = lastPos.x + (gridLearn.colSpacing || 180);
+            let nextY = lastPos.y;
             
-            // Detect rows
-            const yValues = positions.map(p => p.y).sort((a, b) => a - b);
-            const rows = clusterValues(yValues, 100);
-            
-            if (cols.length > 1) {
-                gridLearn.colSpacing = (cols[cols.length - 1] - cols[0]) / (cols.length - 1);
-            }
-            if (rows.length > 1) {
-                gridLearn.rowSpacing = (rows[rows.length - 1] - rows[0]) / (rows.length - 1);
+            // If we'd go off screen, move to next row
+            if (nextX + w > pdfCanvas.width - 50) {
+                nextX = gridLearn.firstColX || 50;
+                nextY = lastPos.y + (gridLearn.rowSpacing || 220);
             }
             
-            const currentColIdx = findClosestIdx(cols, lastPos.x);
-            let nextX, nextY;
-            
-            if (currentColIdx < cols.length - 1) {
-                // Next column (move right)
-                nextX = cols[currentColIdx + 1];
-                nextY = lastPos.y;
-            } else {
-                // Next row (move down, back to first column)
-                const currentRowIdx = findClosestIdx(rows, lastPos.y);
-                nextX = cols[0];
-                nextY = currentRowIdx < rows.length - 1 
-                    ? rows[currentRowIdx + 1] 
-                    : lastPos.y + (gridLearn.rowSpacing || 200);
-            }
-            
-            predictedRect = { x: nextX, y: nextY, w: gridLearn.avgWidth, h: gridLearn.avgHeight };
-            showPredictedRect(nextX, nextY, gridLearn.avgWidth, gridLearn.avgHeight);
+            predictedRect = { x: nextX, y: nextY, w, h };
+            showPredictedRect(nextX, nextY, w, h);
             return;
         }
         
-        // Default: center of view
-        predictedRect = { x: pdfCanvas.width / 2 - 75, y: 100, w: 150, h: 180 };
-        showPredictedRect(predictedRect.x, predictedRect.y, 150, 180);
+        // Default: top-left area
+        predictedRect = { x: 50, y: 150, w: 140, h: 170 };
+        showPredictedRect(50, 150, 140, 170);
+    }
+    
+    // Highlight the student's name on the PDF
+    let nameHighlight = null;
+    function highlightStudentName(student) {
+        if (!nameHighlight) {
+            nameHighlight = document.createElement('div');
+            nameHighlight.style.cssText = `
+                position: absolute;
+                border: 2px solid #f59e0b;
+                background: rgba(245, 158, 11, 0.2);
+                border-radius: 4px;
+                pointer-events: none;
+                z-index: 5;
+                transition: all 0.3s ease;
+            `;
+            pdfScroll.appendChild(nameHighlight);
+        }
+        
+        if (student && student.textX !== undefined && student.textY !== undefined) {
+            const nameWidth = student.textWidth || 120;
+            const nameHeight = 25;
+            nameHighlight.style.left = (student.textX - 5) + 'px';
+            nameHighlight.style.top = (student.textY - nameHeight - 5) + 'px';
+            nameHighlight.style.width = (nameWidth + 10) + 'px';
+            nameHighlight.style.height = (nameHeight + 10) + 'px';
+            nameHighlight.style.display = 'block';
+        } else {
+            nameHighlight.style.display = 'none';
+        }
     }
     
     function clusterValues(values, threshold) {
@@ -1978,10 +2004,48 @@
         console.log(`✓ Confirmed: ${s.displayName} (${currentIdx + 1}/${students.length})`);
         console.log(`  Total confirmed: ${students.filter(x => x.confirmed).length}`);
         
-        // Learn from position
+        // Learn from this confirmation
         gridLearn.confirmedPositions.push({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
         gridLearn.avgWidth = gridLearn.confirmedPositions.reduce((a, p) => a + p.w, 0) / gridLearn.confirmedPositions.length;
         gridLearn.avgHeight = gridLearn.confirmedPositions.reduce((a, p) => a + p.h, 0) / gridLearn.confirmedPositions.length;
+        
+        // Learn offset from name to face (critical for accurate predictions!)
+        if (s.textY !== undefined) {
+            const offsetY = rect.y - s.textY;
+            if (!gridLearn.learnedOffsetY) {
+                gridLearn.learnedOffsetY = offsetY;
+                console.log(`  Learned name→face offset: ${Math.round(offsetY)}px`);
+            } else {
+                // Average with previous
+                gridLearn.learnedOffsetY = (gridLearn.learnedOffsetY + offsetY) / 2;
+            }
+        }
+        
+        // Learn column spacing
+        if (gridLearn.confirmedPositions.length >= 2) {
+            const positions = gridLearn.confirmedPositions;
+            const last = positions[positions.length - 1];
+            const prev = positions[positions.length - 2];
+            
+            // If same row (similar Y), learn column spacing
+            if (Math.abs(last.y - prev.y) < 50) {
+                const spacing = Math.abs(last.x - prev.x);
+                if (spacing > 50) { // Reasonable spacing
+                    gridLearn.colSpacing = gridLearn.colSpacing 
+                        ? (gridLearn.colSpacing + spacing) / 2 
+                        : spacing;
+                }
+            }
+            // If new row (big Y jump), learn row spacing
+            else if (last.y - prev.y > 100) {
+                gridLearn.rowSpacing = gridLearn.rowSpacing 
+                    ? (gridLearn.rowSpacing + (last.y - prev.y)) / 2 
+                    : (last.y - prev.y);
+                gridLearn.firstColX = last.x; // Remember first column X
+            }
+        } else if (gridLearn.confirmedPositions.length === 1) {
+            gridLearn.firstColX = rect.x; // First face = first column
+        }
         
         autoSave();
         renderConfirmedOverlays();
