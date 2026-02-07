@@ -461,9 +461,14 @@
     <div class="container">
         <div class="card">
             <h2>📋 Step 1: Review Student Names</h2>
-            <p style="color:var(--text-secondary);margin-bottom:20px;">
+            <p style="color:var(--text-secondary);margin-bottom:12px;">
                 Edit incorrect names. Delete extras. Add missing students.
             </p>
+            <div style="display:flex;gap:12px;padding:8px 40px 8px 48px;font-size:0.75rem;color:var(--text-secondary);">
+                <span style="flex:2;min-width:150px;">Official Name (LastName, FirstName)</span>
+                <span style="flex:1;min-width:80px;">Goes By</span>
+                <span style="width:32px;"></span>
+            </div>
             <div class="name-list" id="nameList"></div>
             <div class="add-row">
                 <input type="text" id="newNameInput" placeholder="Add: LastName, FirstName (e.g., Smith, John)">
@@ -926,31 +931,54 @@
         document.getElementById('processStatus').textContent = t;
     }
     
-    // Step 3: Name list
+    // Step 3: Name list with preferred name option
     function renderNameList() {
         document.getElementById('nameList').innerHTML = students.map((s, i) => `
-            <div class="name-item">
+            <div class="name-item" style="flex-wrap:wrap;">
                 <span class="num">${i + 1}</span>
                 <input type="text" value="${s.lastName}, ${s.firstName}" 
                        onchange="updateName(${i}, this.value)" 
-                       data-original="${s.ocrOriginal || ''}">
+                       data-original="${s.ocrOriginal || ''}"
+                       style="flex:2;min-width:150px;"
+                       placeholder="LastName, FirstName">
+                <input type="text" value="${s.preferredName || s.firstName}" 
+                       onchange="updatePreferredName(${i}, this.value)"
+                       style="flex:1;min-width:80px;background:var(--bg-primary);"
+                       placeholder="Goes by..."
+                       title="Preferred name (e.g., Theo instead of Theodore)">
                 <button class="del-btn" onclick="deleteName(${i})">🗑️</button>
             </div>
         `).join('');
     }
     
+    function updatePreferredName(idx, val) {
+        const student = students[idx];
+        student.preferredName = val.trim();
+        // Update display name to use preferred name
+        student.displayName = formatDisplayName(student.preferredName || student.firstName, student.lastName);
+    }
+    
     function updateName(idx, val) {
-        const original = students[idx].ocrOriginal;
+        const student = students[idx];
+        const original = student.ocrOriginal;
         const parts = val.split(',').map(s => s.trim());
         
+        const oldFirstName = student.firstName;
+        
         if (parts.length >= 2) {
-            students[idx].lastName = parts[0];
-            students[idx].firstName = parts[1];
+            student.lastName = parts[0];
+            student.firstName = parts[1];
         } else {
-            students[idx].firstName = val;
-            students[idx].lastName = '';
+            student.firstName = val;
+            student.lastName = '';
         }
-        students[idx].displayName = formatDisplayName(students[idx].firstName, students[idx].lastName);
+        
+        // If preferred name was the same as old first name, update it too
+        if (!student.preferredName || student.preferredName === oldFirstName) {
+            student.preferredName = student.firstName;
+        }
+        
+        student.displayName = formatDisplayName(student.preferredName || student.firstName, student.lastName);
         
         // Track correction for learning
         if (original && original !== val) {
@@ -1826,9 +1854,11 @@
             },
             students: confirmed.map((s, i) => ({
                 id: i + 1,
-                firstName: s.firstName,
+                firstName: s.firstName,           // Official first name
+                lastName: s.lastName,             // Official last name
+                preferredName: s.preferredName || s.firstName,  // What they go by
                 lastInitial: getLastInitial(s.lastName),
-                displayName: s.displayName,
+                displayName: formatDisplayName(s.preferredName || s.firstName, s.lastName),
                 position: s.position || { row: Math.floor(i / 6), col: i % 6 },
                 caricatures: { photo: s.photoData },
                 caricature: s.photoData,
