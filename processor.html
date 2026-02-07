@@ -191,6 +191,10 @@
             margin: 24px auto;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
         
         /* Name List */
         .name-list { max-height: 400px; overflow-y: auto; }
@@ -627,6 +631,7 @@
                 </div>
                 <div class="btn-stack">
                     <button class="btn btn-success" id="confirmBtn" onclick="confirmFace()" disabled>✓ Confirm Face</button>
+                    <button class="btn btn-primary" id="findBtn" onclick="findOnPage()" style="background:#3b82f6;">🔍 Find on Page</button>
                     <div class="btn-row">
                         <button class="btn btn-secondary" id="undoBtn" onclick="undoLast()" disabled>↩ Undo</button>
                         <button class="btn btn-secondary" onclick="markNoPhoto()">📵 No Photo</button>
@@ -642,7 +647,8 @@
                 </div>
                 <div class="kb-hint">
                     <kbd>↑↓←→</kbd> Nudge &nbsp;<kbd>Shift</kbd>+Arrow = Big<br>
-                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>N</kbd> No Photo &nbsp;<kbd>Z</kbd> Undo
+                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>N</kbd> No Photo &nbsp;<kbd>Z</kbd> Undo<br>
+                    <kbd>F</kbd> Find on Page
                 </div>
                 <div class="learn-status" id="learnStatus">🔍 Learning grid pattern...</div>
             </div>
@@ -2187,7 +2193,7 @@
                 break;
             case 'f':
             case 'F':
-                fixCurrentName();
+                findOnPage();
                 e.preventDefault();
                 break;
         }
@@ -2200,6 +2206,145 @@
             predictedDiv.style.left = rect.x + 'px';
             predictedDiv.style.top = rect.y + 'px';
         }
+    }
+    
+    // Cached OCR results for Find on Page
+    let cachedOcrWords = null;
+    let ocrInProgress = false;
+    
+    // Find current student's name on page
+    async function findOnPage() {
+        const student = students[currentIdx];
+        if (!student) return;
+        
+        const findBtn = document.getElementById('findBtn');
+        const originalText = findBtn.textContent;
+        
+        // Run OCR if not cached
+        if (!cachedOcrWords && !ocrInProgress) {
+            ocrInProgress = true;
+            findBtn.textContent = '🔍 Scanning...';
+            findBtn.disabled = true;
+            
+            try {
+                const processed = preprocessForOCR(pdfCanvas);
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            findBtn.textContent = `🔍 ${Math.round(m.progress * 100)}%`;
+                        }
+                    }
+                });
+                
+                await worker.setParameters({ tessedit_pageseg_mode: '6' });
+                const { data } = await worker.recognize(processed);
+                await worker.terminate();
+                
+                cachedOcrWords = (data.words || []).filter(w => w.text.trim().length > 1).map(w => ({
+                    text: w.text.trim().toLowerCase(),
+                    x: w.bbox.x0,
+                    y: w.bbox.y0,
+                    x2: w.bbox.x1,
+                    y2: w.bbox.y1
+                }));
+                
+                console.log(`OCR cached: ${cachedOcrWords.length} words`);
+            } catch (err) {
+                console.error('OCR failed:', err);
+                alert('Could not scan page. Try drawing the rectangle manually.');
+                findBtn.textContent = originalText;
+                findBtn.disabled = false;
+                ocrInProgress = false;
+                return;
+            }
+            
+            ocrInProgress = false;
+        } else if (ocrInProgress) {
+            return; // Already running
+        }
+        
+        findBtn.textContent = originalText;
+        findBtn.disabled = false;
+        
+        // Search for the student's last name
+        const lastName = student.lastName.toLowerCase();
+        const firstName = student.firstName.toLowerCase();
+        
+        let bestMatch = null;
+        let bestScore = 0;
+        
+        for (const word of cachedOcrWords) {
+            let score = 0;
+            const text = word.text;
+            
+            // Exact last name match
+            if (text === lastName || text.includes(lastName)) {
+                score = 10;
+            }
+            // Partial match (first 4 chars)
+            else if (lastName.length >= 4 && text.includes(lastName.substring(0, 4))) {
+                score = 5;
+            }
+            // First name as fallback
+            else if (text === firstName || text.includes(firstName)) {
+                score = 3;
+            }
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = word;
+            }
+        }
+        
+        if (bestMatch && bestScore >= 3) {
+            // Found! Position rectangle below the name
+            const w = gridLearn.avgWidth || 140;
+            const h = gridLearn.avgHeight || 170;
+            const faceOffsetY = gridLearn.learnedOffsetY || 100;
+            
+            rect = {
+                x: bestMatch.x,
+                y: bestMatch.y2 + faceOffsetY,
+                w: w,
+                h: h
+            };
+            
+            // Scroll to show the found location
+            pdfScroll.scrollTop = Math.max(0, bestMatch.y - 100);
+            pdfScroll.scrollLeft = Math.max(0, bestMatch.x - 100);
+            
+            // Show the rectangle
+            showPredictedRect(rect.x, rect.y, rect.w, rect.h);
+            
+            // Highlight the name text briefly
+            highlightFoundText(bestMatch);
+            
+            console.log(`Found "${student.lastName}" at (${bestMatch.x}, ${bestMatch.y})`);
+        } else {
+            alert(`Could not find "${student.lastName}" on the page.\nTry drawing the rectangle manually.`);
+        }
+    }
+    
+    // Briefly highlight found text
+    function highlightFoundText(word) {
+        const highlight = document.createElement('div');
+        highlight.style.cssText = `
+            position: absolute;
+            left: ${word.x - 5}px;
+            top: ${word.y - 5}px;
+            width: ${word.x2 - word.x + 10}px;
+            height: ${word.y2 - word.y + 10}px;
+            border: 3px solid #22c55e;
+            background: rgba(34, 197, 94, 0.3);
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 100;
+            animation: pulse 0.5s ease-in-out 3;
+        `;
+        pdfScroll.appendChild(highlight);
+        
+        // Remove after animation
+        setTimeout(() => highlight.remove(), 2000);
     }
     
     // Confirm face
