@@ -540,6 +540,16 @@ body {
     width: 40px;
     height: 40px;
     flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--gray-200);
+}
+
+.attendance-row .student-caricature img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
 }
 
 .attendance-name {
@@ -1350,4 +1360,33 @@ body.display-mode .student-name {
     padding: 0.1rem 0.35rem;
     border-radius: 0.25rem;
     font-weight: 600;
+}
+
+/* Floating Action Button - Style Switcher */
+.fab-style-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 1000;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fab-style-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.fab-style-btn:active {
+    transform: scale(0.95);
 }

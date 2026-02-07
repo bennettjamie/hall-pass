@@ -42,18 +42,22 @@ export default async function handler(req, res) {
                             {
                                 text: `This is a MyEd BC school class photo grid. Extract ALL student names.
 
-For each student, provide their name formatted as "FirstName L." (first name + last initial with period).
+The grid shows student photos with their names displayed ABOVE each photo.
+Names are typically in "Last, First" format - convert to "FirstName L." (first name + last initial with period).
 
-List them in reading order: left-to-right, top-to-bottom.
+Count the grid carefully:
+- Count exact number of COLUMNS (students per row)
+- Count exact number of ROWS
+- Include empty cells in your count
 
+List students in reading order: left-to-right, top-to-bottom.
+For empty cells, use "[BLANK]".
 Mark any WITHDRAWN students by adding "[WITHDRAWN]" after their name.
-
-Also determine the grid dimensions (how many rows and columns).
 
 Respond in this exact JSON format:
 {
   "grid": { "rows": number, "cols": number },
-  "students": ["FirstName L.", "FirstName L.", ...]
+  "students": ["FirstName L.", "FirstName L.", "[BLANK]", ...]
 }
 
 Only respond with the JSON, no other text.`

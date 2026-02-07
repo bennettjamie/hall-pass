@@ -13,6 +13,7 @@ const PhotoExtract = {
     originalImage: null,
     extractedData: null,
     selectedStyle: 'original',
+    faceApiLoaded: false,
     
     // Gender-neutral placeholder avatar (simple silhouette)
     placeholderAvatar: `data:image/svg+xml,${encodeURIComponent(`
@@ -22,6 +23,23 @@ const PhotoExtract = {
             <ellipse cx="50" cy="85" rx="30" ry="25" fill="#9ca3af"/>
         </svg>
     `)}`,
+    
+    // Load face-api.js models
+    async loadFaceApi() {
+        if (this.faceApiLoaded) return true;
+        
+        try {
+            // Load from CDN
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            this.faceApiLoaded = true;
+            console.log('Face-api.js loaded successfully');
+            return true;
+        } catch (e) {
+            console.warn('Face-api.js failed to load:', e);
+            return false;
+        }
+    },
     
     // Available avatar styles - all are pre-generated on import for instant switching
     // Chosen to be flattering, fun, and appealing to students
@@ -327,7 +345,13 @@ const PhotoExtract = {
             
             this.extractedData = data;
             
-            // Extract face crops from original image
+            // Update processing message
+            const processingH3 = document.querySelector('.ai-processing h3');
+            const processingP = document.querySelector('.ai-processing p');
+            if (processingH3) processingH3.textContent = '🔍 Detecting faces...';
+            if (processingP) processingP.textContent = `Found ${data.students?.length || 0} students, now locating faces`;
+            
+            // Extract face crops from original image using face detection
             await this.extractFaceCrops();
             
             // Show results
@@ -343,77 +367,80 @@ const PhotoExtract = {
         const { grid, students } = this.extractedData;
         const { image, width, height } = this.originalImage;
         
-        // Calculate cell dimensions based on detected grid
-        const cols = grid.cols;
-        const rows = grid.rows;
-        
-        // MyEd layout measurements (from analysis):
-        // - Header: ~2-3% of image height
-        // - Name text: ~20% of cell height (at TOP of cell)
-        // - Photo: ~80% of cell height (BELOW name)
-        const headerHeight = height * 0.025; // Small header
-        const contentHeight = height - headerHeight;
-        
-        const cellWidth = width / cols;
-        const cellHeight = contentHeight / rows;
-        
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Face crop size - balance between large and avoiding overflow
-        const faceSize = Math.min(cellWidth, cellHeight) * 0.70;
-        canvas.width = faceSize;
-        canvas.height = faceSize;
+        // Output size for face crops (square)
+        const outputSize = 200;
+        canvas.width = outputSize;
+        canvas.height = outputSize;
+        
+        // Calculate cell dimensions from grid
+        const cols = grid?.cols || 4;
+        const rows = grid?.rows || Math.ceil(students.length / cols);
+        const cellWidth = width / cols;
+        const cellHeight = height / rows;
+        
+        console.log(`Grid: ${cols}x${rows}, Cell: ${cellWidth.toFixed(0)}x${cellHeight.toFixed(0)}`);
+        
+        // MyEd BC layout analysis:
+        // - Name label at TOP of cell (~18-22% of cell height)
+        // - Photo below name (~78-82% of cell height)
+        // - Face is in UPPER portion of photo (head/shoulders shot)
+        // - Face is typically centered horizontally
+        const nameLabelRatio = 0.20;  // Name takes top 20%
         
         this.extractedData.studentFaces = [];
         
         for (let i = 0; i < students.length; i++) {
-            const studentName = students[i];
+            const student = students[i];
+            const studentName = typeof student === 'string' ? student : student?.name;
             
-            // Skip cells without names entirely - don't even add placeholder
+            // Skip blank entries
             if (!studentName || studentName.trim() === '' || studentName.includes('[BLANK]')) {
-                // Mark as null - we'll filter these out later
                 this.extractedData.studentFaces.push(null);
                 continue;
             }
             
-            // Check if WITHDRAWN - we'll add overlay after cropping
-            const isWithdrawn = studentName.toUpperCase().includes('WITHDRAWN');
-            
             const row = Math.floor(i / cols);
             const col = i % cols;
             
+            // Calculate cell position
             const cellX = col * cellWidth;
-            const cellY = headerHeight + (row * cellHeight);
+            const cellY = row * cellHeight;
             
-            // Face is in lower portion of cell (name text is top ~25-30%)
-            // For 2-line names, need more space. Be aggressive about going lower.
-            const nameAreaHeight = cellHeight * 0.32; // ~32% for name text (accounts for 2-line names)
-            const photoAreaHeight = cellHeight - nameAreaHeight;
+            // Photo area within cell (below name label)
+            const photoX = cellX;
+            const photoY = cellY + (cellHeight * nameLabelRatio);
+            const photoWidth = cellWidth;
+            const photoHeight = cellHeight * (1 - nameLabelRatio);
             
-            const faceX = cellX + (cellWidth - faceSize) / 2;
-            // Position face in upper part of photo area (faces are usually upper body)
-            const faceY = cellY + nameAreaHeight + (photoAreaHeight - faceSize) * 0.15;
+            // For school photos, face is typically:
+            // - Horizontally centered
+            // - In the upper 60% of the photo (head & shoulders)
+            // - Taking up about 50-60% of the photo width
             
-            ctx.clearRect(0, 0, faceSize, faceSize);
+            // Crop a square from the upper-center of the photo
+            const cropSize = Math.min(photoWidth, photoHeight) * 0.75;
+            const cropX = photoX + (photoWidth - cropSize) / 2;  // Center horizontally
+            const cropY = photoY + photoHeight * 0.05;  // Start near top of photo area
+            
+            // Draw face with circular clip
+            ctx.clearRect(0, 0, outputSize, outputSize);
             ctx.save();
-            
-            // Circular clip
             ctx.beginPath();
-            ctx.arc(faceSize / 2, faceSize / 2, faceSize / 2, 0, Math.PI * 2);
+            ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
             ctx.clip();
             
             ctx.drawImage(
                 image,
-                faceX, faceY, faceSize, faceSize,
-                0, 0, faceSize, faceSize
+                cropX, cropY, cropSize, cropSize,
+                0, 0, outputSize, outputSize
             );
             
             ctx.restore();
             
-            // Save clean face - WITHDRAWN overlay added via CSS, not burned in
-            // This keeps styled avatars looking consistent
-            this.extractedData.studentFaces.push(canvas.toDataURL('image/jpeg', 0.85));
+            this.extractedData.studentFaces.push(canvas.toDataURL('image/jpeg', 0.9));
         }
     },
     
@@ -452,10 +479,17 @@ const PhotoExtract = {
         const modal = document.getElementById('aiExtractModal');
         const { grid, students, studentFaces } = this.extractedData;
         
-        // Filter out blank cells (null faces or empty names)
-        const validCount = students.filter((name, i) => name && name.trim() && studentFaces[i]).length;
+        // Get student name (handles both string and object formats)
+        const getName = (student) => typeof student === 'string' ? student : student?.name;
         
-        const studentsHtml = students.map((name, i) => {
+        // Filter out blank cells (null faces or empty names)
+        const validCount = students.filter((s, i) => {
+            const name = getName(s);
+            return name && name.trim() && studentFaces[i];
+        }).length;
+        
+        const studentsHtml = students.map((student, i) => {
+            const name = getName(student);
             // Skip blank cells entirely
             if (!name || !name.trim() || !studentFaces[i]) return '';
             
@@ -471,15 +505,6 @@ const PhotoExtract = {
                 </div>
             `;
         }).filter(html => html).join(''); // Remove empty strings
-        
-        const stylesHtml = this.styles.map(s => `
-            <div class="style-option ${s.id === this.selectedStyle ? 'selected' : ''}" 
-                 onclick="PhotoExtract.selectStyle('${s.id}')">
-                <div class="style-icon">${s.icon}</div>
-                <div class="style-name">${s.name}</div>
-                <div class="style-desc">${s.desc}</div>
-            </div>
-        `).join('');
         
         modal.innerHTML = `
             <div class="modal-content">
@@ -499,24 +524,35 @@ const PhotoExtract = {
                         </div>
                     </div>
                     
-                    <h3>Choose Avatar Style</h3>
-                    <p class="help-text">Pick a fun style for student avatars! You can change this anytime.</p>
-                    <div class="style-selector">
-                        ${stylesHtml}
-                    </div>
-                    
                     <h3>Review Students</h3>
-                    <p class="help-text">Edit names if needed. Click a name to change it.</p>
+                    <p class="help-text">Verify faces are correct. Edit names if needed.</p>
                     <div class="extracted-preview">
                         <div class="student-preview-grid">
                             ${studentsHtml}
+                        </div>
+                    </div>
+                    
+                    <div class="import-info" style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <strong>🎨 Avatar Styles</strong>
+                        <div style="margin-top: 0.75rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; color: #374151; font-weight: 500;">
+                                How many styles to generate?
+                            </label>
+                            <select id="styleCountSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+                                <option value="1">📷 Original Only (instant)</option>
+                                <option value="4" selected>⭐ Popular 4: Original + Disney, Anime, Ghibli (~${Math.ceil(validCount * 3 * 8 / 60)} min)</option>
+                                <option value="10">🎨 All 10 Styles (~${Math.ceil(validCount * 9 * 8 / 60)} min)</option>
+                            </select>
+                            <p style="margin: 0.5rem 0 0; color: #6b7280; font-size: 0.8rem;">
+                                More styles = more time, but instant switching later!
+                            </p>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button class="secondary-btn" onclick="PhotoExtract.closeModal()">Cancel</button>
                     <button class="primary-btn" onclick="PhotoExtract.saveStudents()">
-                        ✓ Import ${students.length} Students
+                        ✓ Import ${validCount} Students
                     </button>
                 </div>
             </div>
@@ -568,18 +604,24 @@ const PhotoExtract = {
     async saveStudents() {
         const { students, studentFaces } = this.extractedData;
         
+        // Get student name (handles both string and object formats)
+        const getOriginalName = (student) => typeof student === 'string' ? student : student?.name;
+        
         // Collect edited names from inputs
         const inputs = document.querySelectorAll('.student-preview-item input');
         const finalNames = Array.from(inputs).map(input => input.value.trim());
         
         // Include students with names (including withdrawn) - skip blank cells entirely
         const allStudents = finalNames
-            .map((name, i) => ({ 
-                name: name.replace('[WITHDRAWN]', '').trim(), 
-                face: studentFaces[i], 
-                index: i,
-                isWithdrawn: students[i]?.toUpperCase().includes('WITHDRAWN') || false
-            }))
+            .map((name, i) => {
+                const originalName = getOriginalName(students[i]) || '';
+                return { 
+                    name: name.replace('[WITHDRAWN]', '').trim(), 
+                    face: studentFaces[i], 
+                    index: i,
+                    isWithdrawn: originalName.toUpperCase().includes('WITHDRAWN')
+                };
+            })
             .filter(s => s.name && s.face); // Filter out empty names AND null faces (blank cells)
         
         if (allStudents.length === 0) {
@@ -588,76 +630,124 @@ const PhotoExtract = {
         }
         
         try {
+            // Get user's style selection
+            const styleCountSelect = document.getElementById('styleCountSelect');
+            const styleCount = parseInt(styleCountSelect?.value || '4');
+            
+            // Define style sets
+            const styleOptions = {
+                1: [], // Original only
+                4: ['disney', 'anime', 'ghibli'], // Popular 4
+                10: ['disney', 'anime', 'ghibli', 'superhero', 'videogame', 'popart', 'watercolor', 'sketch', 'fantasy'] // All
+            };
+            const stylesToGenerate = styleOptions[styleCount] || styleOptions[4];
+            
+            // Time estimates
+            const timeEstimate = styleCount === 1 ? 'a few seconds' : 
+                                styleCount === 4 ? `~${Math.ceil(allStudents.length * 3 * 8 / 60)} minutes` :
+                                `~${Math.ceil(allStudents.length * 9 * 8 / 60)} minutes`;
+            
             const confirmClear = confirm(
-                `Import ${allStudents.length} students?\n\nThis will:\n• Clear existing students\n• Generate 4 avatar styles per student (Original, Disney, Anime, Ghibli)\n\nThis may take a few minutes.`
+                `Import ${allStudents.length} students?\n\nThis will:\n• Clear existing students\n• Generate ${styleCount} avatar style${styleCount > 1 ? 's' : ''} per student\n\nEstimated time: ${timeEstimate}`
             );
             
             if (!confirmClear) return;
             
             await DB.clearStudents();
             
-            // Show processing
+            // Show processing with detailed progress
             this.showProcessingModal();
-            document.querySelector('.ai-processing h3').textContent = '🎨 Generating avatar styles...';
+            const updateProgress = (message, detail = '') => {
+                const h3 = document.querySelector('.ai-processing h3');
+                const p = document.querySelector('.ai-processing p');
+                if (h3) h3.textContent = message;
+                if (p) p.innerHTML = detail;
+            };
             
-            const stylesToGenerate = this.pregenerateStyles.filter(s => s !== 'original');
+            updateProgress('🎨 Generating avatar styles...', 'Preparing...');
+            
             let completed = 0;
             const total = allStudents.length;
+            const styleFailures = [];
             
-            for (const student of allStudents) {
-                completed++;
-                document.querySelector('.ai-processing p').textContent = 
-                    `Processing ${student.name} (${completed}/${total})...`;
+            // Process 2 students at a time to balance speed and rate limits
+            const batchSize = 2;
+            for (let batch = 0; batch < allStudents.length; batch += batchSize) {
+                const batchStudents = allStudents.slice(batch, batch + batchSize);
                 
-                // Parse name into first/last
-                const parts = student.name.split(/\s+/);
-                const firstName = parts[0] || 'Student';
-                const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
-                
-                // Start with original (WITHDRAWN students get styled too for consistency)
-                const avatars = {
-                    original: student.face
-                };
-                
-                // Generate other styles in parallel (but limit concurrency)
-                const stylePromises = stylesToGenerate.map(async (styleId) => {
-                    try {
-                        const styleResponse = await fetch('/api/stylize', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                image: student.face,
-                                style: styleId,
-                                name: student.name
-                            })
-                        });
-                        
-                        const styleData = await styleResponse.json();
-                        if (styleData.success && styleData.image && !styleData.fallback) {
-                            return { styleId, image: styleData.image };
+                await Promise.all(batchStudents.map(async (student) => {
+                    completed++;
+                    updateProgress(
+                        '🎨 Generating avatar styles...',
+                        `<strong>${student.name}</strong> (${completed}/${total})<br>
+                         <small style="color:#6b7280">Creating ${stylesToGenerate.length + 1} styles...</small>`
+                    );
+                    
+                    // Parse name into first/last
+                    const parts = student.name.split(/\s+/);
+                    const firstName = parts[0] || 'Student';
+                    const lastInitial = parts.length > 1 ? parts[parts.length - 1].replace('.', '').charAt(0).toUpperCase() : '?';
+                    
+                    // Start with original
+                    const avatars = {
+                        original: student.face
+                    };
+                    
+                    // Generate selected styles in parallel
+                    const stylePromises = stylesToGenerate.map(async (styleId) => {
+                        try {
+                            const styleResponse = await fetch('/api/stylize', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    image: student.face,
+                                    style: styleId,
+                                    name: student.name
+                                })
+                            });
+                            
+                            if (!styleResponse.ok) {
+                                throw new Error(`HTTP ${styleResponse.status}`);
+                            }
+                            
+                            const styleData = await styleResponse.json();
+                            if (styleData.success && styleData.image && !styleData.fallback) {
+                                return { styleId, image: styleData.image, success: true };
+                            }
+                            return { styleId, image: student.face, success: false }; // Fallback
+                        } catch (e) {
+                            console.error(`Style ${styleId} failed for ${student.name}:`, e);
+                            styleFailures.push({ student: student.name, style: styleId, error: e.message });
+                            return { styleId, image: student.face, success: false }; // Fallback
                         }
-                        return { styleId, image: student.face }; // Fallback to original
-                    } catch (e) {
-                        console.error(`Style ${styleId} failed for ${student.name}:`, e);
-                        return { styleId, image: student.face }; // Fallback
-                    }
-                });
+                    });
+                    
+                    const styleResults = await Promise.all(stylePromises);
+                    styleResults.forEach(result => {
+                        avatars[result.styleId] = result.image;
+                    });
+                    
+                    await DB.addStudent({
+                        displayName: student.name,
+                        firstName,
+                        lastInitial,
+                        caricature: avatars[this.selectedStyle] || avatars.original,
+                        avatars: avatars,
+                        activeStyle: this.selectedStyle,
+                        isWithdrawn: student.isWithdrawn || false,
+                        sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
+                    });
+                }));
                 
-                const styleResults = await Promise.all(stylePromises);
-                styleResults.forEach(result => {
-                    avatars[result.styleId] = result.image;
-                });
-                
-                await DB.addStudent({
-                    displayName: student.name,
-                    firstName,
-                    lastInitial,
-                    caricature: avatars[this.selectedStyle] || avatars.original,
-                    avatars: avatars, // Store ALL generated styles
-                    activeStyle: this.selectedStyle,
-                    isWithdrawn: student.isWithdrawn || false,
-                    sortKey: `${lastInitial.toLowerCase()}_${firstName.toLowerCase()}`
-                });
+                // Small delay between batches to avoid rate limiting
+                if (batch + batchSize < allStudents.length) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
+            
+            // Log any failures for debugging
+            if (styleFailures.length > 0) {
+                console.warn('Some style generations failed:', styleFailures);
             }
             
             state.students = await DB.getStudents();
@@ -665,7 +755,12 @@ const PhotoExtract = {
             updateStats();
             
             this.closeModal();
-            alert(`✨ Imported ${allStudents.length} students!\n\n4 avatar styles generated per student. Use Settings to swap styles anytime!`);
+            
+            const stylesGenerated = stylesToGenerate.length + 1; // +1 for original
+            const successMsg = styleFailures.length > 0 
+                ? `✨ Imported ${allStudents.length} students!\n\n${stylesGenerated} avatar styles generated (${styleFailures.length} had fallbacks).\nUse the 🎨 Style button to swap anytime!`
+                : `✨ Imported ${allStudents.length} students!\n\n${stylesGenerated} avatar styles generated per student.\nUse the 🎨 Style button to swap anytime!`;
+            alert(successMsg);
             
         } catch (error) {
             console.error('Failed to save:', error);
