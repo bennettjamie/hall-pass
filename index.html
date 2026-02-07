@@ -559,6 +559,15 @@
             background: var(--bg-card);
             color: var(--text-primary);
         }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
 
         /* ========== STYLE SELECTOR ========== */
         .style-selector {
@@ -900,14 +909,32 @@
             <div class="modal-body">
                 <div class="setting-section">
                     <h3>📥 Import Class</h3>
-                    <p>Upload a PDF seating chart from MyEd</p>
-                    <a href="processor.html" class="btn btn-primary" style="display:inline-block;text-decoration:none;margin-bottom:12px;">📄 Upload PDF Seating Chart</a>
-                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px;">Or import existing JSON backup:</p>
-                    <div class="upload-zone" onclick="document.getElementById('settingsImportFile').click()" style="padding:16px;">
-                        <div class="upload-text" style="font-size:0.9rem;">📁 Import JSON backup</div>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px;">Choose how to import your class list:</p>
+                    
+                    <a href="processor.html?mode=paste" class="btn btn-primary" style="display:block;text-decoration:none;margin-bottom:8px;text-align:center;">
+                        ✨ Paste Text <span style="opacity:0.7;font-size:0.8rem;">(Best)</span>
+                    </a>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;padding-left:8px;">Copy from MyEd roster - fastest & most accurate</p>
+                    
+                    <a href="processor.html?mode=pdf" class="btn btn-secondary" style="display:block;text-decoration:none;margin-bottom:8px;text-align:center;">
+                        📄 Class List PDF <span style="opacity:0.7;font-size:0.8rem;">(Better)</span>
+                    </a>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;padding-left:8px;">Upload PDF - cleaner than screenshot</p>
+                    
+                    <a href="processor.html?mode=screenshot" class="btn btn-secondary" style="display:block;text-decoration:none;margin-bottom:8px;text-align:center;">
+                        📸 Screenshot <span style="opacity:0.7;font-size:0.8rem;">(May need edits)</span>
+                    </a>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;padding-left:8px;">Screenshot class list - OCR may need corrections</p>
+                    
+                    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px;">
+                        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">Or import existing backup:</p>
+                        <div class="upload-zone" onclick="document.getElementById('settingsImportFile').click()" style="padding:12px;">
+                            <div class="upload-text" style="font-size:0.85rem;">📁 Import JSON backup</div>
+                        </div>
+                        <input type="file" id="settingsImportFile" accept=".json" style="display:none" onchange="handleImport(event)">
                     </div>
-                    <input type="file" id="settingsImportFile" accept=".json" style="display:none" onchange="handleImport(event)">
                 </div>
+                
                 <div class="setting-section">
                     <h3>🎨 Avatar Style</h3>
                     <select id="styleSelect" onchange="setStyleFromSelect()">
@@ -919,9 +946,20 @@
                         <option value="pixel-art">🎮 Pixel</option>
                     </select>
                 </div>
+                
                 <div class="setting-section">
                     <h3>📤 Export Data</h3>
-                    <button class="btn btn-secondary" onclick="exportData()">Download Backup</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="exportData('json')">💾 JSON</button>
+                        <button class="btn btn-secondary" onclick="exportData('csv')">📊 CSV</button>
+                        <button class="btn btn-secondary" onclick="exportData('xlsx')">📗 Excel</button>
+                    </div>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>🔄 Start Fresh</h3>
+                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">Clear current class and start over</p>
+                    <button class="btn btn-danger" onclick="startFresh()">Clear Class Data</button>
                 </div>
             </div>
         </div>
@@ -1426,17 +1464,91 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
         
-        function exportData() {
+        function exportData(format = 'json') {
             if (!classData) {
                 alert('No class data to export');
                 return;
             }
-            const blob = new Blob([JSON.stringify(classData, null, 2)], {type: 'application/json'});
+            
+            const className = classData.settings?.className || 'class';
+            const date = new Date().toISOString().split('T')[0];
+            
+            if (format === 'json') {
+                const blob = new Blob([JSON.stringify(classData, null, 2)], {type: 'application/json'});
+                downloadBlob(blob, `hallpass-${className}-${date}.json`);
+            } 
+            else if (format === 'csv') {
+                const students = classData.students || [];
+                const headers = ['ID', 'First Name', 'Last Name', 'Preferred Name', 'Row', 'Col', 'Status'];
+                const rows = students.map(s => [
+                    s.id,
+                    s.firstName || '',
+                    s.lastName || '',
+                    s.preferredName || s.firstName || '',
+                    s.position?.row ?? '',
+                    s.position?.col ?? '',
+                    s.status || 'active'
+                ]);
+                const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+                const blob = new Blob([csv], {type: 'text/csv'});
+                downloadBlob(blob, `hallpass-${className}-${date}.csv`);
+            }
+            else if (format === 'xlsx') {
+                // Simple Excel XML format
+                const students = classData.students || [];
+                const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Worksheet ss:Name="Students">
+<Table>
+<Row><Cell><Data ss:Type="String">ID</Data></Cell><Cell><Data ss:Type="String">First Name</Data></Cell><Cell><Data ss:Type="String">Last Name</Data></Cell><Cell><Data ss:Type="String">Preferred Name</Data></Cell><Cell><Data ss:Type="String">Row</Data></Cell><Cell><Data ss:Type="String">Col</Data></Cell><Cell><Data ss:Type="String">Status</Data></Cell></Row>
+${students.map(s => `<Row><Cell><Data ss:Type="Number">${s.id}</Data></Cell><Cell><Data ss:Type="String">${s.firstName || ''}</Data></Cell><Cell><Data ss:Type="String">${s.lastName || ''}</Data></Cell><Cell><Data ss:Type="String">${s.preferredName || s.firstName || ''}</Data></Cell><Cell><Data ss:Type="Number">${s.position?.row ?? ''}</Data></Cell><Cell><Data ss:Type="Number">${s.position?.col ?? ''}</Data></Cell><Cell><Data ss:Type="String">${s.status || 'active'}</Data></Cell></Row>`).join('\n')}
+</Table>
+</Worksheet>
+</Workbook>`;
+                const blob = new Blob([xml], {type: 'application/vnd.ms-excel'});
+                downloadBlob(blob, `hallpass-${className}-${date}.xls`);
+            }
+            
+            showToast(`Exported as ${format.toUpperCase()}`);
+        }
+        
+        function downloadBlob(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'hallpass-backup.json';
+            a.download = filename;
             a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function startFresh() {
+            if (!classData && students.length === 0) {
+                alert('No class data to clear.');
+                return;
+            }
+            
+            const backup = confirm(
+                '⚠️ This will delete your current class.\n\n' +
+                'Do you want to download a backup first?\n\n' +
+                'Click OK to backup, then clear.\n' +
+                'Click Cancel to clear without backup.'
+            );
+            
+            if (backup) {
+                exportData('json');
+            }
+            
+            // Clear data
+            localStorage.removeItem('hallpass_class');
+            classData = null;
+            students = [];
+            
+            // Reset UI
+            renderGrid();
+            closeSettings();
+            
+            showToast('Class data cleared');
         }
         
         // Get caricature for current style
