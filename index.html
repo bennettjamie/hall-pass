@@ -1566,21 +1566,7 @@ ${students.map(s => `<Row><Cell><Data ss:Type="Number">${s.id}</Data></Cell><Cel
             return `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.firstName}`;
         }
 
-        // Updated render function
-        function renderGrid() {
-            const grid = document.getElementById('attendanceGrid');
-            const displayStudents = students.length > 0 ? students : demoStudents;
-            
-            grid.innerHTML = displayStudents.map(s => `
-                <div class="student-card ${s.status}" onclick="toggleCheckin(${s.id})">
-                    <img class="student-avatar" src="${getStudentImage(s)}" alt="${s.firstName}">
-                    <div class="student-name">${s.firstName} ${s.lastInitial}.</div>
-                    <div class="student-status">${getStatusText(s.status)}</div>
-                </div>
-            `).join('');
-        }
-        
-        // Load saved class on startup
+// Load saved class on startup
         function loadSavedClass() {
             const saved = localStorage.getItem('hallpass_class');
             if (saved) {
