@@ -7,6 +7,131 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBjn4fNFumGlgNgWNnGElm2I6We_fc9tFw",
+            authDomain: "hall-pass-edu.firebaseapp.com",
+            projectId: "hall-pass-edu",
+            storageBucket: "hall-pass-edu.firebasestorage.app",
+            messagingSenderId: "104819651723",
+            appId: "1:104819651723:web:a6de8748e1e88c5b8bd08e"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Make Firebase functions available globally
+        window.firebaseDB = db;
+        window.firebaseAddDoc = addDoc;
+        window.firebaseCollection = collection;
+        window.firebaseGetDocs = getDocs;
+        window.firebaseQuery = query;
+        window.firebaseOrderBy = orderBy;
+        window.firebaseLimit = limit;
+        
+        // Load learned corrections on startup (LOCAL + GLOBAL)
+        window.learnedCorrections = {};
+        window.localCorrections = {};  // Teacher's own corrections
+        window.learnedPatterns = { avgWidth: 150, avgHeight: 180, colSpacing: 200, rowSpacing: 250 };
+        
+        // Load LOCAL corrections first (teacher's own history)
+        function loadLocalLearning() {
+            try {
+                const history = JSON.parse(localStorage.getItem('hallpass_learning') || '[]');
+                
+                // Build local correction dictionary from teacher's own history
+                for (const session of history) {
+                    if (session.corrections) {
+                        for (const c of session.corrections) {
+                            if (c.ocr && c.ocr !== 'MISSED' && c.fixed) {
+                                // Extract word-level corrections
+                                const ocrWords = c.ocr.replace(',', '').split(/\s+/);
+                                const fixedWords = c.fixed.replace(',', '').split(/\s+/);
+                                
+                                for (let i = 0; i < Math.min(ocrWords.length, fixedWords.length); i++) {
+                                    if (ocrWords[i] !== fixedWords[i]) {
+                                        window.localCorrections[ocrWords[i]] = fixedWords[i];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Also learn patterns from local history
+                    if (session.gridPattern && session.gridPattern.samples > 0) {
+                        window.learnedPatterns = { ...window.learnedPatterns, ...session.gridPattern };
+                    }
+                }
+                
+                console.log('✓ Loaded local corrections:', Object.keys(window.localCorrections).length);
+            } catch (err) {
+                console.warn('Could not load local learning:', err);
+            }
+        }
+        
+        async function loadLearnedData() {
+            // Load local first (teacher's own)
+            loadLocalLearning();
+            
+            try {
+                // Get GLOBAL aggregated corrections from Firebase
+                const correctionsSnap = await getDocs(collection(db, 'corrections'));
+                let globalCount = 0;
+                
+                correctionsSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.ocrMistakes) {
+                        // Global corrections (don't override local)
+                        for (const [wrong, right] of Object.entries(data.ocrMistakes)) {
+                            if (!window.localCorrections[wrong]) {
+                                window.learnedCorrections[wrong] = right;
+                                globalCount++;
+                            }
+                        }
+                    }
+                    if (data.patterns) {
+                        // Only use global patterns if no local patterns
+                        if (Object.keys(window.learnedPatterns).length <= 4) {
+                            Object.assign(window.learnedPatterns, data.patterns);
+                        }
+                    }
+                });
+                
+                // Merge: local corrections take priority over global
+                window.learnedCorrections = { ...window.learnedCorrections, ...window.localCorrections };
+                
+                console.log('✓ Loaded global corrections:', globalCount);
+                console.log('✓ Total corrections (local+global):', Object.keys(window.learnedCorrections).length);
+                console.log('✓ Patterns:', window.learnedPatterns);
+                
+                // Update UI
+                const statusEl = document.getElementById('firebaseStatus');
+                if (statusEl) {
+                    const localCount = Object.keys(window.localCorrections).length;
+                    statusEl.textContent = `☁️ ${globalCount} global + 📱 ${localCount} local corrections`;
+                    statusEl.style.color = '#22c55e';
+                }
+            } catch (err) {
+                console.warn('Could not load global data (offline mode):', err);
+                
+                // Still works with local corrections
+                window.learnedCorrections = { ...window.localCorrections };
+                
+                const statusEl = document.getElementById('firebaseStatus');
+                if (statusEl) {
+                    statusEl.textContent = `📱 ${Object.keys(window.localCorrections).length} local corrections (offline)`;
+                    statusEl.style.color = '#f59e0b';
+                }
+            }
+        }
+        
+        // Load on startup
+        loadLearnedData();
+    </script>
     <style>
         :root {
             --bg-primary: #0f0f1a;
@@ -261,6 +386,7 @@
         <div class="card" style="max-width:500px;margin:60px auto;text-align:center;">
             <h1>🎟️ Hall Pass</h1>
             <p style="color:var(--text-secondary);margin-bottom:32px;">Import class from PDF seating chart</p>
+            <div id="firebaseStatus" style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">☁️ Connecting to learning database...</div>
             <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
                 <div class="upload-icon">📄</div>
                 <div>Drop PDF here or click to browse</div>
@@ -443,12 +569,29 @@
             const { data } = await worker.recognize(pdfCanvas);
             await worker.terminate();
             
+            // Apply learned corrections to OCR text
+            let ocrText = data.text;
+            const corrections = window.learnedCorrections || {};
+            let correctionsApplied = 0;
+            
+            for (const [wrong, right] of Object.entries(corrections)) {
+                if (ocrText.includes(wrong)) {
+                    ocrText = ocrText.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
+                    correctionsApplied++;
+                    console.log(`✓ Auto-corrected: "${wrong}" → "${right}"`);
+                }
+            }
+            
+            if (correctionsApplied > 0) {
+                console.log(`Applied ${correctionsApplied} learned corrections`);
+            }
+            
             // Find "LastName, FirstName" patterns
             const regex = /([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/g;
             let match;
             students = [];
             
-            while ((match = regex.exec(data.text)) !== null) {
+            while ((match = regex.exec(ocrText)) !== null) {
                 const lastName = match[1];
                 const firstName = match[2];
                 students.push({
@@ -561,17 +704,22 @@
         document.addEventListener('keydown', onKey);
         
         currentIdx = 0;
+        
+        // Initialize with learned patterns from Firebase (if available)
+        const learned = window.learnedPatterns || {};
         gridLearn = {
             confirmedPositions: [],
             colPositions: [],
             rowPositions: [],
-            avgWidth: 150,
-            avgHeight: 180,
-            colSpacing: 0,
-            rowSpacing: 0,
+            avgWidth: learned.avgWidth || 150,
+            avgHeight: learned.avgHeight || 180,
+            colSpacing: learned.colSpacing || 0,
+            rowSpacing: learned.rowSpacing || 0,
             currentCol: 0,
             currentRow: 0
         };
+        
+        console.log('Starting with learned patterns:', gridLearn);
         
         showCurrentStudent();
         renderStuList();
@@ -935,10 +1083,44 @@
         renderStuList();
     }
     
-    function saveLearningData() {
+    // Extract anonymous OCR patterns (word-level, no full names)
+    function extractOCRPatterns(corrections) {
+        const patterns = [];
+        
+        for (const c of corrections) {
+            if (c.ocr === 'MISSED') {
+                // Just count missed, don't send the name
+                patterns.push({ type: 'missed' });
+                continue;
+            }
+            
+            // Split into words and find differences
+            const ocrWords = c.ocr.replace(',', '').split(/\s+/);
+            const fixedWords = c.fixed.replace(',', '').split(/\s+/);
+            
+            for (let i = 0; i < Math.min(ocrWords.length, fixedWords.length); i++) {
+                if (ocrWords[i] !== fixedWords[i]) {
+                    // Only send the word that was wrong → right
+                    // e.g., "Poweil" → "Powell", not full name
+                    patterns.push({
+                        type: 'ocr_fix',
+                        wrong: ocrWords[i],
+                        right: fixedWords[i]
+                    });
+                }
+            }
+        }
+        
+        return patterns;
+    }
+    
+    async function saveLearningData() {
+        // Privacy-safe data: no full student names sent to server
+        const anonPatterns = extractOCRPatterns(corrections);
+        
         const data = {
             timestamp: new Date().toISOString(),
-            source: fileName,
+            source: 'seating_chart', // Generic, not filename
             gridPattern: {
                 samples: gridLearn.confirmedPositions.length,
                 avgWidth: Math.round(gridLearn.avgWidth),
@@ -946,15 +1128,40 @@
                 colSpacing: Math.round(gridLearn.colSpacing),
                 rowSpacing: Math.round(gridLearn.rowSpacing)
             },
-            corrections: corrections
+            patterns: anonPatterns, // Word-level only, no full names
+            stats: {
+                totalStudents: students.length,
+                confirmed: students.filter(s => s.confirmed).length,
+                correctionsMade: corrections.filter(c => c.ocr !== 'MISSED').length,
+                missedByOCR: corrections.filter(c => c.ocr === 'MISSED').length
+            }
         };
         
-        // Save locally
+        // Save FULL data locally (teacher's own device - OK to keep names)
+        const localData = {
+            ...data,
+            corrections: corrections // Full corrections stay local only
+        };
         const history = JSON.parse(localStorage.getItem('hallpass_learning') || '[]');
-        history.push(data);
-        localStorage.setItem('hallpass_learning', JSON.stringify(history.slice(-20))); // Keep last 20
+        history.push(localData);
+        localStorage.setItem('hallpass_learning', JSON.stringify(history.slice(-20)));
         
-        console.log('Learning data saved:', data);
+        console.log('Learning data saved locally (full):', localData);
+        console.log('Privacy-safe data for Firebase:', data);
+        
+        // Submit to Firebase for global learning
+        try {
+            if (window.firebaseDB && window.firebaseAddDoc && window.firebaseCollection) {
+                await window.firebaseAddDoc(
+                    window.firebaseCollection(window.firebaseDB, 'learning'),
+                    data
+                );
+                console.log('✓ Learning data submitted to Firebase');
+            }
+        } catch (err) {
+            console.warn('Could not submit to Firebase:', err);
+            // Non-blocking - app continues to work offline
+        }
     }
     
     // Step 5: Review
@@ -968,7 +1175,7 @@
         `).join('');
     }
     
-    function saveClass() {
+    async function saveClass() {
         const className = document.getElementById('classNameInput').value.trim() || 'Unnamed';
         const confirmed = students.filter(s => s.confirmed);
         
@@ -1005,10 +1212,10 @@
         
         localStorage.setItem('hallpass_class', JSON.stringify(classData));
         
-        // Final save of learning data
-        saveLearningData();
+        // Final save of learning data (local + Firebase)
+        await saveLearningData();
         
-        alert(`✓ Saved "${className}" with ${confirmed.length} students!`);
+        alert(`✓ Saved "${className}" with ${confirmed.length} students!\n☁️ Learning data shared to improve the app.`);
         window.location.href = 'index.html';
     }
 </script>

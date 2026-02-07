@@ -1,0 +1,11 @@
+{
+  "name": "hall-pass",
+  "version": "1.0.0",
+  "description": "Classroom management tool for teachers",
+  "scripts": {
+    "aggregate": "node scripts/aggregate-learning.js"
+  },
+  "dependencies": {
+    "firebase": "^10.8.0"
+  }
+}
