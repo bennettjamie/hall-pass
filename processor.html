@@ -735,14 +735,12 @@
         return students;
     }
     
-    // GRID-AWARE OCR - detects columns and reads each cell separately
+    // PHOTO-ANCHORED OCR - uses photos to define cells, any grid size, any name length
     async function extractStudentsWithOCR() {
-        setStatus('Analyzing grid layout...');
+        setStatus('Analyzing layout...');
         
-        // Preprocess image for better OCR
         const processedCanvas = preprocessForOCR(pdfCanvas);
         
-        // Initialize Tesseract with word-level bounding boxes
         const worker = await Tesseract.createWorker('eng', 1, {
             logger: m => {
                 if (m.status === 'recognizing text') {
@@ -759,100 +757,208 @@
         const { data } = await worker.recognize(processedCanvas);
         await worker.terminate();
         
-        console.log('OCR words:', data.words?.length || 0);
-        
-        // Get all words with their bounding boxes
+        // Get all words with bounding boxes
         const words = (data.words || []).filter(w => w.text.trim().length > 0).map(w => ({
             text: w.text.trim(),
             x: w.bbox.x0,
             y: w.bbox.y0,
-            width: w.bbox.x1 - w.bbox.x0,
-            height: w.bbox.y1 - w.bbox.y0,
-            centerX: (w.bbox.x0 + w.bbox.x1) / 2
+            x2: w.bbox.x1,
+            y2: w.bbox.y1,
+            centerX: (w.bbox.x0 + w.bbox.x1) / 2,
+            centerY: (w.bbox.y0 + w.bbox.y1) / 2
         }));
         
         if (words.length === 0) {
-            console.log('No words found, falling back to text regex');
             return extractStudentsFromText(data.text);
         }
         
-        // STEP 1: Detect columns by clustering X positions
-        const colThreshold = processedCanvas.width / 8; // ~6 columns expected
-        const columns = clusterByPosition(words, 'centerX', colThreshold);
+        console.log(`OCR found ${words.length} words`);
+        
+        // STEP 1: Find text rows by clustering Y positions
+        // Text appears in horizontal bands (name rows), with gaps (photo rows)
+        const yPositions = words.map(w => w.y).sort((a, b) => a - b);
+        const textRows = findTextRows(yPositions, processedCanvas.height);
+        console.log(`Detected ${textRows.length} text rows`);
+        
+        // STEP 2: Find columns by clustering X positions
+        const xPositions = words.map(w => w.centerX).sort((a, b) => a - b);
+        const columns = findColumns(xPositions, processedCanvas.width);
         console.log(`Detected ${columns.length} columns`);
         
-        // STEP 2: For each column, detect rows by Y position
-        const students = [];
-        const rowThreshold = 150; // Approximate cell height
+        // STEP 3: Assign each word to a cell (row, column)
+        const cells = {}; // "row-col" -> [words]
         
-        columns.forEach((colWords, colIdx) => {
-            // Cluster words in this column by Y position
-            const rows = clusterByPosition(colWords, 'y', rowThreshold);
+        for (const word of words) {
+            const rowIdx = findBestCluster(word.y, textRows);
+            const colIdx = findBestCluster(word.centerX, columns);
             
-            rows.forEach((rowWords, rowIdx) => {
-                // Combine words in this cell
-                // Sort by Y then X to get reading order
-                rowWords.sort((a, b) => a.y - b.y || a.x - b.x);
-                const cellText = rowWords.map(w => w.text).join(' ');
-                
-                // Try to parse as "LastName, FirstName"
-                const nameMatch = cellText.match(/([A-Za-z'-]+),?\s+([A-Za-z'-]+)/);
-                if (nameMatch) {
-                    // Check if it looks like a name (has comma or typical format)
-                    const hasComma = cellText.includes(',');
-                    const lastName = hasComma ? nameMatch[1] : nameMatch[1];
-                    const firstName = hasComma ? nameMatch[2] : nameMatch[2];
-                    
-                    // Skip if it's header text like "Seating Chart"
-                    if (lastName.toLowerCase() === 'seating' || lastName.toLowerCase() === 'schedule') {
-                        return;
-                    }
-                    
-                    students.push({
-                        id: students.length + 1,
-                        firstName: firstName,
-                        lastName: lastName,
-                        displayName: formatDisplayName(firstName, lastName),
-                        ocrOriginal: cellText,
-                        photoData: null,
-                        confirmed: false,
-                        position: { row: rowIdx, col: colIdx },
-                        // Store position for face prediction
-                        textX: colWords[0]?.x || 0,
-                        textY: rowWords[0]?.y || 0
-                    });
-                }
-            });
-        });
+            if (rowIdx === -1 || colIdx === -1) continue;
+            
+            const key = `${rowIdx}-${colIdx}`;
+            if (!cells[key]) cells[key] = [];
+            cells[key].push(word);
+        }
         
-        // Re-sort by row then column for proper order
+        // STEP 4: Parse each cell into a student name
+        const students = [];
+        
+        for (const [key, cellWords] of Object.entries(cells)) {
+            const [rowIdx, colIdx] = key.split('-').map(Number);
+            
+            // Sort words by Y then X (reading order)
+            cellWords.sort((a, b) => a.y - b.y || a.x - b.x);
+            
+            // Combine all words, handling line breaks
+            const rawText = cellWords.map(w => w.text).join(' ');
+            
+            // Parse the name
+            const parsed = parseStudentName(rawText);
+            if (!parsed) continue;
+            
+            // Calculate text position for face prediction
+            const minX = Math.min(...cellWords.map(w => w.x));
+            const maxY = Math.max(...cellWords.map(w => w.y2));
+            const avgX = cellWords.reduce((a, w) => a + w.centerX, 0) / cellWords.length;
+            
+            students.push({
+                id: students.length + 1,
+                firstName: parsed.firstName,
+                lastName: parsed.lastName,
+                displayName: formatDisplayName(parsed.firstName, parsed.lastName),
+                ocrOriginal: rawText,
+                photoData: null,
+                confirmed: false,
+                position: { row: rowIdx, col: colIdx },
+                textX: minX,
+                textY: maxY, // Bottom of text = top of photo
+                textCenterX: avgX
+            });
+        }
+        
+        // Sort by row then column
         students.sort((a, b) => a.position.row - b.position.row || a.position.col - b.position.col);
         students.forEach((s, i) => s.id = i + 1);
         
-        console.log(`Grid-aware OCR found ${students.length} students`);
+        console.log(`Photo-anchored OCR found ${students.length} students`);
         return students;
     }
     
-    // Cluster items by a position property
-    function clusterByPosition(items, prop, threshold) {
-        if (items.length === 0) return [];
+    // Find text rows by detecting gaps (where photos are)
+    function findTextRows(yPositions, pageHeight) {
+        if (yPositions.length === 0) return [];
         
-        // Sort by the position property
-        const sorted = [...items].sort((a, b) => a[prop] - b[prop]);
+        // Cluster Y positions
+        const threshold = 50; // Words within 50px are same text block
+        const clusters = [];
+        let currentCluster = [yPositions[0]];
         
-        const clusters = [[sorted[0]]];
-        for (let i = 1; i < sorted.length; i++) {
-            const lastCluster = clusters[clusters.length - 1];
-            const lastItem = lastCluster[lastCluster.length - 1];
-            
-            if (sorted[i][prop] - lastItem[prop] < threshold) {
-                lastCluster.push(sorted[i]);
+        for (let i = 1; i < yPositions.length; i++) {
+            if (yPositions[i] - yPositions[i-1] < threshold) {
+                currentCluster.push(yPositions[i]);
             } else {
-                clusters.push([sorted[i]]);
+                clusters.push({
+                    min: Math.min(...currentCluster),
+                    max: Math.max(...currentCluster),
+                    center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
+                });
+                currentCluster = [yPositions[i]];
+            }
+        }
+        clusters.push({
+            min: Math.min(...currentCluster),
+            max: Math.max(...currentCluster),
+            center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
+        });
+        
+        // Filter out header/footer (keep middle clusters)
+        // Text rows are separated by photo gaps (typically 100-200px)
+        const textRows = clusters.filter(c => c.max - c.min < 100); // Name text is compact
+        
+        return textRows;
+    }
+    
+    // Find columns by clustering X positions
+    function findColumns(xPositions, pageWidth) {
+        if (xPositions.length === 0) return [];
+        
+        const threshold = pageWidth / 10; // Adaptive based on page width
+        const clusters = [];
+        let currentCluster = [xPositions[0]];
+        
+        for (let i = 1; i < xPositions.length; i++) {
+            if (xPositions[i] - xPositions[i-1] < threshold) {
+                currentCluster.push(xPositions[i]);
+            } else {
+                clusters.push({
+                    min: Math.min(...currentCluster),
+                    max: Math.max(...currentCluster),
+                    center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
+                });
+                currentCluster = [xPositions[i]];
+            }
+        }
+        clusters.push({
+            min: Math.min(...currentCluster),
+            max: Math.max(...currentCluster),
+            center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
+        });
+        
+        return clusters;
+    }
+    
+    // Find which cluster a position belongs to
+    function findBestCluster(pos, clusters) {
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        
+        for (let i = 0; i < clusters.length; i++) {
+            const dist = Math.abs(pos - clusters[i].center);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
             }
         }
         
-        return clusters;
+        return bestIdx;
+    }
+    
+    // Parse "LastName, FirstName" from cell text (handles multi-line)
+    function parseStudentName(text) {
+        // Clean up the text
+        let cleaned = text
+            .replace(/\s+/g, ' ')  // Normalize whitespace
+            .replace(/- /g, '-')   // Fix "Morrison- " -> "Morrison-"
+            .replace(/ -/g, '-')   // Fix " -Mellingtallow" -> "-Mellingtallow"
+            .trim();
+        
+        // Skip non-name text
+        const skipWords = ['seating', 'chart', 'schedule', 'term', 'period', 'class', 'mcle', 'career', 'education'];
+        if (skipWords.some(w => cleaned.toLowerCase().includes(w))) {
+            return null;
+        }
+        
+        // Try to find comma separator
+        const commaIdx = cleaned.indexOf(',');
+        
+        if (commaIdx > 0) {
+            const lastName = cleaned.substring(0, commaIdx).trim();
+            const firstName = cleaned.substring(commaIdx + 1).trim();
+            
+            if (lastName.length > 0 && firstName.length > 0) {
+                return { lastName, firstName };
+            }
+        }
+        
+        // No comma - try to split by space (assume "LastName FirstName")
+        const parts = cleaned.split(' ').filter(p => p.length > 0);
+        if (parts.length >= 2) {
+            return {
+                lastName: parts[0],
+                firstName: parts.slice(1).join(' ')
+            };
+        }
+        
+        return null;
     }
     
     // Fallback: extract from plain text
