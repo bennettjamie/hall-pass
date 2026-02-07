@@ -646,6 +646,20 @@
             </div>
         </div>
         <div class="header-right">
+            <select class="layout-select" id="styleSelector" onchange="onStyleChange()" title="Avatar Style">
+                <option value="line-art">🎨 Line Art</option>
+                <option value="disney">🏰 Disney</option>
+                <option value="anime">🌸 Anime</option>
+                <option value="comic-book">📰 Comic</option>
+                <option value="watercolor">🖌️ Watercolor</option>
+                <option value="wood-etching">📜 Etching</option>
+                <option value="caricature">🎭 Caricature</option>
+                <option value="renaissance">🖼️ Renaissance</option>
+                <option value="pixel-art">🎮 Pixel</option>
+                <option value="pencil-sketch">✏️ Sketch</option>
+                <option value="fortnite">🕹️ Fortnite</option>
+                <option value="graffiti">🎨 Graffiti</option>
+            </select>
             <select class="layout-select" id="layoutSelector">
                 <option value="standard">Standard</option>
             </select>
@@ -868,6 +882,7 @@
         let gridSize = { rows: 5, cols: 6 };
         let layouts = {}; // { layoutName: { positions: { studentId: {row, col} }, gridSize } }
         let currentLayout = 'standard';
+        let currentStyle = 'line-art';  // Current caricature style
         let editMode = false;
         let draggedStudent = null;
         let originalPositions = null; // For cancel
@@ -1167,6 +1182,20 @@
         }
         
         // ========== POSITION & LAYOUT ==========
+        // Get the appropriate caricature for current style (supports v3 and v4 formats)
+        function getStudentCaricature(student) {
+            // v4 format: student.caricatures is an object with style keys
+            if (student.caricatures && typeof student.caricatures === 'object') {
+                // Try current style first, then fall back to line-art, then any available
+                return student.caricatures[currentStyle] 
+                    || student.caricatures['line-art']
+                    || Object.values(student.caricatures)[0]
+                    || student.caricature;  // Ultimate fallback
+            }
+            // v3 format: single caricature
+            return student.caricature;
+        }
+        
         function getStudentPosition(studentId) {
             const layout = layouts[currentLayout];
             if (layout && layout.positions && layout.positions[studentId]) {
@@ -1286,7 +1315,7 @@
                                  ondragover="handleDragOver(event)"
                                  ondrop="handleDrop(event, ${row}, ${col})">
                                 ${editBtn}
-                                <img src="${student.caricature}" alt="${student.firstName}">
+                                <img src="${getStudentCaricature(student)}" alt="${student.firstName}">
                                 <div class="name">${student.firstName} ${student.lastInitial}.</div>
                                 ${lateTime}
                                 ${hallTimer}
@@ -1334,7 +1363,7 @@
                     
                     html += `
                         <div class="seat ${statusClass}" data-id="${student.id}">
-                            <img src="${student.caricature}" alt="${student.firstName}">
+                            <img src="${getStudentCaricature(student)}" alt="${student.firstName}">
                             <div class="name">${student.firstName} ${student.lastInitial}.</div>
                         </div>
                     `;
@@ -1993,6 +2022,11 @@
             if (classSelector.value) {
                 await loadClass(classSelector.value);
             }
+        }
+        
+        function onStyleChange() {
+            currentStyle = document.getElementById('styleSelector').value;
+            renderGrid();  // Re-render with new style
         }
         
         function initPeriodSelector() {
