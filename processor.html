@@ -1092,53 +1092,94 @@
         }
     }
     
-    // Sort students by visual position (reading order: top to bottom, left to right)
+    // Assign grid positions based on actual PDF layout (not alphabetical)
     function sortStudentsByVisualOrder() {
-        // If we have text positions, use them for visual ordering
-        const hasPositions = students.some(s => s.textY !== undefined);
+        const hasPositions = students.some(s => s.textY !== undefined && s.textX !== undefined);
         
-        if (hasPositions) {
-            // First, assign rows by clustering Y positions
-            const yPositions = students.filter(s => s.textY !== undefined).map(s => s.textY);
-            if (yPositions.length > 0) {
-                yPositions.sort((a, b) => a - b);
-                const rowThreshold = 80; // px within same row
-                
-                students.forEach(s => {
-                    if (s.textY !== undefined) {
-                        // Find which row cluster this belongs to
-                        let rowNum = 0;
-                        let lastY = yPositions[0];
-                        for (const y of yPositions) {
-                            if (y - lastY > rowThreshold) rowNum++;
-                            if (y >= s.textY) break;
-                            lastY = y;
-                        }
-                        s._sortRow = rowNum;
-                        s._sortCol = s.textX || 0;
-                    } else {
-                        s._sortRow = 999;
-                        s._sortCol = 999;
-                    }
-                });
-                
-                students.sort((a, b) => {
-                    if (a._sortRow !== b._sortRow) return a._sortRow - b._sortRow;
-                    return a._sortCol - b._sortCol;
-                });
+        if (!hasPositions) {
+            // Fallback: assign sequential positions
+            const cols = 6;
+            students.forEach((s, i) => {
+                s.position = { row: Math.floor(i / cols), col: i % cols };
+            });
+            console.log('No text positions - using sequential layout');
+            return;
+        }
+        
+        // Step 1: Cluster Y positions into rows
+        const yValues = students.filter(s => s.textY !== undefined).map(s => s.textY).sort((a, b) => a - b);
+        const rowClusters = clusterPositions(yValues, 80); // 80px threshold for same row
+        
+        // Step 2: Cluster X positions into columns
+        const xValues = students.filter(s => s.textX !== undefined).map(s => s.textX).sort((a, b) => a - b);
+        const colClusters = clusterPositions(xValues, 100); // 100px threshold for same column
+        
+        console.log(`Detected ${rowClusters.length} rows, ${colClusters.length} columns`);
+        
+        // Step 3: Assign each student their actual grid position
+        students.forEach(s => {
+            if (s.textY !== undefined && s.textX !== undefined) {
+                // Find which row cluster this Y belongs to
+                const row = findClusterIndex(s.textY, rowClusters);
+                // Find which column cluster this X belongs to
+                const col = findClusterIndex(s.textX, colClusters);
+                s.position = { row, col };
+            } else {
+                // No position data - put at end
+                s.position = { row: 99, col: 0 };
+            }
+        });
+        
+        // Step 4: Sort by position for display order (row first, then col)
+        students.sort((a, b) => {
+            if (a.position.row !== b.position.row) return a.position.row - b.position.row;
+            return a.position.col - b.position.col;
+        });
+        
+        // Renumber IDs based on new order
+        students.forEach((s, i) => s.id = i + 1);
+        
+        console.log('Grid positions assigned:', students.map(s => `${s.displayName}@(${s.position.row},${s.position.col})`));
+    }
+    
+    // Cluster nearby values together
+    function clusterPositions(sortedValues, threshold) {
+        if (sortedValues.length === 0) return [];
+        
+        const clusters = [];
+        let currentCluster = [sortedValues[0]];
+        
+        for (let i = 1; i < sortedValues.length; i++) {
+            if (sortedValues[i] - currentCluster[currentCluster.length - 1] < threshold) {
+                currentCluster.push(sortedValues[i]);
+            } else {
+                // Calculate cluster center
+                const center = currentCluster.reduce((a, b) => a + b) / currentCluster.length;
+                clusters.push({ center, min: currentCluster[0], max: currentCluster[currentCluster.length - 1] });
+                currentCluster = [sortedValues[i]];
+            }
+        }
+        // Don't forget last cluster
+        const center = currentCluster.reduce((a, b) => a + b) / currentCluster.length;
+        clusters.push({ center, min: currentCluster[0], max: currentCluster[currentCluster.length - 1] });
+        
+        return clusters;
+    }
+    
+    // Find which cluster a value belongs to
+    function findClusterIndex(value, clusters) {
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        
+        for (let i = 0; i < clusters.length; i++) {
+            const dist = Math.abs(value - clusters[i].center);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
             }
         }
         
-        // Reassign positions based on sorted order
-        const cols = 6;
-        students.forEach((s, i) => {
-            s.position = { row: Math.floor(i / cols), col: i % cols };
-            s.visualOrder = i;
-            delete s._sortRow;
-            delete s._sortCol;
-        });
-        
-        console.log('Students sorted L→R:', students.map(s => s.displayName));
+        return bestIdx;
     }
     
     // PDF text extraction
