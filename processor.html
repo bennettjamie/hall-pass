@@ -468,26 +468,32 @@
         <div class="card" style="max-width:600px;margin:40px auto;">
             <h2 style="text-align:center;">📸 Step 2 of 2: Add Seating Chart</h2>
             <p style="color:var(--text-secondary);margin-bottom:8px;text-align:center;">
-                <span id="namesFoundCount">25</span> students found! Now add their photos.
+                ✓ <span id="namesFoundCount">25</span> students ready! Now add their photos.
             </p>
             <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px;text-align:center;">
-                Screenshot your MyEd seating chart (with photos), then paste or upload.
+                Upload your MyEd seating chart PDF or paste a screenshot.
             </p>
             
             <!-- Paste/Upload Zone -->
-            <div id="seatingDropZone" class="upload-zone" style="padding:40px;margin-bottom:20px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;"
+            <div id="seatingDropZone" class="upload-zone" style="padding:40px;margin-bottom:16px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;"
                  onclick="document.getElementById('seatingFileInput').click()">
                 <div style="font-size:3rem;margin-bottom:12px;">📷</div>
-                <div style="font-weight:600;margin-bottom:8px;">Paste screenshot (Ctrl+V) or click to upload</div>
+                <div style="font-weight:600;margin-bottom:8px;">Click to upload or Ctrl+V to paste</div>
                 <div style="font-size:0.8rem;color:var(--text-secondary);">
-                    💡 Use Windows Snipping Tool: Win+Shift+S
+                    PDF, PNG, or JPG
                 </div>
             </div>
             <input type="file" id="seatingFileInput" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
             
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:10px;margin-bottom:16px;">
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">
+                    💡 <strong>Tip:</strong> PDF gives best quality photos. Screenshot (Win+Shift+S) works too but may be lower resolution.
+                </p>
+            </div>
+            
             <div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;">
-                <button class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
-                <button class="btn btn-secondary" onclick="skipPhotosAndContinue()">Skip Photos for Now →</button>
+                <button class="btn btn-secondary" onclick="goBackToClassList()">← Back (keep names)</button>
+                <button class="btn btn-secondary" onclick="skipPhotosAndContinue()">Skip Photos →</button>
             </div>
         </div>
     </div>
@@ -903,6 +909,18 @@
     function skipPhotosAndContinue() {
         renderNameList();
         goToStep(3);
+    }
+    
+    // Go back to class list but keep the names
+    function goBackToClassList() {
+        // Names are still in students array, just go back
+        goToStep(1);
+        
+        // Restore the paste area with current names
+        if (students.length > 0) {
+            const nameText = students.map(s => `${s.lastName}, ${s.firstName}`).join('\n');
+            document.getElementById('pasteArea').value = nameText;
+        }
     }
     
     // Smart name parser - handles messy MyEd format
