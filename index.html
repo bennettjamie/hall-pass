@@ -745,10 +745,11 @@
             <div class="modal-body">
                 <div class="setting-section">
                     <h3>📥 Import Class</h3>
-                    <p>Upload a JSON file with student data</p>
-                    <div class="upload-zone" onclick="document.getElementById('settingsImportFile').click()">
-                        <div class="upload-icon">📁</div>
-                        <div class="upload-text">Click to select file</div>
+                    <p>Upload a PDF seating chart from MyEd</p>
+                    <a href="processor.html" class="btn btn-primary" style="display:inline-block;text-decoration:none;margin-bottom:12px;">📄 Upload PDF Seating Chart</a>
+                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px;">Or import existing JSON backup:</p>
+                    <div class="upload-zone" onclick="document.getElementById('settingsImportFile').click()" style="padding:16px;">
+                        <div class="upload-text" style="font-size:0.9rem;">📁 Import JSON backup</div>
                     </div>
                     <input type="file" id="settingsImportFile" accept=".json" style="display:none" onchange="handleImport(event)">
                 </div>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Pass - PDF Processor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #252540;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --border: rgba(255,255,255,0.1);
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+        
+        .upload-section {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .upload-icon { font-size: 3rem; margin-bottom: 16px; }
+        .upload-text { font-size: 1.1rem; margin-bottom: 8px; }
+        .upload-hint { color: var(--text-secondary); font-size: 0.9rem; }
+        
+        .progress-section {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        
+        .progress-section.active { display: block; }
+        
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .progress-status {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .log {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        
+        .log-entry { margin-bottom: 4px; }
+        .log-entry.success { color: var(--success); }
+        .log-entry.error { color: var(--danger); }
+        .log-entry.info { color: var(--text-secondary); }
+        
+        .results-section {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            display: none;
+        }
+        
+        .results-section.active { display: block; }
+        
+        .class-name-input {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .class-name-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-light);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        
+        .student-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .student-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 8px;
+            border: 2px solid var(--border);
+        }
+        
+        .student-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .student-pos {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        #pdfCanvas { display: none; }
+        #cropCanvas { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎟️ Hall Pass — Import Class</h1>
+        <p class="subtitle">Upload a PDF seating chart to extract students</p>
+        
+        <div class="upload-section">
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('pdfInput').click()">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Drop PDF seating chart here</div>
+                <div class="upload-hint">or click to browse</div>
+            </div>
+            <input type="file" id="pdfInput" accept=".pdf" style="display:none">
+        </div>
+        
+        <div class="progress-section" id="progressSection">
+            <h2>Processing...</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-status" id="progressStatus">Starting...</div>
+            <div class="log" id="log"></div>
+        </div>
+        
+        <div class="results-section" id="resultsSection">
+            <h2>✓ Students Extracted</h2>
+            <div class="class-name-input">
+                <input type="text" id="className" placeholder="Class name (e.g., CLE 10 - Block 4)">
+                <button class="btn btn-primary" onclick="saveClass()">💾 Save Class</button>
+            </div>
+            <div class="student-grid" id="studentGrid"></div>
+        </div>
+    </div>
+    
+    <canvas id="pdfCanvas"></canvas>
+    <canvas id="cropCanvas"></canvas>
+    
+    <script>
+        // Set PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let extractedStudents = [];
+        let pdfImageData = null;
+        
+        // Drag and drop handlers
+        const uploadZone = document.getElementById('uploadZone');
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                processPDF(file);
+            }
+        });
+        
+        document.getElementById('pdfInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processPDF(file);
+        });
+        
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.textContent = message;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function setProgress(percent, status) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressStatus').textContent = status;
+        }
+        
+        async function processPDF(file) {
+            document.getElementById('progressSection').classList.add('active');
+            document.getElementById('resultsSection').classList.remove('active');
+            document.getElementById('log').innerHTML = '';
+            
+            try {
+                log('Loading PDF: ' + file.name);
+                setProgress(5, 'Loading PDF...');
+                
+                // Load PDF
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                log('PDF loaded, pages: ' + pdf.numPages, 'success');
+                
+                // Render first page to canvas
+                setProgress(15, 'Rendering page...');
+                const page = await pdf.getPage(1);
+                const scale = 2; // Higher resolution for better OCR
+                const viewport = page.getViewport({ scale });
+                
+                const canvas = document.getElementById('pdfCanvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                log('Page rendered: ' + canvas.width + 'x' + canvas.height, 'success');
+                
+                pdfImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Try to extract class name from PDF metadata or filename
+                const suggestedName = file.name.replace('.pdf', '').replace(/_/g, ' ');
+                document.getElementById('className').value = suggestedName;
+                
+                // Run OCR
+                setProgress(25, 'Running OCR (this may take a minute)...');
+                log('Starting OCR...');
+                
+                const worker = await Tesseract.createWorker('eng');
+                
+                const { data } = await worker.recognize(canvas);
+                log('OCR complete, found ' + data.words.length + ' words', 'success');
+                
+                setProgress(60, 'Finding student names...');
+                
+                // Find names (pattern: "LastName, FirstName" or just names)
+                const namePattern = /([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/g;
+                const names = [];
+                let match;
+                
+                // Look for name patterns in the text
+                while ((match = namePattern.exec(data.text)) !== null) {
+                    const lastName = match[1];
+                    const firstName = match[2];
+                    
+                    // Find the bounding box for this name in the OCR data
+                    const nameStr = match[0];
+                    const wordData = findWordBounds(data.words, nameStr, lastName);
+                    
+                    if (wordData) {
+                        names.push({
+                            firstName,
+                            lastName,
+                            lastInitial: lastName[0],
+                            displayName: firstName + ' ' + lastName[0] + '.',
+                            bounds: wordData.bounds
+                        });
+                    }
+                }
+                
+                log('Found ' + names.length + ' student names', names.length > 0 ? 'success' : 'error');
+                
+                if (names.length === 0) {
+                    // Fallback: try simpler extraction
+                    log('Trying fallback name extraction...');
+                    const simpleNames = extractNamesSimple(data);
+                    names.push(...simpleNames);
+                    log('Fallback found ' + simpleNames.length + ' names');
+                }
+                
+                setProgress(75, 'Extracting faces...');
+                
+                // Extract faces above each name
+                extractedStudents = [];
+                const cropCanvas = document.getElementById('cropCanvas');
+                const cropCtx = cropCanvas.getContext('2d');
+                
+                // Calculate grid layout from positions
+                const sortedNames = [...names].sort((a, b) => {
+                    const rowA = Math.floor(a.bounds.y / 200); // Approximate row height
+                    const rowB = Math.floor(b.bounds.y / 200);
+                    if (rowA !== rowB) return rowA - rowB;
+                    return a.bounds.x - b.bounds.x;
+                });
+                
+                let currentRow = 0;
+                let currentCol = 0;
+                let lastRowY = -1;
+                
+                for (let i = 0; i < sortedNames.length; i++) {
+                    const name = sortedNames[i];
+                    const rowY = Math.floor(name.bounds.y / 200);
+                    
+                    if (lastRowY !== -1 && rowY > lastRowY) {
+                        currentRow++;
+                        currentCol = 0;
+                    }
+                    lastRowY = rowY;
+                    
+                    // Crop face region (above the name)
+                    const faceWidth = 150 * scale;
+                    const faceHeight = 150 * scale;
+                    const faceX = name.bounds.x - 20;
+                    const faceY = name.bounds.y - faceHeight - 20;
+                    
+                    cropCanvas.width = 150;
+                    cropCanvas.height = 150;
+                    
+                    // Draw cropped region
+                    cropCtx.drawImage(
+                        canvas,
+                        Math.max(0, faceX), Math.max(0, faceY), faceWidth, faceHeight,
+                        0, 0, 150, 150
+                    );
+                    
+                    const photoData = cropCanvas.toDataURL('image/jpeg', 0.8);
+                    
+                    extractedStudents.push({
+                        id: i + 1,
+                        firstName: name.firstName,
+                        lastName: name.lastName,
+                        lastInitial: name.lastInitial,
+                        displayName: name.displayName,
+                        position: { row: currentRow, col: currentCol },
+                        caricatures: { photo: photoData },
+                        caricature: photoData,
+                        status: 'active'
+                    });
+                    
+                    currentCol++;
+                    log('Extracted: ' + name.displayName + ' @ row ' + currentRow + ' col ' + currentCol);
+                }
+                
+                await worker.terminate();
+                
+                setProgress(100, 'Complete!');
+                log('Extraction complete: ' + extractedStudents.length + ' students', 'success');
+                
+                // Show results
+                displayResults();
+                
+            } catch (error) {
+                log('Error: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+        
+        function findWordBounds(words, fullName, lastName) {
+            // Find the word that matches the last name
+            for (const word of words) {
+                if (word.text.includes(lastName)) {
+                    return {
+                        bounds: {
+                            x: word.bbox.x0,
+                            y: word.bbox.y0,
+                            width: word.bbox.x1 - word.bbox.x0,
+                            height: word.bbox.y1 - word.bbox.y0
+                        }
+                    };
+                }
+            }
+            return null;
+        }
+        
+        function extractNamesSimple(data) {
+            // Simpler extraction: look for capitalized words that could be names
+            const names = [];
+            const words = data.words.filter(w => w.confidence > 60);
+            
+            for (let i = 0; i < words.length - 1; i++) {
+                const word = words[i];
+                const text = word.text.replace(/[^a-zA-Z]/g, '');
+                
+                // Check if it looks like "LastName," pattern
+                if (text.length > 2 && /^[A-Z][a-z]+$/.test(text) && words[i].text.includes(',')) {
+                    const nextWord = words[i + 1];
+                    const firstName = nextWord.text.replace(/[^a-zA-Z]/g, '');
+                    
+                    if (firstName.length > 1 && /^[A-Z][a-z]+$/.test(firstName)) {
+                        names.push({
+                            firstName,
+                            lastName: text,
+                            lastInitial: text[0],
+                            displayName: firstName + ' ' + text[0] + '.',
+                            bounds: {
+                                x: word.bbox.x0,
+                                y: word.bbox.y0,
+                                width: word.bbox.x1 - word.bbox.x0,
+                                height: word.bbox.y1 - word.bbox.y0
+                            }
+                        });
+                    }
+                }
+            }
+            
+            return names;
+        }
+        
+        function displayResults() {
+            document.getElementById('resultsSection').classList.add('active');
+            
+            const grid = document.getElementById('studentGrid');
+            grid.innerHTML = extractedStudents.map(s => `
+                <div class="student-card">
+                    <img class="student-photo" src="${s.caricature}" alt="${s.firstName}">
+                    <div class="student-name">${s.displayName}</div>
+                    <div class="student-pos">Row ${s.position.row + 1}, Col ${s.position.col + 1}</div>
+                </div>
+            `).join('');
+        }
+        
+        function saveClass() {
+            const className = document.getElementById('className').value || 'Unnamed Class';
+            
+            const classData = {
+                version: 4,
+                settings: {
+                    classId: 'class_' + Date.now(),
+                    className: className,
+                    gridSize: calculateGridSize()
+                },
+                styles: {
+                    available: [{ id: 'photo', name: 'Photo', emoji: '📷' }],
+                    default: 'photo'
+                },
+                students: extractedStudents
+            };
+            
+            // Save to localStorage
+            const classes = JSON.parse(localStorage.getItem('hallpass_classes') || '{}');
+            classes[classData.settings.classId] = classData;
+            localStorage.setItem('hallpass_classes', JSON.stringify(classes));
+            
+            // Also set as current class
+            localStorage.setItem('hallpass_class', JSON.stringify(classData));
+            
+            alert('✓ Class saved! ' + extractedStudents.length + ' students.\n\nGo to Hall Pass to see your class.');
+            
+            // Redirect to main app
+            window.location.href = 'index.html';
+        }
+        
+        function calculateGridSize() {
+            let maxRow = 0, maxCol = 0;
+            for (const s of extractedStudents) {
+                maxRow = Math.max(maxRow, s.position.row);
+                maxCol = Math.max(maxCol, s.position.col);
+            }
+            return { rows: maxRow + 1, cols: maxCol + 1 };
+        }
+    </script>
+</body>
+</html>
