@@ -429,50 +429,65 @@
 </head>
 <body>
 
-<!-- STEP 1: Import Options -->
+<!-- STEP 1: Class List First -->
 <div class="section active" id="step1">
     <div class="container">
         <div class="card" style="max-width:600px;margin:40px auto;">
             <h1 style="text-align:center;">🎟️ Hall Pass</h1>
-            <p style="color:var(--text-secondary);margin-bottom:24px;text-align:center;">Import your class list</p>
+            <p style="color:var(--text-secondary);margin-bottom:8px;text-align:center;">Step 1 of 2: Get your class names</p>
             <div id="firebaseStatus" style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;text-align:center;">☁️ Connecting to learning database...</div>
             
-            <!-- Paste Area -->
+            <!-- Paste Area - PRIMARY -->
             <div style="margin-bottom:20px;">
-                <label style="font-weight:600;display:block;margin-bottom:8px;">📋 Paste Class List (fastest)</label>
+                <label style="font-weight:600;display:block;margin-bottom:8px;">📋 Paste Class List from MyEd</label>
                 <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
-                    Copy names from MyEd or any roster. Ctrl+V to paste.
+                    Copy your class roster from MyEd attendance page. Ctrl+V to paste.
                 </p>
-                <textarea id="pasteArea" placeholder="Paste class list here...&#10;&#10;Example:&#10;Smith, John 2028 Present&#10;Garcia, Maria 2028 Present&#10;&#10;Or just:&#10;Smith, John&#10;Garcia, Maria" 
-                    style="width:100%;height:150px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;resize:vertical;"></textarea>
+                <textarea id="pasteArea" placeholder="Paste class list here...&#10;&#10;Example from MyEd:&#10;Almasri, Ahmad 2028 Present Present&#10;Boston, Tasiana 2028 Present Present&#10;&#10;Or simple format:&#10;Smith, John&#10;Garcia, Maria" 
+                    style="width:100%;height:180px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;resize:vertical;"></textarea>
                 <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="parseTextInput()">
-                    Parse Names
+                    Next: Add Seating Chart →
                 </button>
             </div>
             
-            <div style="text-align:center;color:var(--text-secondary);margin:20px 0;">— OR —</div>
+            <div style="text-align:center;color:var(--text-secondary);margin:16px 0;font-size:0.85rem;">— or start manually —</div>
             
-            <!-- File Upload -->
-            <div style="margin-bottom:20px;">
-                <label style="font-weight:600;display:block;margin-bottom:8px;">📁 Upload File</label>
-                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
-                    PDF seating chart, or image screenshot
-                </p>
-                <div class="upload-zone" onclick="document.getElementById('fileInput').click()" style="padding:24px;">
-                    <div class="upload-icon" style="font-size:2rem;">📄</div>
-                    <div>Click to browse or drop file</div>
-                    <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">PDF, PNG, JPG</div>
-                </div>
-                <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" style="display:none">
-            </div>
-            
-            <div style="text-align:center;color:var(--text-secondary);margin:20px 0;">— OR —</div>
-            
-            <!-- Names Only -->
+            <!-- Manual Option -->
             <div>
                 <button class="btn btn-secondary" style="width:100%;" onclick="startNamesOnly()">
                     ✏️ Enter Names Manually
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 1B: Seating Chart Upload -->
+<div class="section" id="step1b">
+    <div class="container">
+        <div class="card" style="max-width:600px;margin:40px auto;">
+            <h2 style="text-align:center;">📸 Step 2 of 2: Add Seating Chart</h2>
+            <p style="color:var(--text-secondary);margin-bottom:8px;text-align:center;">
+                <span id="namesFoundCount">25</span> students found! Now add their photos.
+            </p>
+            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px;text-align:center;">
+                Screenshot your MyEd seating chart (with photos), then paste or upload.
+            </p>
+            
+            <!-- Paste/Upload Zone -->
+            <div id="seatingDropZone" class="upload-zone" style="padding:40px;margin-bottom:20px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;"
+                 onclick="document.getElementById('seatingFileInput').click()">
+                <div style="font-size:3rem;margin-bottom:12px;">📷</div>
+                <div style="font-weight:600;margin-bottom:8px;">Paste screenshot (Ctrl+V) or click to upload</div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);">
+                    💡 Use Windows Snipping Tool: Win+Shift+S
+                </div>
+            </div>
+            <input type="file" id="seatingFileInput" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
+            
+            <div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;">
+                <button class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
+                <button class="btn btn-secondary" onclick="skipPhotosAndContinue()">Skip Photos for Now →</button>
             </div>
         </div>
     </div>
@@ -483,7 +498,7 @@
     <div class="container">
         <div class="card" style="max-width:500px;margin:60px auto;text-align:center;">
             <div class="spinner"></div>
-            <h2>Processing PDF...</h2>
+            <h2>Processing...</h2>
             <p id="processStatus" style="color:var(--text-secondary);margin-top:16px;">Loading...</p>
         </div>
     </div>
@@ -685,9 +700,196 @@
             return;
         }
         
-        // Skip to name review (no PDF/image yet)
+        // Show count and go to seating chart step
+        document.getElementById('namesFoundCount').textContent = students.length;
         fileName = 'Imported Class';
         document.getElementById('classNameInput').value = fileName;
+        
+        // Go to seating chart upload
+        goToStep('1b');
+        setupSeatingChartHandlers();
+    }
+    
+    // Setup handlers for seating chart step
+    function setupSeatingChartHandlers() {
+        const dropZone = document.getElementById('seatingDropZone');
+        const fileInput = document.getElementById('seatingFileInput');
+        
+        // File input handler
+        fileInput.onchange = e => {
+            if (e.target.files[0]) {
+                loadSeatingChartFile(e.target.files[0]);
+            }
+        };
+        
+        // Paste handler for this step
+        document.onpaste = e => {
+            if (!document.getElementById('step1b').classList.contains('active')) return;
+            
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    if (file) {
+                        loadSeatingChartFile(file);
+                        return;
+                    }
+                }
+            }
+        };
+        
+        // Drag and drop
+        dropZone.ondragover = e => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--accent)';
+            dropZone.style.background = 'rgba(99, 102, 241, 0.1)';
+        };
+        
+        dropZone.ondragleave = e => {
+            dropZone.style.borderColor = '';
+            dropZone.style.background = '';
+        };
+        
+        dropZone.ondrop = e => {
+            e.preventDefault();
+            dropZone.style.borderColor = '';
+            dropZone.style.background = '';
+            
+            if (e.dataTransfer.files[0]) {
+                loadSeatingChartFile(e.dataTransfer.files[0]);
+            }
+        };
+    }
+    
+    // Load seating chart and auto-map names to faces
+    async function loadSeatingChartFile(file) {
+        goToStep(2);
+        setStatus('Loading seating chart...');
+        
+        const ext = file.name.split('.').pop().toLowerCase();
+        
+        if (ext === 'pdf') {
+            // Handle PDF
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const page = await pdf.getPage(1);
+            const scale = 3;
+            const viewport = page.getViewport({ scale });
+            
+            pdfCanvas = document.getElementById('pdfCanvas');
+            pdfCtx = pdfCanvas.getContext('2d');
+            pdfCanvas.width = viewport.width;
+            pdfCanvas.height = viewport.height;
+            
+            await page.render({ canvasContext: pdfCtx, viewport }).promise;
+        } else {
+            // Handle image
+            await new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    pdfCanvas = document.getElementById('pdfCanvas');
+                    pdfCtx = pdfCanvas.getContext('2d');
+                    pdfCanvas.width = img.width;
+                    pdfCanvas.height = img.height;
+                    pdfCtx.drawImage(img, 0, 0);
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+        
+        // Try to auto-map names to positions
+        setStatus('Finding names on seating chart...');
+        await autoMapNamesToFaces();
+        
+        // Go to review
+        renderNameList();
+        goToStep(3);
+    }
+    
+    // Auto-map: OCR seating chart to find name positions, assign faces
+    async function autoMapNamesToFaces() {
+        const processedCanvas = preprocessForOCR(pdfCanvas);
+        
+        const worker = await Tesseract.createWorker('eng', 1, {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    setStatus(`Mapping names... ${Math.round(m.progress * 100)}%`);
+                }
+            }
+        });
+        
+        const { data } = await worker.recognize(processedCanvas);
+        await worker.terminate();
+        
+        // Get word positions
+        const words = (data.words || []).filter(w => w.text.trim().length > 1).map(w => ({
+            text: w.text.trim().toLowerCase(),
+            x: w.bbox.x0,
+            y: w.bbox.y0,
+            x2: w.bbox.x1,
+            y2: w.bbox.y1,
+            centerX: (w.bbox.x0 + w.bbox.x1) / 2,
+            centerY: (w.bbox.y0 + w.bbox.y1) / 2
+        }));
+        
+        console.log(`Found ${words.length} words in seating chart`);
+        
+        // Try to match each student's name to a position
+        for (const student of students) {
+            const lastName = student.lastName.toLowerCase();
+            const firstName = student.firstName.toLowerCase();
+            
+            // Find words matching this student's name
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            for (const word of words) {
+                let score = 0;
+                
+                // Check if word matches last name or first name
+                if (word.text.includes(lastName) || lastName.includes(word.text)) {
+                    score += 2;
+                }
+                if (word.text.includes(firstName) || firstName.includes(word.text)) {
+                    score += 1;
+                }
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = word;
+                }
+            }
+            
+            if (bestMatch && bestScore > 0) {
+                // Calculate grid position based on location
+                const col = Math.floor(bestMatch.centerX / (pdfCanvas.width / 6));
+                const row = Math.floor(bestMatch.centerY / (pdfCanvas.height / 5));
+                
+                student.position = { row, col };
+                student.textX = bestMatch.x;
+                student.textY = bestMatch.y2; // Bottom of name = top of face
+                student.autoMapped = true;
+                
+                console.log(`Mapped ${student.lastName} to row ${row}, col ${col}`);
+            }
+        }
+        
+        // Re-sort by position
+        students.sort((a, b) => {
+            if (a.position && b.position) {
+                return a.position.row - b.position.row || a.position.col - b.position.col;
+            }
+            return 0;
+        });
+        
+        students.forEach((s, i) => s.id = i + 1);
+    }
+    
+    // Skip photos and go to review
+    function skipPhotosAndContinue() {
         renderNameList();
         goToStep(3);
     }
@@ -920,7 +1122,7 @@
     function goToStep(n) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.getElementById('step' + n).classList.add('active');
-        if (n === 5) renderReview();
+        if (n === 5 || n === '5') renderReview();
     }
     
     // Get last initial - handles hyphenated names
