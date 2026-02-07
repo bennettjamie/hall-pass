@@ -429,18 +429,51 @@
 </head>
 <body>
 
-<!-- STEP 1: Upload -->
+<!-- STEP 1: Import Options -->
 <div class="section active" id="step1">
     <div class="container">
-        <div class="card" style="max-width:500px;margin:60px auto;text-align:center;">
-            <h1>🎟️ Hall Pass</h1>
-            <p style="color:var(--text-secondary);margin-bottom:32px;">Import class from PDF seating chart</p>
-            <div id="firebaseStatus" style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">☁️ Connecting to learning database...</div>
-            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">📄</div>
-                <div>Drop PDF here or click to browse</div>
+        <div class="card" style="max-width:600px;margin:40px auto;">
+            <h1 style="text-align:center;">🎟️ Hall Pass</h1>
+            <p style="color:var(--text-secondary);margin-bottom:24px;text-align:center;">Import your class list</p>
+            <div id="firebaseStatus" style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;text-align:center;">☁️ Connecting to learning database...</div>
+            
+            <!-- Paste Area -->
+            <div style="margin-bottom:20px;">
+                <label style="font-weight:600;display:block;margin-bottom:8px;">📋 Paste Class List (fastest)</label>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
+                    Copy names from MyEd or any roster. Ctrl+V to paste.
+                </p>
+                <textarea id="pasteArea" placeholder="Paste class list here...&#10;&#10;Example:&#10;Smith, John 2028 Present&#10;Garcia, Maria 2028 Present&#10;&#10;Or just:&#10;Smith, John&#10;Garcia, Maria" 
+                    style="width:100%;height:150px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;resize:vertical;"></textarea>
+                <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="parseTextInput()">
+                    Parse Names
+                </button>
             </div>
-            <input type="file" id="fileInput" accept=".pdf" style="display:none">
+            
+            <div style="text-align:center;color:var(--text-secondary);margin:20px 0;">— OR —</div>
+            
+            <!-- File Upload -->
+            <div style="margin-bottom:20px;">
+                <label style="font-weight:600;display:block;margin-bottom:8px;">📁 Upload File</label>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
+                    PDF seating chart, or image screenshot
+                </p>
+                <div class="upload-zone" onclick="document.getElementById('fileInput').click()" style="padding:24px;">
+                    <div class="upload-icon" style="font-size:2rem;">📄</div>
+                    <div>Click to browse or drop file</div>
+                    <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">PDF, PNG, JPG</div>
+                </div>
+                <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+            </div>
+            
+            <div style="text-align:center;color:var(--text-secondary);margin:20px 0;">— OR —</div>
+            
+            <!-- Names Only -->
+            <div>
+                <button class="btn btn-secondary" style="width:100%;" onclick="startNamesOnly()">
+                    ✏️ Enter Names Manually
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -474,9 +507,12 @@
                 <input type="text" id="newNameInput" placeholder="Add: LastName, FirstName (e.g., Smith, John)">
                 <button class="btn btn-secondary" onclick="addName()">+ Add</button>
             </div>
-            <div style="margin-top:24px;display:flex;justify-content:space-between;">
+            <div style="margin-top:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
                 <button class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
-                <button class="btn btn-primary" onclick="startFaceSelection()">Continue to Face Selection →</button>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <button class="btn btn-secondary" onclick="skipPhotos()">Skip Photos →</button>
+                    <button class="btn btn-primary" onclick="promptForSeatingChart()">Add Photos →</button>
+                </div>
             </div>
         </div>
     </div>
@@ -586,7 +622,299 @@
     
     // Init
     document.getElementById('fileInput').addEventListener('change', e => {
-        if (e.target.files[0]) loadPDF(e.target.files[0]);
+        if (e.target.files[0]) handleFileUpload(e.target.files[0]);
+    });
+    
+    // Handle file upload (PDF or image)
+    function handleFileUpload(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'pdf') {
+            loadPDF(file);
+        } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+            loadImage(file);
+        } else {
+            alert('Unsupported file type. Use PDF, PNG, or JPG.');
+        }
+    }
+    
+    // Load image file (screenshot)
+    async function loadImage(file) {
+        goToStep(2);
+        fileName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        document.getElementById('classNameInput').value = fileName;
+        
+        setStatus('Loading image...');
+        
+        const img = new Image();
+        img.onload = async () => {
+            pdfCanvas = document.getElementById('pdfCanvas');
+            pdfCtx = pdfCanvas.getContext('2d');
+            pdfCanvas.width = img.width;
+            pdfCanvas.height = img.height;
+            pdfCtx.drawImage(img, 0, 0);
+            
+            // Try OCR on the image
+            setStatus('Reading names from image...');
+            students = await extractStudentsWithOCR();
+            
+            if (students.length === 0) {
+                alert('Could not read names from image. Try pasting text instead.');
+                goToStep(1);
+                return;
+            }
+            
+            applyLearnedCorrections();
+            renderNameList();
+            goToStep(3);
+        };
+        img.src = URL.createObjectURL(file);
+    }
+    
+    // Parse pasted text for names
+    function parseTextInput() {
+        const text = document.getElementById('pasteArea').value.trim();
+        if (!text) {
+            alert('Please paste your class list first.');
+            return;
+        }
+        
+        students = parseNamesFromText(text);
+        
+        if (students.length === 0) {
+            alert('Could not find any names. Check the format.');
+            return;
+        }
+        
+        // Skip to name review (no PDF/image yet)
+        fileName = 'Imported Class';
+        document.getElementById('classNameInput').value = fileName;
+        renderNameList();
+        goToStep(3);
+    }
+    
+    // Smart name parser - handles messy MyEd format
+    function parseNamesFromText(text) {
+        const lines = text.split(/\n/);
+        const students = [];
+        const seen = new Set();
+        
+        // Pattern 1: "LastName, FirstName YYYY" (MyEd format)
+        const myEdPattern = /([A-Za-z][A-Za-z'-]+),\s*([A-Za-z][A-Za-z'-]+)\s+\d{4}/;
+        
+        // Pattern 2: "LastName, FirstName" (simple)
+        const simplePattern = /^([A-Za-z][A-Za-z'-]+),\s*([A-Za-z][A-Za-z'-]+)/;
+        
+        // Pattern 3: "FirstName LastName" (no comma)
+        const noCommaPattern = /^([A-Za-z][A-Za-z'-]+)\s+([A-Za-z][A-Za-z'-]+)$/;
+        
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+            
+            let lastName, firstName;
+            
+            // Try MyEd format first
+            let match = line.match(myEdPattern);
+            if (match) {
+                lastName = match[1];
+                firstName = match[2];
+            } else {
+                // Try simple comma format
+                match = line.match(simplePattern);
+                if (match) {
+                    lastName = match[1];
+                    firstName = match[2];
+                } else {
+                    // Try no-comma format
+                    match = line.match(noCommaPattern);
+                    if (match) {
+                        firstName = match[1];
+                        lastName = match[2];
+                    }
+                }
+            }
+            
+            if (lastName && firstName) {
+                const key = `${lastName.toLowerCase()},${firstName.toLowerCase()}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    students.push({
+                        id: students.length + 1,
+                        firstName: firstName,
+                        lastName: lastName,
+                        displayName: formatDisplayName(firstName, lastName),
+                        ocrOriginal: `${lastName}, ${firstName}`,
+                        photoData: null,
+                        confirmed: false,
+                        position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+                    });
+                }
+            }
+        }
+        
+        // If no line-by-line matches, try to find all names in the blob
+        if (students.length === 0) {
+            const blobPattern = /([A-Za-z][A-Za-z'-]+),\s*([A-Za-z][A-Za-z'-]+)/g;
+            let match;
+            while ((match = blobPattern.exec(text)) !== null) {
+                const lastName = match[1];
+                const firstName = match[2];
+                const key = `${lastName.toLowerCase()},${firstName.toLowerCase()}`;
+                
+                // Skip common non-name patterns
+                if (['Present', 'Absent', 'Late', 'edit'].includes(firstName)) continue;
+                
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    students.push({
+                        id: students.length + 1,
+                        firstName: firstName,
+                        lastName: lastName,
+                        displayName: formatDisplayName(firstName, lastName),
+                        ocrOriginal: `${lastName}, ${firstName}`,
+                        photoData: null,
+                        confirmed: false,
+                        position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+                    });
+                }
+            }
+        }
+        
+        console.log(`Parsed ${students.length} students from text`);
+        return students;
+    }
+    
+    // Start with manual name entry
+    function startNamesOnly() {
+        students = [];
+        fileName = 'New Class';
+        document.getElementById('classNameInput').value = fileName;
+        renderNameList();
+        goToStep(3);
+    }
+    
+    // Skip photo selection - use avatars
+    function skipPhotos() {
+        // Mark all students as confirmed without photos
+        students.forEach(s => {
+            s.confirmed = true;
+            s.photoData = null; // Will use avatar fallback
+        });
+        goToStep(5);
+    }
+    
+    // Prompt for seating chart image for photos
+    function promptForSeatingChart() {
+        if (pdfCanvas && pdfCanvas.width > 0) {
+            // Already have an image loaded, go to face selection
+            startFaceSelection();
+        } else {
+            // Need to get seating chart
+            const choice = confirm(
+                'To add student photos, you need a seating chart image.\n\n' +
+                'Click OK to upload/paste a seating chart screenshot.\n' +
+                'Click Cancel to skip photos for now.'
+            );
+            
+            if (choice) {
+                showSeatingChartUpload();
+            } else {
+                skipPhotos();
+            }
+        }
+    }
+    
+    // Show seating chart upload dialog
+    function showSeatingChartUpload() {
+        // Create modal for seating chart upload
+        const modal = document.createElement('div');
+        modal.id = 'seatingChartModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;';
+        modal.innerHTML = `
+            <div style="background:var(--bg-card);padding:32px;border-radius:20px;max-width:500px;width:90%;">
+                <h2 style="margin-bottom:16px;">📸 Add Seating Chart</h2>
+                <p style="color:var(--text-secondary);margin-bottom:20px;">
+                    Upload or paste a screenshot of your seating chart with student photos.
+                </p>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:16px;">
+                    💡 Tip: Use Windows Snipping Tool (Win+Shift+S) to capture your screen
+                </p>
+                <div class="upload-zone" onclick="document.getElementById('seatingChartInput').click()" 
+                     style="padding:24px;margin-bottom:16px;border:2px dashed var(--border);border-radius:12px;text-align:center;cursor:pointer;">
+                    <div style="font-size:2rem;margin-bottom:8px;">📷</div>
+                    <div>Click to upload or Ctrl+V to paste</div>
+                </div>
+                <input type="file" id="seatingChartInput" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button class="btn btn-secondary" onclick="closeSeatingChartModal()">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Handle file input
+        document.getElementById('seatingChartInput').addEventListener('change', e => {
+            if (e.target.files[0]) {
+                closeSeatingChartModal();
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+        
+        // Handle paste
+        modal.addEventListener('paste', handlePaste);
+        modal.focus();
+    }
+    
+    function closeSeatingChartModal() {
+        const modal = document.getElementById('seatingChartModal');
+        if (modal) modal.remove();
+    }
+    
+    // Handle paste event (Ctrl+V)
+    function handlePaste(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    closeSeatingChartModal();
+                    loadImageForFaces(file);
+                    return;
+                }
+            }
+        }
+    }
+    
+    // Load image specifically for face selection (preserve existing names)
+    async function loadImageForFaces(file) {
+        goToStep(2);
+        setStatus('Loading seating chart...');
+        
+        const img = new Image();
+        img.onload = () => {
+            pdfCanvas = document.getElementById('pdfCanvas');
+            pdfCtx = pdfCanvas.getContext('2d');
+            pdfCanvas.width = img.width;
+            pdfCanvas.height = img.height;
+            pdfCtx.drawImage(img, 0, 0);
+            
+            setStatus('Ready for face selection');
+            
+            // Go to face selection with existing names
+            startFaceSelection();
+        };
+        img.src = URL.createObjectURL(file);
+    }
+    
+    // Enable paste anywhere on page
+    document.addEventListener('paste', e => {
+        // Only handle if we're on step 1 or seating chart modal is open
+        if (document.getElementById('step1').classList.contains('active') ||
+            document.getElementById('seatingChartModal')) {
+            handlePaste(e);
+        }
     });
     
     function goToStep(n) {
