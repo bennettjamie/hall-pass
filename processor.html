@@ -24,7 +24,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        // Make Firebase functions available globally
         window.firebaseDB = db;
         window.firebaseAddDoc = addDoc;
         window.firebaseCollection = collection;
@@ -33,26 +32,22 @@
         window.firebaseOrderBy = orderBy;
         window.firebaseLimit = limit;
         
-        // Load learned corrections on startup (LOCAL + GLOBAL)
-        window.learnedCorrections = {};     // Word-level (local only)
-        window.localCorrections = {};        // Teacher's own corrections (stays on device)
-        window.charPatterns = {};            // Character patterns from global (privacy-safe)
+        // Learning data
+        window.learnedCorrections = {};
+        window.localCorrections = {};
+        window.charPatterns = {};
         window.learnedPatterns = { avgWidth: 150, avgHeight: 180, colSpacing: 200, rowSpacing: 250 };
+        window.predictionDeltas = []; // Track predicted vs actual for learning
         
-        // Load LOCAL corrections first (teacher's own history)
         function loadLocalLearning() {
             try {
                 const history = JSON.parse(localStorage.getItem('hallpass_learning') || '[]');
-                
-                // Build local correction dictionary from teacher's own history
                 for (const session of history) {
                     if (session.corrections) {
                         for (const c of session.corrections) {
                             if (c.ocr && c.ocr !== 'MISSED' && c.fixed) {
-                                // Extract word-level corrections
                                 const ocrWords = c.ocr.replace(',', '').split(/\s+/);
                                 const fixedWords = c.fixed.replace(',', '').split(/\s+/);
-                                
                                 for (let i = 0; i < Math.min(ocrWords.length, fixedWords.length); i++) {
                                     if (ocrWords[i] !== fixedWords[i]) {
                                         window.localCorrections[ocrWords[i]] = fixedWords[i];
@@ -61,13 +56,14 @@
                             }
                         }
                     }
-                    
-                    // Also learn patterns from local history
                     if (session.gridPattern && session.gridPattern.samples > 0) {
                         window.learnedPatterns = { ...window.learnedPatterns, ...session.gridPattern };
                     }
+                    // Load prediction adjustment history
+                    if (session.predictionDeltas) {
+                        window.predictionDeltas.push(...session.predictionDeltas);
+                    }
                 }
-                
                 console.log('✓ Loaded local corrections:', Object.keys(window.localCorrections).length);
             } catch (err) {
                 console.warn('Could not load local learning:', err);
@@ -75,24 +71,18 @@
         }
         
         async function loadLearnedData() {
-            // Load local first (teacher's own)
             loadLocalLearning();
-            
             try {
-                // Get GLOBAL aggregated corrections from Firebase
                 const correctionsSnap = await getDocs(collection(db, 'corrections'));
                 let globalCount = 0;
-                
                 correctionsSnap.forEach(doc => {
                     const data = doc.data();
-                    // Character-level corrections (privacy-safe patterns like "ll" → "I")
                     if (data.charCorrections) {
                         for (const [wrong, right] of Object.entries(data.charCorrections)) {
                             window.charPatterns[wrong] = right;
                             globalCount++;
                         }
                     }
-                    // Legacy support for old format
                     if (data.ocrMistakes) {
                         for (const [wrong, right] of Object.entries(data.ocrMistakes)) {
                             if (!window.localCorrections[wrong]) {
@@ -103,43 +93,25 @@
                     if (data.gridPatterns) {
                         Object.assign(window.learnedPatterns, data.gridPatterns);
                     }
-                    // Legacy
-                    if (data.patterns) {
-                        if (Object.keys(window.learnedPatterns).length <= 4) {
-                            Object.assign(window.learnedPatterns, data.patterns);
-                        }
-                    }
                 });
-                
-                // Merge: local corrections take priority over global
                 window.learnedCorrections = { ...window.learnedCorrections, ...window.localCorrections };
-                
                 console.log('✓ Loaded global corrections:', globalCount);
-                console.log('✓ Total corrections (local+global):', Object.keys(window.learnedCorrections).length);
-                console.log('✓ Patterns:', window.learnedPatterns);
                 
-                // Update UI
                 const statusEl = document.getElementById('firebaseStatus');
                 if (statusEl) {
-                    const localCount = Object.keys(window.localCorrections).length;
-                    statusEl.textContent = `☁️ ${globalCount} global + 📱 ${localCount} local corrections`;
+                    statusEl.textContent = `☁️ ${globalCount} global + 📱 ${Object.keys(window.localCorrections).length} local`;
                     statusEl.style.color = '#22c55e';
                 }
             } catch (err) {
                 console.warn('Could not load global data (offline mode):', err);
-                
-                // Still works with local corrections
                 window.learnedCorrections = { ...window.localCorrections };
-                
                 const statusEl = document.getElementById('firebaseStatus');
                 if (statusEl) {
-                    statusEl.textContent = `📱 ${Object.keys(window.localCorrections).length} local corrections (offline)`;
+                    statusEl.textContent = `📱 ${Object.keys(window.localCorrections).length} local (offline)`;
                     statusEl.style.color = '#f59e0b';
                 }
             }
         }
-        
-        // Load on startup
         loadLearnedData();
     </script>
     <style>
@@ -191,8 +163,6 @@
             background: rgba(99, 102, 241, 0.1);
         }
         
-        .upload-icon { font-size: 3rem; margin-bottom: 16px; }
-        
         .btn {
             padding: 12px 24px;
             border-radius: 10px;
@@ -210,6 +180,7 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: var(--warning); color: black; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-sm { padding: 8px 16px; font-size: 0.85rem; }
         
         .spinner {
             width: 48px; height: 48px;
@@ -249,6 +220,10 @@
         }
         .name-item .del-btn:hover { background: var(--danger); color: white; }
         
+        .name-item.low-confidence {
+            border-left: 3px solid var(--warning);
+        }
+        
         .add-row { display: flex; gap: 12px; margin-top: 16px; }
         .add-row input {
             flex: 1; padding: 12px; border-radius: 10px;
@@ -256,7 +231,7 @@
             color: var(--text-primary);
         }
         
-        /* Face Selection */
+        /* Face Selection Layout */
         .sel-layout {
             display: grid;
             grid-template-columns: 1fr 340px;
@@ -270,14 +245,81 @@
             border-radius: 16px;
             overflow: hidden;
             position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .pdf-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .pdf-toolbar .page-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
         }
         
         .pdf-scroll {
-            width: 100%; height: 100%;
-            overflow: auto; position: relative;
+            flex: 1;
+            overflow: auto;
+            position: relative;
         }
         
         #pdfCanvas { display: block; cursor: crosshair; }
+        
+        /* Confirmed face overlay */
+        .confirmed-overlay {
+            position: absolute;
+            background: rgba(34, 197, 94, 0.3);
+            border: 3px solid var(--success);
+            border-radius: 8px;
+            pointer-events: none;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        
+        .confirmed-overlay .check-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            background: var(--success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .confirmed-overlay .name-label {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .confirmed-overlay.clickable {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        .confirmed-overlay.clickable:hover {
+            background: rgba(34, 197, 94, 0.5);
+        }
         
         .sel-rect {
             position: absolute;
@@ -293,7 +335,7 @@
             pointer-events: none;
         }
         
-        .sidebar { display: flex; flex-direction: column; gap: 12px; }
+        .sidebar { display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
         
         .side-card {
             background: var(--bg-card);
@@ -314,8 +356,8 @@
         }
         
         .preview-box {
-            width: 100px; height: 100px; margin: 0 auto 12px;
-            border-radius: 50%; overflow: hidden;
+            width: 120px; height: 120px; margin: 0 auto 12px;
+            border-radius: 12px; overflow: hidden;
             background: var(--bg-secondary); border: 3px solid var(--border);
         }
         .preview-box img { width: 100%; height: 100%; object-fit: cover; }
@@ -323,10 +365,11 @@
         .prog-info { text-align: center; margin-bottom: 12px; font-size: 0.9rem; }
         
         .prog-bar {
-            height: 5px; background: var(--bg-secondary);
+            height: 6px; background: var(--bg-secondary);
             border-radius: 3px; overflow: hidden; margin-top: 6px;
         }
         .prog-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+        .prog-fill.complete { background: var(--success); }
         
         .btn-stack { display: flex; flex-direction: column; gap: 8px; }
         .btn-row { display: flex; gap: 8px; }
@@ -334,7 +377,7 @@
         
         .kb-hint {
             font-size: 0.7rem; color: var(--text-secondary);
-            text-align: center; margin-top: 10px; line-height: 1.5;
+            text-align: center; margin-top: 10px; line-height: 1.6;
         }
         .kb-hint kbd {
             background: var(--bg-secondary); padding: 2px 5px;
@@ -348,7 +391,7 @@
         }
         .learn-status.learned { color: var(--success); }
         
-        .stu-list { flex: 1; overflow-y: auto; max-height: 220px; }
+        .stu-list { flex: 1; overflow-y: auto; min-height: 0; }
         
         .stu-item {
             display: flex; align-items: center; gap: 8px;
@@ -357,7 +400,8 @@
         }
         .stu-item:hover { background: var(--bg-secondary); }
         .stu-item.active { background: var(--accent); }
-        .stu-item.done { opacity: 0.5; }
+        .stu-item.done { opacity: 0.6; }
+        .stu-item.no-photo { opacity: 0.4; font-style: italic; }
         
         .stu-item .thumb {
             width: 28px; height: 28px; border-radius: 50%;
@@ -366,6 +410,7 @@
         .stu-item .thumb img { width: 100%; height: 100%; object-fit: cover; }
         .stu-item .nm { flex: 1; }
         .stu-item .chk { color: var(--success); }
+        .stu-item .no-photo-badge { color: var(--text-secondary); font-size: 0.7rem; }
         
         /* Review - Seating Grid */
         .seating-grid {
@@ -425,6 +470,29 @@
         .unassigned-student:hover { background: var(--accent); }
         
         #cropCanvas { display: none; }
+        
+        /* Duplicate warning modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 16px;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .modal-content h3 { margin-bottom: 12px; }
+        .modal-content p { color: var(--text-secondary); margin-bottom: 16px; }
+        .modal-content .btn-row { justify-content: center; }
     </style>
 </head>
 <body>
@@ -435,9 +503,8 @@
         <div class="card" style="max-width:600px;margin:40px auto;">
             <h1 style="text-align:center;">🎟️ Hall Pass</h1>
             <p style="color:var(--text-secondary);margin-bottom:8px;text-align:center;">Step 1 of 2: Get your class names</p>
-            <div id="firebaseStatus" style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;text-align:center;">☁️ Connecting to learning database...</div>
+            <div id="firebaseStatus" style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;text-align:center;">☁️ Connecting...</div>
             
-            <!-- Paste Area - PRIMARY -->
             <div style="margin-bottom:20px;">
                 <label style="font-weight:600;display:block;margin-bottom:8px;">📋 Paste Class List from MyEd</label>
                 <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
@@ -452,12 +519,9 @@
             
             <div style="text-align:center;color:var(--text-secondary);margin:16px 0;font-size:0.85rem;">— or start manually —</div>
             
-            <!-- Manual Option -->
-            <div>
-                <button class="btn btn-secondary" style="width:100%;" onclick="startNamesOnly()">
-                    ✏️ Enter Names Manually
-                </button>
-            </div>
+            <button class="btn btn-secondary" style="width:100%;" onclick="startNamesOnly()">
+                ✏️ Enter Names Manually
+            </button>
         </div>
     </div>
 </div>
@@ -470,29 +534,26 @@
             <p style="color:var(--text-secondary);margin-bottom:8px;text-align:center;">
                 ✓ <span id="namesFoundCount">25</span> students ready! Now add their photos.
             </p>
-            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px;text-align:center;">
-                Upload your MyEd seating chart PDF or paste a screenshot.
-            </p>
             
-            <!-- Paste/Upload Zone -->
+            <div style="background:var(--bg-secondary);padding:16px;border-radius:12px;margin-bottom:20px;">
+                <p style="font-size:0.9rem;margin-bottom:8px;">
+                    <strong>📄 PDF recommended</strong> for best photo quality
+                </p>
+                <p style="font-size:0.8rem;color:var(--text-secondary);">
+                    Export your seating chart from MyEd as PDF, or take a screenshot.
+                </p>
+            </div>
+            
             <div id="seatingDropZone" class="upload-zone" style="padding:40px;margin-bottom:16px;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;"
                  onclick="document.getElementById('seatingFileInput').click()">
                 <div style="font-size:3rem;margin-bottom:12px;">📷</div>
                 <div style="font-weight:600;margin-bottom:8px;">Click to upload or Ctrl+V to paste</div>
-                <div style="font-size:0.8rem;color:var(--text-secondary);">
-                    PDF, PNG, or JPG
-                </div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);">PDF, PNG, or JPG</div>
             </div>
             <input type="file" id="seatingFileInput" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
             
-            <div style="background:var(--bg-secondary);padding:12px;border-radius:10px;margin-bottom:16px;">
-                <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">
-                    💡 <strong>Tip:</strong> PDF gives best quality photos. Screenshot (Win+Shift+S) works too but may be lower resolution.
-                </p>
-            </div>
-            
             <div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;">
-                <button class="btn btn-secondary" onclick="goBackToClassList()">← Back (keep names)</button>
+                <button class="btn btn-secondary" onclick="goBackToClassList()">← Back</button>
                 <button class="btn btn-secondary" onclick="skipPhotosAndContinue()">Skip Photos →</button>
             </div>
         </div>
@@ -514,9 +575,9 @@
 <div class="section" id="step3">
     <div class="container">
         <div class="card">
-            <h2>📋 Step 1: Review Student Names</h2>
+            <h2>📋 Review Student Names</h2>
             <p style="color:var(--text-secondary);margin-bottom:12px;">
-                Edit incorrect names. Delete extras. Add missing students.
+                Edit incorrect names. Yellow highlight = low OCR confidence, please verify.
             </p>
             <div style="display:flex;gap:12px;padding:8px 40px 8px 48px;font-size:0.75rem;color:var(--text-secondary);">
                 <span style="flex:2;min-width:150px;">Official Name (LastName, FirstName)</span>
@@ -525,7 +586,7 @@
             </div>
             <div class="name-list" id="nameList"></div>
             <div class="add-row">
-                <input type="text" id="newNameInput" placeholder="Add: LastName, FirstName (e.g., Smith, John)">
+                <input type="text" id="newNameInput" placeholder="Add: LastName, FirstName">
                 <button class="btn btn-secondary" onclick="addName()">+ Add</button>
             </div>
             <div style="margin-top:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;">
@@ -543,8 +604,16 @@
 <div class="section" id="step4">
     <div class="sel-layout">
         <div class="pdf-panel">
+            <div class="pdf-toolbar">
+                <button class="btn btn-sm btn-secondary" id="prevPageBtn" onclick="prevPage()" disabled>← Prev</button>
+                <span class="page-info" id="pageInfo">Page 1 of 1</span>
+                <button class="btn btn-sm btn-secondary" id="nextPageBtn" onclick="nextPage()" disabled>Next →</button>
+                <span style="flex:1;"></span>
+                <span style="font-size:0.8rem;color:var(--text-secondary);" id="confirmedCount">0 / 0 done</span>
+            </div>
             <div class="pdf-scroll" id="pdfScroll">
                 <canvas id="pdfCanvas"></canvas>
+                <div id="overlaysContainer"></div>
             </div>
         </div>
         <div class="sidebar">
@@ -557,26 +626,28 @@
                     <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
                 </div>
                 <div class="btn-stack">
-                    <button class="btn btn-success" id="confirmBtn" onclick="confirmFace()" disabled>✓ Confirm</button>
+                    <button class="btn btn-success" id="confirmBtn" onclick="confirmFace()" disabled>✓ Confirm Face</button>
                     <div class="btn-row">
-                        <button class="btn btn-secondary" onclick="skipStudent()">Skip</button>
+                        <button class="btn btn-secondary" id="undoBtn" onclick="undoLast()" disabled>↩ Undo</button>
+                        <button class="btn btn-secondary" onclick="markNoPhoto()">📵 No Photo</button>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="skipStudent()">Skip →</button>
                         <button class="btn btn-secondary" onclick="clearRect()">Clear</button>
                     </div>
                     <div class="btn-row">
-                        <button class="btn btn-primary" onclick="addStudentDuringSelection()">+ Add</button>
-                        <button class="btn btn-warning" onclick="fixCurrentName()">✏️ Fix Name</button>
+                        <button class="btn btn-primary btn-sm" onclick="addStudentDuringSelection()">+ Add</button>
+                        <button class="btn btn-warning btn-sm" onclick="fixCurrentName()">✏️ Fix</button>
                     </div>
                 </div>
                 <div class="kb-hint">
-                    <kbd>↑↓←→</kbd> Move &nbsp;<kbd>Shift</kbd>+Arrow = Big move<br>
-                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>Esc</kbd> Clear &nbsp;<kbd>F</kbd> Fix Name
+                    <kbd>↑↓←→</kbd> Nudge &nbsp;<kbd>Shift</kbd>+Arrow = Big<br>
+                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>N</kbd> No Photo &nbsp;<kbd>Z</kbd> Undo
                 </div>
-                <button class="btn" style="background:transparent;color:var(--text-secondary);font-size:0.75rem;margin-top:8px;padding:6px 12px;" onclick="deleteCurrentStudent()">
-                    🗑️ Delete student
-                </button>
                 <div class="learn-status" id="learnStatus">🔍 Learning grid pattern...</div>
             </div>
             <div class="side-card stu-list" id="stuList"></div>
+            <button class="btn btn-success" style="margin-top:auto;" onclick="finishSelection()">✓ Done — Review All</button>
         </div>
     </div>
 </div>
@@ -594,13 +665,13 @@
                 </div>
             </div>
             <p style="color:var(--text-secondary);margin-bottom:16px;">
-                Drag students to rearrange seating. Click empty seat to assign.
+                Drag students to rearrange. Click empty seat to assign.
             </p>
             <div class="seating-grid" id="seatingGrid"></div>
             <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" onclick="goToStep(4)">← Back</button>
-                <button class="btn btn-secondary" onclick="addRowToGrid()">+ Add Row</button>
-                <button class="btn btn-secondary" onclick="addColToGrid()">+ Add Column</button>
+                <button class="btn btn-secondary" onclick="goToStep(4)">← Back to Photos</button>
+                <button class="btn btn-secondary" onclick="addRowToGrid()">+ Row</button>
+                <button class="btn btn-secondary" onclick="addColToGrid()">+ Column</button>
                 <button class="btn btn-secondary" onclick="autoArrange()">Auto-Arrange</button>
             </div>
             <div id="unassignedStudents" style="margin-top:24px;"></div>
@@ -619,90 +690,135 @@
     let pdfCanvas, pdfCtx, pdfScroll;
     let fileName = '';
     
+    // PDF multi-page
+    let pdfDoc = null;
+    let currentPage = 1;
+    let totalPages = 1;
+    
     // Drawing
     let isDrawing = false;
     let startX, startY;
     let rect = null;
     let rectDiv = null;
     let predictedDiv = null;
+    let predictedRect = null; // Store prediction for learning
+    
+    // Undo stack
+    let undoStack = [];
     
     // Learning
     let gridLearn = {
-        confirmedPositions: [], // {x, y, w, h}
-        colPositions: [],
-        rowPositions: [],
+        confirmedPositions: [],
         avgWidth: 150,
         avgHeight: 180,
         colSpacing: 0,
-        rowSpacing: 0,
-        currentCol: 0,
-        currentRow: 0
+        rowSpacing: 0
     };
     
-    let corrections = []; // {ocr, fixed}
+    let corrections = [];
+    let adjustmentDeltas = []; // Track prediction vs actual
+    
+    // Auto-save key
+    const AUTOSAVE_KEY = 'hallpass_progress';
     
     // Init
-    document.getElementById('fileInput').addEventListener('change', e => {
-        if (e.target.files[0]) handleFileUpload(e.target.files[0]);
-    });
-    
-    // Check URL mode parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');
-    
-    if (mode === 'pdf' || mode === 'screenshot') {
-        // Show file upload hint
-        document.getElementById('pasteArea').placeholder = mode === 'pdf' 
-            ? 'Or paste class list here if you have it...'
-            : 'Or paste class list here for better accuracy...';
+    function init() {
+        setupSeatingChartHandlers();
+        checkAutoSave();
     }
     
-    // Handle file upload (PDF or image)
-    function handleFileUpload(file) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (ext === 'pdf') {
-            loadPDF(file);
-        } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
-            loadImage(file);
-        } else {
-            alert('Unsupported file type. Use PDF, PNG, or JPG.');
+    function checkAutoSave() {
+        const saved = localStorage.getItem(AUTOSAVE_KEY);
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data.students && data.students.length > 0) {
+                    const resume = confirm(`Found saved progress: ${data.students.length} students, ${data.students.filter(s => s.confirmed).length} photos done.\n\nResume where you left off?`);
+                    if (resume) {
+                        students = data.students;
+                        currentIdx = data.currentIdx || 0;
+                        gridLearn = data.gridLearn || gridLearn;
+                        fileName = data.fileName || 'Resumed Class';
+                        document.getElementById('classNameInput').value = fileName;
+                        renderNameList();
+                        goToStep(3);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not restore autosave:', e);
+            }
+            localStorage.removeItem(AUTOSAVE_KEY);
         }
     }
     
-    // Load image file (screenshot)
-    async function loadImage(file) {
-        goToStep(2);
-        fileName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        document.getElementById('classNameInput').value = fileName;
-        
-        setStatus('Loading image...');
-        
-        const img = new Image();
-        img.onload = async () => {
-            pdfCanvas = document.getElementById('pdfCanvas');
-            pdfCtx = pdfCanvas.getContext('2d');
-            pdfCanvas.width = img.width;
-            pdfCanvas.height = img.height;
-            pdfCtx.drawImage(img, 0, 0);
-            
-            // Try OCR on the image
-            setStatus('Reading names from image...');
-            students = await extractStudentsWithOCR();
-            
-            if (students.length === 0) {
-                alert('Could not read names from image. Try pasting text instead.');
-                goToStep(1);
-                return;
-            }
-            
-            applyLearnedCorrections();
-            renderNameList();
-            goToStep(3);
+    function autoSave() {
+        const data = {
+            students,
+            currentIdx,
+            gridLearn,
+            fileName,
+            savedAt: new Date().toISOString()
         };
-        img.src = URL.createObjectURL(file);
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+        console.log('Auto-saved progress');
     }
     
-    // Parse pasted text for names
+    // Setup handlers
+    function setupSeatingChartHandlers() {
+        const fileInput = document.getElementById('seatingFileInput');
+        fileInput.onchange = e => {
+            if (e.target.files[0]) loadSeatingChartFile(e.target.files[0]);
+        };
+        
+        document.addEventListener('paste', handlePaste);
+        
+        const dropZone = document.getElementById('seatingDropZone');
+        if (dropZone) {
+            dropZone.ondragover = e => {
+                e.preventDefault();
+                dropZone.style.borderColor = 'var(--accent)';
+            };
+            dropZone.ondragleave = () => {
+                dropZone.style.borderColor = '';
+            };
+            dropZone.ondrop = e => {
+                e.preventDefault();
+                dropZone.style.borderColor = '';
+                if (e.dataTransfer.files[0]) loadSeatingChartFile(e.dataTransfer.files[0]);
+            };
+        }
+    }
+    
+    function handlePaste(e) {
+        if (!document.getElementById('step1b').classList.contains('active') &&
+            !document.getElementById('step4').classList.contains('active')) return;
+        
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    loadSeatingChartFile(file);
+                    return;
+                }
+            }
+        }
+    }
+    
+    function goToStep(n) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById('step' + n).classList.add('active');
+        if (n === 5 || n === '5') renderReview();
+    }
+    
+    function setStatus(t) {
+        document.getElementById('processStatus').textContent = t;
+    }
+    
+    // Name parsing
     function parseTextInput() {
         const text = document.getElementById('pasteArea').value.trim();
         if (!text) {
@@ -717,225 +833,19 @@
             return;
         }
         
-        // Show count and go to seating chart step
         document.getElementById('namesFoundCount').textContent = students.length;
         fileName = 'Imported Class';
         document.getElementById('classNameInput').value = fileName;
-        
-        // Go to seating chart upload
         goToStep('1b');
-        setupSeatingChartHandlers();
     }
     
-    // Setup handlers for seating chart step
-    function setupSeatingChartHandlers() {
-        const dropZone = document.getElementById('seatingDropZone');
-        const fileInput = document.getElementById('seatingFileInput');
-        
-        // File input handler
-        fileInput.onchange = e => {
-            if (e.target.files[0]) {
-                loadSeatingChartFile(e.target.files[0]);
-            }
-        };
-        
-        // Paste handler for this step
-        document.onpaste = e => {
-            if (!document.getElementById('step1b').classList.contains('active')) return;
-            
-            const items = e.clipboardData?.items;
-            if (!items) return;
-            
-            for (const item of items) {
-                if (item.type.startsWith('image/')) {
-                    const file = item.getAsFile();
-                    if (file) {
-                        loadSeatingChartFile(file);
-                        return;
-                    }
-                }
-            }
-        };
-        
-        // Drag and drop
-        dropZone.ondragover = e => {
-            e.preventDefault();
-            dropZone.style.borderColor = 'var(--accent)';
-            dropZone.style.background = 'rgba(99, 102, 241, 0.1)';
-        };
-        
-        dropZone.ondragleave = e => {
-            dropZone.style.borderColor = '';
-            dropZone.style.background = '';
-        };
-        
-        dropZone.ondrop = e => {
-            e.preventDefault();
-            dropZone.style.borderColor = '';
-            dropZone.style.background = '';
-            
-            if (e.dataTransfer.files[0]) {
-                loadSeatingChartFile(e.dataTransfer.files[0]);
-            }
-        };
-    }
-    
-    // Load seating chart and auto-map names to faces
-    async function loadSeatingChartFile(file) {
-        goToStep(2);
-        setStatus('Loading seating chart...');
-        
-        const ext = file.name.split('.').pop().toLowerCase();
-        
-        if (ext === 'pdf') {
-            // Handle PDF
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const page = await pdf.getPage(1);
-            const scale = 3;
-            const viewport = page.getViewport({ scale });
-            
-            pdfCanvas = document.getElementById('pdfCanvas');
-            pdfCtx = pdfCanvas.getContext('2d');
-            pdfCanvas.width = viewport.width;
-            pdfCanvas.height = viewport.height;
-            
-            await page.render({ canvasContext: pdfCtx, viewport }).promise;
-        } else {
-            // Handle image
-            await new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => {
-                    pdfCanvas = document.getElementById('pdfCanvas');
-                    pdfCtx = pdfCanvas.getContext('2d');
-                    pdfCanvas.width = img.width;
-                    pdfCanvas.height = img.height;
-                    pdfCtx.drawImage(img, 0, 0);
-                    resolve();
-                };
-                img.src = URL.createObjectURL(file);
-            });
-        }
-        
-        // Try to auto-map names to positions
-        setStatus('Finding names on seating chart...');
-        await autoMapNamesToFaces();
-        
-        // Go to review
-        renderNameList();
-        goToStep(3);
-    }
-    
-    // Auto-map: OCR seating chart to find name positions, assign faces
-    async function autoMapNamesToFaces() {
-        const processedCanvas = preprocessForOCR(pdfCanvas);
-        
-        const worker = await Tesseract.createWorker('eng', 1, {
-            logger: m => {
-                if (m.status === 'recognizing text') {
-                    setStatus(`Mapping names... ${Math.round(m.progress * 100)}%`);
-                }
-            }
-        });
-        
-        const { data } = await worker.recognize(processedCanvas);
-        await worker.terminate();
-        
-        // Get word positions
-        const words = (data.words || []).filter(w => w.text.trim().length > 1).map(w => ({
-            text: w.text.trim().toLowerCase(),
-            x: w.bbox.x0,
-            y: w.bbox.y0,
-            x2: w.bbox.x1,
-            y2: w.bbox.y1,
-            centerX: (w.bbox.x0 + w.bbox.x1) / 2,
-            centerY: (w.bbox.y0 + w.bbox.y1) / 2
-        }));
-        
-        console.log(`Found ${words.length} words in seating chart`);
-        
-        // Try to match each student's name to a position
-        for (const student of students) {
-            const lastName = student.lastName.toLowerCase();
-            const firstName = student.firstName.toLowerCase();
-            
-            // Find words matching this student's name
-            let bestMatch = null;
-            let bestScore = 0;
-            
-            for (const word of words) {
-                let score = 0;
-                
-                // Check if word matches last name or first name
-                if (word.text.includes(lastName) || lastName.includes(word.text)) {
-                    score += 2;
-                }
-                if (word.text.includes(firstName) || firstName.includes(word.text)) {
-                    score += 1;
-                }
-                
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = word;
-                }
-            }
-            
-            if (bestMatch && bestScore > 0) {
-                // Calculate grid position based on location
-                const col = Math.floor(bestMatch.centerX / (pdfCanvas.width / 6));
-                const row = Math.floor(bestMatch.centerY / (pdfCanvas.height / 5));
-                
-                student.position = { row, col };
-                student.textX = bestMatch.x;
-                student.textY = bestMatch.y2; // Bottom of name = top of face
-                student.autoMapped = true;
-                
-                console.log(`Mapped ${student.lastName} to row ${row}, col ${col}`);
-            }
-        }
-        
-        // Re-sort by position
-        students.sort((a, b) => {
-            if (a.position && b.position) {
-                return a.position.row - b.position.row || a.position.col - b.position.col;
-            }
-            return 0;
-        });
-        
-        students.forEach((s, i) => s.id = i + 1);
-    }
-    
-    // Skip photos and go to review
-    function skipPhotosAndContinue() {
-        renderNameList();
-        goToStep(3);
-    }
-    
-    // Go back to class list but keep the names
-    function goBackToClassList() {
-        // Names are still in students array, just go back
-        goToStep(1);
-        
-        // Restore the paste area with current names
-        if (students.length > 0) {
-            const nameText = students.map(s => `${s.lastName}, ${s.firstName}`).join('\n');
-            document.getElementById('pasteArea').value = nameText;
-        }
-    }
-    
-    // Smart name parser - handles messy MyEd format
     function parseNamesFromText(text) {
         const lines = text.split(/\n/);
-        const students = [];
+        const result = [];
         const seen = new Set();
         
-        // Pattern 1: "LastName, FirstName YYYY" (MyEd format)
         const myEdPattern = /([A-Za-z][A-Za-z'-]+),\s*([A-Za-z][A-Za-z'-]+)\s+\d{4}/;
-        
-        // Pattern 2: "LastName, FirstName" (simple)
         const simplePattern = /^([A-Za-z][A-Za-z'-]+),\s*([A-Za-z][A-Za-z'-]+)/;
-        
-        // Pattern 3: "FirstName LastName" (no comma)
         const noCommaPattern = /^([A-Za-z][A-Za-z'-]+)\s+([A-Za-z][A-Za-z'-]+)$/;
         
         for (let line of lines) {
@@ -943,25 +853,16 @@
             if (!line) continue;
             
             let lastName, firstName;
+            let match = line.match(myEdPattern) || line.match(simplePattern);
             
-            // Try MyEd format first
-            let match = line.match(myEdPattern);
             if (match) {
                 lastName = match[1];
                 firstName = match[2];
             } else {
-                // Try simple comma format
-                match = line.match(simplePattern);
+                match = line.match(noCommaPattern);
                 if (match) {
-                    lastName = match[1];
-                    firstName = match[2];
-                } else {
-                    // Try no-comma format
-                    match = line.match(noCommaPattern);
-                    if (match) {
-                        firstName = match[1];
-                        lastName = match[2];
-                    }
+                    firstName = match[1];
+                    lastName = match[2];
                 }
             }
             
@@ -969,53 +870,62 @@
                 const key = `${lastName.toLowerCase()},${firstName.toLowerCase()}`;
                 if (!seen.has(key)) {
                     seen.add(key);
-                    students.push({
-                        id: students.length + 1,
-                        firstName: firstName,
-                        lastName: lastName,
+                    result.push({
+                        id: result.length + 1,
+                        firstName,
+                        lastName,
                         displayName: formatDisplayName(firstName, lastName),
                         ocrOriginal: `${lastName}, ${firstName}`,
+                        ocrConfidence: 1.0,
                         photoData: null,
                         confirmed: false,
-                        position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+                        noPhoto: false,
+                        position: { row: Math.floor(result.length / 6), col: result.length % 6 }
                     });
                 }
             }
         }
         
-        // If no line-by-line matches, try to find all names in the blob
-        if (students.length === 0) {
+        // Fallback: find all comma patterns
+        if (result.length === 0) {
             const blobPattern = /([A-Za-z][A-Za-z'-]+),\s*([A-Za-z][A-Za-z'-]+)/g;
             let match;
             while ((match = blobPattern.exec(text)) !== null) {
                 const lastName = match[1];
                 const firstName = match[2];
                 const key = `${lastName.toLowerCase()},${firstName.toLowerCase()}`;
-                
-                // Skip common non-name patterns
                 if (['Present', 'Absent', 'Late', 'edit'].includes(firstName)) continue;
-                
                 if (!seen.has(key)) {
                     seen.add(key);
-                    students.push({
-                        id: students.length + 1,
-                        firstName: firstName,
-                        lastName: lastName,
+                    result.push({
+                        id: result.length + 1,
+                        firstName,
+                        lastName,
                         displayName: formatDisplayName(firstName, lastName),
                         ocrOriginal: `${lastName}, ${firstName}`,
+                        ocrConfidence: 1.0,
                         photoData: null,
                         confirmed: false,
-                        position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+                        noPhoto: false,
+                        position: { row: Math.floor(result.length / 6), col: result.length % 6 }
                     });
                 }
             }
         }
         
-        console.log(`Parsed ${students.length} students from text`);
-        return students;
+        return result;
     }
     
-    // Start with manual name entry
+    function getLastInitial(lastName) {
+        if (!lastName) return 'X';
+        const parts = lastName.split('-');
+        return parts.map(p => p[0]?.toUpperCase() || '').join('-');
+    }
+    
+    function formatDisplayName(firstName, lastName) {
+        return `${firstName} ${getLastInitial(lastName)}.`;
+    }
+    
     function startNamesOnly() {
         students = [];
         fileName = 'New Class';
@@ -1024,203 +934,250 @@
         goToStep(3);
     }
     
-    // Skip photo selection - use avatars
+    function goBackToClassList() {
+        goToStep(1);
+        if (students.length > 0) {
+            document.getElementById('pasteArea').value = students.map(s => `${s.lastName}, ${s.firstName}`).join('\n');
+        }
+    }
+    
+    function skipPhotosAndContinue() {
+        renderNameList();
+        goToStep(3);
+    }
+    
     function skipPhotos() {
-        // Mark all students as confirmed without photos
         students.forEach(s => {
-            s.confirmed = true;
-            s.photoData = null; // Will use avatar fallback
+            if (!s.confirmed) s.noPhoto = true;
         });
         goToStep(5);
     }
     
-    // Prompt for seating chart image for photos
-    function promptForSeatingChart() {
-        if (pdfCanvas && pdfCanvas.width > 0) {
-            // Already have an image loaded, go to face selection
-            startFaceSelection();
-        } else {
-            // Need to get seating chart
-            const choice = confirm(
-                'To add student photos, you need a seating chart image.\n\n' +
-                'Click OK to upload/paste a seating chart screenshot.\n' +
-                'Click Cancel to skip photos for now.'
-            );
-            
-            if (choice) {
-                showSeatingChartUpload();
-            } else {
-                skipPhotos();
-            }
-        }
-    }
-    
-    // Show seating chart upload dialog
-    function showSeatingChartUpload() {
-        // Create modal for seating chart upload
-        const modal = document.createElement('div');
-        modal.id = 'seatingChartModal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;';
-        modal.innerHTML = `
-            <div style="background:var(--bg-card);padding:32px;border-radius:20px;max-width:500px;width:90%;">
-                <h2 style="margin-bottom:16px;">📸 Add Seating Chart</h2>
-                <p style="color:var(--text-secondary);margin-bottom:20px;">
-                    Upload or paste a screenshot of your seating chart with student photos.
-                </p>
-                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:16px;">
-                    💡 Tip: Use Windows Snipping Tool (Win+Shift+S) to capture your screen
-                </p>
-                <div class="upload-zone" onclick="document.getElementById('seatingChartInput').click()" 
-                     style="padding:24px;margin-bottom:16px;border:2px dashed var(--border);border-radius:12px;text-align:center;cursor:pointer;">
-                    <div style="font-size:2rem;margin-bottom:8px;">📷</div>
-                    <div>Click to upload or Ctrl+V to paste</div>
-                </div>
-                <input type="file" id="seatingChartInput" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
-                <div style="display:flex;gap:12px;justify-content:flex-end;">
-                    <button class="btn btn-secondary" onclick="closeSeatingChartModal()">Cancel</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        
-        // Handle file input
-        document.getElementById('seatingChartInput').addEventListener('change', e => {
-            if (e.target.files[0]) {
-                closeSeatingChartModal();
-                handleFileUpload(e.target.files[0]);
-            }
-        });
-        
-        // Handle paste
-        modal.addEventListener('paste', handlePaste);
-        modal.focus();
-    }
-    
-    function closeSeatingChartModal() {
-        const modal = document.getElementById('seatingChartModal');
-        if (modal) modal.remove();
-    }
-    
-    // Handle paste event (Ctrl+V)
-    function handlePaste(e) {
-        const items = e.clipboardData?.items;
-        if (!items) return;
-        
-        for (const item of items) {
-            if (item.type.startsWith('image/')) {
-                const file = item.getAsFile();
-                if (file) {
-                    closeSeatingChartModal();
-                    loadImageForFaces(file);
-                    return;
-                }
-            }
-        }
-    }
-    
-    // Load image specifically for face selection (preserve existing names)
-    async function loadImageForFaces(file) {
+    // Load seating chart
+    async function loadSeatingChartFile(file) {
         goToStep(2);
         setStatus('Loading seating chart...');
         
+        const ext = file.name.split('.').pop().toLowerCase();
+        
+        if (ext === 'pdf') {
+            await loadPDF(file);
+        } else {
+            await loadImage(file);
+        }
+    }
+    
+    async function loadPDF(file) {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            totalPages = pdfDoc.numPages;
+            currentPage = 1;
+            
+            await renderPage(currentPage);
+            
+            // Try to extract text first
+            setStatus('Extracting text from PDF...');
+            const page = await pdfDoc.getPage(1);
+            const scale = 3;
+            const viewport = page.getViewport({ scale });
+            
+            let extractedStudents = await extractStudentsFromPDF(page, viewport);
+            
+            if (extractedStudents.length > 0 && students.length === 0) {
+                students = extractedStudents;
+            } else if (students.length > 0) {
+                // Already have names, just map text positions
+                await mapNamesToPositions(page, viewport);
+            }
+            
+            applyLearnedCorrections();
+            
+            if (students.length === 0) {
+                setStatus('Using OCR (30-60 seconds)...');
+                students = await extractStudentsWithOCR();
+                applyLearnedCorrections();
+            }
+            
+            if (students.length === 0) {
+                alert('No names found. Try pasting names manually.');
+                goToStep(1);
+                return;
+            }
+            
+            // Sort students by visual position (top-to-bottom, left-to-right)
+            sortStudentsByVisualOrder();
+            
+            students.forEach((s, i) => s.id = i + 1);
+            renderNameList();
+            goToStep(3);
+            
+        } catch (err) {
+            console.error(err);
+            alert('Error loading PDF: ' + err.message);
+            goToStep(1);
+        }
+    }
+    
+    async function loadImage(file) {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
             pdfCanvas = document.getElementById('pdfCanvas');
             pdfCtx = pdfCanvas.getContext('2d');
             pdfCanvas.width = img.width;
             pdfCanvas.height = img.height;
             pdfCtx.drawImage(img, 0, 0);
             
-            setStatus('Ready for face selection');
+            pdfDoc = null;
+            totalPages = 1;
+            currentPage = 1;
+            updatePageControls();
             
-            // Go to face selection with existing names
-            startFaceSelection();
+            if (students.length === 0) {
+                setStatus('Reading names from image...');
+                students = await extractStudentsWithOCR();
+                applyLearnedCorrections();
+            }
+            
+            if (students.length === 0) {
+                alert('Could not read names. Try pasting names manually.');
+                goToStep(1);
+                return;
+            }
+            
+            sortStudentsByVisualOrder();
+            students.forEach((s, i) => s.id = i + 1);
+            renderNameList();
+            goToStep(3);
         };
         img.src = URL.createObjectURL(file);
     }
     
-    // Enable paste anywhere on page
-    document.addEventListener('paste', e => {
-        // Only handle if we're on step 1 or seating chart modal is open
-        if (document.getElementById('step1').classList.contains('active') ||
-            document.getElementById('seatingChartModal')) {
-            handlePaste(e);
+    async function renderPage(pageNum) {
+        const page = await pdfDoc.getPage(pageNum);
+        const scale = 3;
+        const viewport = page.getViewport({ scale });
+        
+        pdfCanvas = document.getElementById('pdfCanvas');
+        pdfCtx = pdfCanvas.getContext('2d');
+        pdfCanvas.width = viewport.width;
+        pdfCanvas.height = viewport.height;
+        
+        await page.render({ canvasContext: pdfCtx, viewport }).promise;
+        updatePageControls();
+        
+        // Re-render overlays after page change
+        if (document.getElementById('step4').classList.contains('active')) {
+            renderConfirmedOverlays();
         }
-    });
-    
-    function goToStep(n) {
-        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        document.getElementById('step' + n).classList.add('active');
-        if (n === 5 || n === '5') renderReview();
     }
     
-    // Get last initial - handles hyphenated names
-    function getLastInitial(lastName) {
-        if (!lastName) return 'X';
-        // Split by hyphen and get first letter of each part
-        const parts = lastName.split('-');
-        return parts.map(p => p[0]?.toUpperCase() || '').join('-');
+    function updatePageControls() {
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+        document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
     }
     
-    // Format display name: "FirstName L." or "FirstName L-M."
-    function formatDisplayName(firstName, lastName) {
-        const initial = getLastInitial(lastName);
-        return `${firstName} ${initial}.`;
+    async function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            await renderPage(currentPage);
+        }
     }
     
-    // SMART PDF TEXT EXTRACTION (no OCR needed!)
+    async function nextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            await renderPage(currentPage);
+        }
+    }
+    
+    // Sort students by visual position (reading order: top to bottom, left to right)
+    function sortStudentsByVisualOrder() {
+        // If we have text positions, use them for visual ordering
+        const hasPositions = students.some(s => s.textY !== undefined);
+        
+        if (hasPositions) {
+            // First, assign rows by clustering Y positions
+            const yPositions = students.filter(s => s.textY !== undefined).map(s => s.textY);
+            if (yPositions.length > 0) {
+                yPositions.sort((a, b) => a - b);
+                const rowThreshold = 80; // px within same row
+                
+                students.forEach(s => {
+                    if (s.textY !== undefined) {
+                        // Find which row cluster this belongs to
+                        let rowNum = 0;
+                        let lastY = yPositions[0];
+                        for (const y of yPositions) {
+                            if (y - lastY > rowThreshold) rowNum++;
+                            if (y >= s.textY) break;
+                            lastY = y;
+                        }
+                        s._sortRow = rowNum;
+                        s._sortCol = s.textX || 0;
+                    } else {
+                        s._sortRow = 999;
+                        s._sortCol = 999;
+                    }
+                });
+                
+                students.sort((a, b) => {
+                    if (a._sortRow !== b._sortRow) return a._sortRow - b._sortRow;
+                    return a._sortCol - b._sortCol;
+                });
+            }
+        }
+        
+        // Reassign positions based on sorted order
+        const cols = 6;
+        students.forEach((s, i) => {
+            s.position = { row: Math.floor(i / cols), col: i % cols };
+            s.visualOrder = i;
+            delete s._sortRow;
+            delete s._sortCol;
+        });
+        
+        console.log('Students sorted L→R:', students.map(s => s.displayName));
+    }
+    
+    // PDF text extraction
     async function extractStudentsFromPDF(page, viewport) {
         const textContent = await page.getTextContent();
-        const textItems = textContent.items;
-        
-        if (textItems.length === 0) return [];
-        
-        console.log(`Found ${textItems.length} text items in PDF`);
-        
-        // Extract items with positions (scaled to canvas coordinates)
-        const items = textItems.map(item => {
+        const items = textContent.items.map(item => {
             const tx = item.transform;
             return {
                 text: item.str.trim(),
                 x: tx[4] * viewport.scale,
-                y: (page.view[3] - tx[5]) * viewport.scale, // Flip Y (PDF coords are bottom-up)
-                width: item.width * viewport.scale,
-                height: item.height * viewport.scale
+                y: (page.view[3] - tx[5]) * viewport.scale
             };
         }).filter(item => item.text.length > 0);
         
-        // Find name patterns: "LastName, FirstName" or nearby text that forms names
+        if (items.length === 0) return [];
+        
         const namePattern = /^([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)$/;
         const nameItems = [];
         
-        // First pass: look for complete "LastName, FirstName" items
         for (const item of items) {
             const match = item.text.match(namePattern);
             if (match) {
                 nameItems.push({
                     lastName: match[1],
                     firstName: match[2],
-                    fullText: item.text,
                     x: item.x,
                     y: item.y
                 });
             }
         }
         
-        // If no complete names found, try to combine nearby text items
         if (nameItems.length === 0) {
-            console.log('No complete names found, trying to combine text items...');
-            
-            // Sort by Y then X
             items.sort((a, b) => a.y - b.y || a.x - b.x);
-            
-            // Combine items on same line (within 10px Y)
             const lines = [];
             let currentLine = [];
             let lastY = -999;
             
             for (const item of items) {
-                if (Math.abs(item.y - lastY) > 10) {
+                if (Math.abs(item.y - lastY) > 15) {
                     if (currentLine.length > 0) lines.push(currentLine);
                     currentLine = [];
                 }
@@ -1229,7 +1186,6 @@
             }
             if (currentLine.length > 0) lines.push(currentLine);
             
-            // Look for names in combined line text
             for (const line of lines) {
                 const lineText = line.map(i => i.text).join(' ');
                 const match = lineText.match(/([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)/);
@@ -1237,7 +1193,6 @@
                     nameItems.push({
                         lastName: match[1],
                         firstName: match[2],
-                        fullText: match[0],
                         x: line[0].x,
                         y: line[0].y
                     });
@@ -1245,60 +1200,61 @@
             }
         }
         
-        console.log(`Found ${nameItems.length} names in PDF text`);
-        
-        if (nameItems.length === 0) return [];
-        
-        // Sort names into grid by position
-        // Cluster by Y to find rows, then by X to find columns
-        const yThreshold = 100; // Names within 100px are same row
-        const xThreshold = 80;  // Names within 80px are same column
-        
-        // Cluster Y positions into rows
-        nameItems.sort((a, b) => a.y - b.y);
-        const rows = [];
-        let currentRow = [nameItems[0]];
-        
-        for (let i = 1; i < nameItems.length; i++) {
-            if (nameItems[i].y - currentRow[0].y < yThreshold) {
-                currentRow.push(nameItems[i]);
-            } else {
-                rows.push(currentRow);
-                currentRow = [nameItems[i]];
-            }
-        }
-        rows.push(currentRow);
-        
-        // Sort each row by X and assign grid positions
-        const students = [];
-        rows.forEach((row, rowIdx) => {
-            row.sort((a, b) => a.x - b.x);
-            row.forEach((name, colIdx) => {
-                students.push({
-                    id: students.length + 1,
-                    firstName: name.firstName,
-                    lastName: name.lastName,
-                    displayName: formatDisplayName(name.firstName, name.lastName),
-                    ocrOriginal: name.fullText,
-                    photoData: null,
-                    confirmed: false,
-                    position: { row: rowIdx, col: colIdx },
-                    // Store text position for face prediction (face is BELOW name)
-                    textX: name.x,
-                    textY: name.y
-                });
-            });
-        });
-        
-        console.log(`Organized into ${rows.length} rows, ${students.length} total students`);
-        return students;
+        return nameItems.map((name, i) => ({
+            id: i + 1,
+            firstName: name.firstName,
+            lastName: name.lastName,
+            displayName: formatDisplayName(name.firstName, name.lastName),
+            ocrOriginal: `${name.lastName}, ${name.firstName}`,
+            ocrConfidence: 1.0,
+            photoData: null,
+            confirmed: false,
+            noPhoto: false,
+            position: { row: 0, col: 0 },
+            textX: name.x,
+            textY: name.y
+        }));
     }
     
-    // PHOTO-ANCHORED OCR - uses photos to define cells, any grid size, any name length
-    async function extractStudentsWithOCR() {
-        setStatus('Analyzing layout...');
+    async function mapNamesToPositions(page, viewport) {
+        const textContent = await page.getTextContent();
+        const items = textContent.items.map(item => {
+            const tx = item.transform;
+            return {
+                text: item.str.trim().toLowerCase(),
+                x: tx[4] * viewport.scale,
+                y: (page.view[3] - tx[5]) * viewport.scale
+            };
+        });
         
-        const processedCanvas = preprocessForOCR(pdfCanvas);
+        for (const student of students) {
+            const lastName = student.lastName.toLowerCase();
+            const firstName = student.firstName.toLowerCase();
+            
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            for (const item of items) {
+                let score = 0;
+                if (item.text.includes(lastName)) score += 2;
+                if (item.text.includes(firstName)) score += 1;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = item;
+                }
+            }
+            
+            if (bestMatch && bestScore > 0) {
+                student.textX = bestMatch.x;
+                student.textY = bestMatch.y;
+                student.ocrConfidence = bestScore >= 2 ? 1.0 : 0.6;
+            }
+        }
+    }
+    
+    // OCR extraction
+    async function extractStudentsWithOCR() {
+        const processed = preprocessForOCR(pdfCanvas);
         
         const worker = await Tesseract.createWorker('eng', 1, {
             logger: m => {
@@ -1308,299 +1264,150 @@
             }
         });
         
-        await worker.setParameters({
-            tessedit_pageseg_mode: '6',
-            preserve_interword_spaces: '1'
-        });
-        
-        const { data } = await worker.recognize(processedCanvas);
+        await worker.setParameters({ tessedit_pageseg_mode: '6' });
+        const { data } = await worker.recognize(processed);
         await worker.terminate();
         
-        // Get all words with bounding boxes
-        const words = (data.words || []).filter(w => w.text.trim().length > 0).map(w => ({
+        const words = (data.words || []).filter(w => w.text.trim().length > 1).map(w => ({
             text: w.text.trim(),
             x: w.bbox.x0,
             y: w.bbox.y0,
             x2: w.bbox.x1,
             y2: w.bbox.y1,
-            centerX: (w.bbox.x0 + w.bbox.x1) / 2,
-            centerY: (w.bbox.y0 + w.bbox.y1) / 2
+            confidence: w.confidence
         }));
         
-        if (words.length === 0) {
-            return extractStudentsFromText(data.text);
-        }
+        // Group into cells
+        const cells = groupWordsIntoCells(words);
+        const result = [];
         
-        console.log(`OCR found ${words.length} words`);
-        
-        // STEP 1: Find text rows by clustering Y positions
-        // Text appears in horizontal bands (name rows), with gaps (photo rows)
-        const yPositions = words.map(w => w.y).sort((a, b) => a - b);
-        const textRows = findTextRows(yPositions, processedCanvas.height);
-        console.log(`Detected ${textRows.length} text rows`);
-        
-        // STEP 2: Find columns by clustering X positions
-        const xPositions = words.map(w => w.centerX).sort((a, b) => a - b);
-        const columns = findColumns(xPositions, processedCanvas.width);
-        console.log(`Detected ${columns.length} columns`);
-        
-        // STEP 3: Assign each word to a cell (row, column)
-        const cells = {}; // "row-col" -> [words]
-        
-        for (const word of words) {
-            const rowIdx = findBestCluster(word.y, textRows);
-            const colIdx = findBestCluster(word.centerX, columns);
-            
-            if (rowIdx === -1 || colIdx === -1) continue;
-            
-            const key = `${rowIdx}-${colIdx}`;
-            if (!cells[key]) cells[key] = [];
-            cells[key].push(word);
-        }
-        
-        // STEP 4: Parse each cell into a student name
-        const students = [];
-        
-        for (const [key, cellWords] of Object.entries(cells)) {
-            const [rowIdx, colIdx] = key.split('-').map(Number);
-            
-            // Sort words by Y then X (reading order)
-            cellWords.sort((a, b) => a.y - b.y || a.x - b.x);
-            
-            // Combine all words, handling line breaks
-            const rawText = cellWords.map(w => w.text).join(' ');
-            
-            // Parse the name
-            const parsed = parseStudentName(rawText);
+        for (const cell of cells) {
+            const parsed = parseStudentName(cell.text);
             if (!parsed) continue;
             
-            // Calculate text position for face prediction
-            const minX = Math.min(...cellWords.map(w => w.x));
-            const maxY = Math.max(...cellWords.map(w => w.y2));
-            const avgX = cellWords.reduce((a, w) => a + w.centerX, 0) / cellWords.length;
-            
-            students.push({
-                id: students.length + 1,
+            result.push({
+                id: result.length + 1,
                 firstName: parsed.firstName,
                 lastName: parsed.lastName,
                 displayName: formatDisplayName(parsed.firstName, parsed.lastName),
-                ocrOriginal: rawText,
+                ocrOriginal: cell.text,
+                ocrConfidence: cell.avgConfidence / 100,
                 photoData: null,
                 confirmed: false,
-                position: { row: rowIdx, col: colIdx },
-                textX: minX,
-                textY: maxY, // Bottom of text = top of photo
-                textCenterX: avgX
+                noPhoto: false,
+                position: { row: 0, col: 0 },
+                textX: cell.x,
+                textY: cell.y2
             });
         }
         
-        // Sort by row then column
-        students.sort((a, b) => a.position.row - b.position.row || a.position.col - b.position.col);
-        students.forEach((s, i) => s.id = i + 1);
-        
-        console.log(`Photo-anchored OCR found ${students.length} students`);
-        return students;
+        return result;
     }
     
-    // Find text rows by detecting gaps (where photos are)
-    function findTextRows(yPositions, pageHeight) {
-        if (yPositions.length === 0) return [];
+    function groupWordsIntoCells(words) {
+        if (words.length === 0) return [];
         
-        // Cluster Y positions
-        const threshold = 50; // Words within 50px are same text block
-        const clusters = [];
-        let currentCluster = [yPositions[0]];
+        words.sort((a, b) => a.y - b.y || a.x - b.x);
         
-        for (let i = 1; i < yPositions.length; i++) {
-            if (yPositions[i] - yPositions[i-1] < threshold) {
-                currentCluster.push(yPositions[i]);
+        const rows = [];
+        let currentRow = [words[0]];
+        
+        for (let i = 1; i < words.length; i++) {
+            if (words[i].y - currentRow[0].y < 50) {
+                currentRow.push(words[i]);
             } else {
-                clusters.push({
-                    min: Math.min(...currentCluster),
-                    max: Math.max(...currentCluster),
-                    center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
-                });
-                currentCluster = [yPositions[i]];
+                rows.push(currentRow);
+                currentRow = [words[i]];
             }
         }
-        clusters.push({
-            min: Math.min(...currentCluster),
-            max: Math.max(...currentCluster),
-            center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
-        });
+        rows.push(currentRow);
         
-        // Filter out header/footer (keep middle clusters)
-        // Text rows are separated by photo gaps (typically 100-200px)
-        const textRows = clusters.filter(c => c.max - c.min < 100); // Name text is compact
-        
-        return textRows;
-    }
-    
-    // Find columns by clustering X positions
-    function findColumns(xPositions, pageWidth) {
-        if (xPositions.length === 0) return [];
-        
-        const threshold = pageWidth / 10; // Adaptive based on page width
-        const clusters = [];
-        let currentCluster = [xPositions[0]];
-        
-        for (let i = 1; i < xPositions.length; i++) {
-            if (xPositions[i] - xPositions[i-1] < threshold) {
-                currentCluster.push(xPositions[i]);
-            } else {
-                clusters.push({
-                    min: Math.min(...currentCluster),
-                    max: Math.max(...currentCluster),
-                    center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
-                });
-                currentCluster = [xPositions[i]];
-            }
-        }
-        clusters.push({
-            min: Math.min(...currentCluster),
-            max: Math.max(...currentCluster),
-            center: currentCluster.reduce((a,b) => a+b) / currentCluster.length
-        });
-        
-        return clusters;
-    }
-    
-    // Find which cluster a position belongs to
-    function findBestCluster(pos, clusters) {
-        let bestIdx = -1;
-        let bestDist = Infinity;
-        
-        for (let i = 0; i < clusters.length; i++) {
-            const dist = Math.abs(pos - clusters[i].center);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestIdx = i;
-            }
-        }
-        
-        return bestIdx;
-    }
-    
-    // Parse "LastName, FirstName" from cell text (handles multi-line)
-    function parseStudentName(text) {
-        // Clean up the text
-        let cleaned = text
-            .replace(/\s+/g, ' ')  // Normalize whitespace
-            .replace(/- /g, '-')   // Fix "Morrison- " -> "Morrison-"
-            .replace(/ -/g, '-')   // Fix " -Mellingtallow" -> "-Mellingtallow"
-            .trim();
-        
-        // Skip non-name text
-        const skipWords = ['seating', 'chart', 'schedule', 'term', 'period', 'class', 'mcle', 'career', 'education'];
-        if (skipWords.some(w => cleaned.toLowerCase().includes(w))) {
-            return null;
-        }
-        
-        // Try to find comma separator
-        const commaIdx = cleaned.indexOf(',');
-        
-        if (commaIdx > 0) {
-            const lastName = cleaned.substring(0, commaIdx).trim();
-            const firstName = cleaned.substring(commaIdx + 1).trim();
+        const cells = [];
+        for (const row of rows) {
+            row.sort((a, b) => a.x - b.x);
             
-            if (lastName.length > 0 && firstName.length > 0) {
-                return { lastName, firstName };
+            let cell = [row[0]];
+            for (let i = 1; i < row.length; i++) {
+                if (row[i].x - cell[cell.length - 1].x2 < 100) {
+                    cell.push(row[i]);
+                } else {
+                    cells.push({
+                        text: cell.map(w => w.text).join(' '),
+                        x: cell[0].x,
+                        y: cell[0].y,
+                        y2: Math.max(...cell.map(w => w.y2)),
+                        avgConfidence: cell.reduce((a, w) => a + w.confidence, 0) / cell.length
+                    });
+                    cell = [row[i]];
+                }
             }
+            cells.push({
+                text: cell.map(w => w.text).join(' '),
+                x: cell[0].x,
+                y: cell[0].y,
+                y2: Math.max(...cell.map(w => w.y2)),
+                avgConfidence: cell.reduce((a, w) => a + w.confidence, 0) / cell.length
+            });
         }
         
-        // No comma - try to split by space (assume "LastName FirstName")
-        const parts = cleaned.split(' ').filter(p => p.length > 0);
-        if (parts.length >= 2) {
+        return cells;
+    }
+    
+    function parseStudentName(text) {
+        let cleaned = text.replace(/\s+/g, ' ').replace(/- /g, '-').replace(/ -/g, '-').trim();
+        const skipWords = ['seating', 'chart', 'schedule', 'term', 'period', 'class'];
+        if (skipWords.some(w => cleaned.toLowerCase().includes(w))) return null;
+        
+        const commaIdx = cleaned.indexOf(',');
+        if (commaIdx > 0) {
             return {
-                lastName: parts[0],
-                firstName: parts.slice(1).join(' ')
+                lastName: cleaned.substring(0, commaIdx).trim(),
+                firstName: cleaned.substring(commaIdx + 1).trim()
             };
         }
         
+        const parts = cleaned.split(' ').filter(p => p.length > 0);
+        if (parts.length >= 2) {
+            return { lastName: parts[0], firstName: parts.slice(1).join(' ') };
+        }
         return null;
     }
     
-    // Fallback: extract from plain text
-    function extractStudentsFromText(text) {
-        const regex = /([A-Z][a-zA-Z'-]+),\s*([A-Z][a-zA-Z'-]+)/g;
-        let match;
-        const students = [];
-        
-        while ((match = regex.exec(text)) !== null) {
-            students.push({
-                id: students.length + 1,
-                firstName: match[2],
-                lastName: match[1],
-                displayName: formatDisplayName(match[2], match[1]),
-                ocrOriginal: match[0],
-                photoData: null,
-                confirmed: false,
-                position: { row: Math.floor(students.length / 6), col: students.length % 6 }
-            });
-        }
-        return students;
-    }
-    
-    // Preprocess image for better OCR results
     function preprocessForOCR(canvas) {
         const processed = document.createElement('canvas');
         const ctx = processed.getContext('2d');
-        
-        // Use higher resolution
         processed.width = canvas.width;
         processed.height = canvas.height;
-        
-        // Draw original
         ctx.drawImage(canvas, 0, 0);
         
-        // Get image data for processing
         const imageData = ctx.getImageData(0, 0, processed.width, processed.height);
         const data = imageData.data;
         
-        // Increase contrast and convert to grayscale
         for (let i = 0; i < data.length; i += 4) {
-            // Grayscale
             const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-            
-            // Increase contrast
             const contrast = 1.5;
             const factor = (259 * (contrast * 100 + 255)) / (255 * (259 - contrast * 100));
             const newGray = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
-            
-            // Threshold to make text sharper
             const threshold = newGray > 180 ? 255 : (newGray < 80 ? 0 : newGray);
-            
-            data[i] = threshold;
-            data[i + 1] = threshold;
-            data[i + 2] = threshold;
+            data[i] = data[i + 1] = data[i + 2] = threshold;
         }
         
         ctx.putImageData(imageData, 0, 0);
         return processed;
     }
     
-    // Apply learned corrections to student names
     function applyLearnedCorrections() {
-        const localCorr = window.learnedCorrections || {};
-        const charCorr = window.charPatterns || {};
+        const corr = window.learnedCorrections || {};
+        const chars = window.charPatterns || {};
         
         for (const student of students) {
             let name = `${student.lastName}, ${student.firstName}`;
-            
-            // Apply local corrections
-            for (const [wrong, right] of Object.entries(localCorr)) {
-                if (name.includes(wrong)) {
-                    name = name.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
-                    console.log(`✓ Corrected: ${student.lastName}, ${student.firstName}`);
-                }
-            }
-            
-            // Apply char patterns
-            for (const [wrong, right] of Object.entries(charCorr)) {
+            for (const [wrong, right] of Object.entries(corr)) {
                 name = name.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
             }
-            
-            // Parse back
+            for (const [wrong, right] of Object.entries(chars)) {
+                name = name.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
+            }
             const parts = name.split(',').map(s => s.trim());
             if (parts.length >= 2) {
                 student.lastName = parts[0];
@@ -1610,105 +1417,27 @@
         }
     }
     
-    async function loadPDF(file) {
-        goToStep(2);
-        fileName = file.name.replace('.pdf', '').replace(/[_-]/g, ' ');
-        document.getElementById('classNameInput').value = fileName;
-        
-        try {
-            setStatus('Loading PDF...');
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            
-            setStatus('Rendering page...');
-            const page = await pdf.getPage(1);
-            const scale = 3; // Higher resolution for better OCR
-            const viewport = page.getViewport({ scale });
-            
-            pdfCanvas = document.getElementById('pdfCanvas');
-            pdfCtx = pdfCanvas.getContext('2d');
-            pdfCanvas.width = viewport.width;
-            pdfCanvas.height = viewport.height;
-            
-            await page.render({ canvasContext: pdfCtx, viewport }).promise;
-            
-            // TRY 1: Extract text directly from PDF (much more accurate than OCR!)
-            setStatus('Extracting text from PDF...');
-            let extractedStudents = await extractStudentsFromPDF(page, viewport);
-            
-            if (extractedStudents.length > 0) {
-                console.log(`✓ Extracted ${extractedStudents.length} students from PDF text layer`);
-                students = extractedStudents;
-            } else {
-                // TRY 2: Fall back to OCR (slower, less accurate)
-                console.log('No text layer found, falling back to OCR...');
-                setStatus('No text layer - using OCR (30-60 seconds)...');
-                students = await extractStudentsWithOCR();
-            }
-            
-            // Apply learned corrections
-            applyLearnedCorrections();
-            
-            if (students.length === 0) {
-                alert('No names found. Check PDF format.');
-                goToStep(1);
-                return;
-            }
-            
-            // Only assign default positions if not already set from PDF extraction
-            students.forEach((s, i) => {
-                s.id = i + 1;
-                if (!s.position) {
-                    s.position = { row: Math.floor(i / 6), col: i % 6 };
-                }
-            });
-            
-            renderNameList();
-            goToStep(3);
-            
-        } catch (err) {
-            alert('Error: ' + err.message);
-            goToStep(1);
-        }
-    }
-    
-    function setStatus(t) {
-        document.getElementById('processStatus').textContent = t;
-    }
-    
-    // Step 3: Name list with preferred name option
+    // Name list rendering
     function renderNameList() {
         document.getElementById('nameList').innerHTML = students.map((s, i) => `
-            <div class="name-item" style="flex-wrap:wrap;">
+            <div class="name-item ${s.ocrConfidence < 0.7 ? 'low-confidence' : ''}">
                 <span class="num">${i + 1}</span>
                 <input type="text" value="${s.lastName}, ${s.firstName}" 
-                       onchange="updateName(${i}, this.value)" 
-                       data-original="${s.ocrOriginal || ''}"
-                       style="flex:2;min-width:150px;"
-                       placeholder="LastName, FirstName">
+                       onchange="updateName(${i}, this.value)"
+                       style="flex:2;min-width:150px;">
                 <input type="text" value="${s.preferredName || s.firstName}" 
                        onchange="updatePreferredName(${i}, this.value)"
                        style="flex:1;min-width:80px;background:var(--bg-primary);"
-                       placeholder="Goes by..."
-                       title="Preferred name (e.g., Theo instead of Theodore)">
+                       placeholder="Goes by...">
                 <button class="del-btn" onclick="deleteName(${i})">🗑️</button>
             </div>
         `).join('');
-    }
-    
-    function updatePreferredName(idx, val) {
-        const student = students[idx];
-        student.preferredName = val.trim();
-        // Update display name to use preferred name
-        student.displayName = formatDisplayName(student.preferredName || student.firstName, student.lastName);
     }
     
     function updateName(idx, val) {
         const student = students[idx];
         const original = student.ocrOriginal;
         const parts = val.split(',').map(s => s.trim());
-        
-        const oldFirstName = student.firstName;
         
         if (parts.length >= 2) {
             student.lastName = parts[0];
@@ -1718,17 +1447,16 @@
             student.lastName = '';
         }
         
-        // If preferred name was the same as old first name, update it too
-        if (!student.preferredName || student.preferredName === oldFirstName) {
-            student.preferredName = student.firstName;
-        }
-        
         student.displayName = formatDisplayName(student.preferredName || student.firstName, student.lastName);
         
-        // Track correction for learning
         if (original && original !== val) {
             corrections.push({ ocr: original, fixed: val });
         }
+    }
+    
+    function updatePreferredName(idx, val) {
+        students[idx].preferredName = val.trim();
+        students[idx].displayName = formatDisplayName(val.trim() || students[idx].firstName, students[idx].lastName);
     }
     
     function deleteName(idx) {
@@ -1751,20 +1479,28 @@
             firstName,
             lastName,
             displayName: formatDisplayName(firstName, lastName),
-            ocrOriginal: null, // Manual add
+            ocrOriginal: null,
+            ocrConfidence: 1.0,
             photoData: null,
             confirmed: false,
+            noPhoto: false,
             position: { row: Math.floor(students.length / 6), col: students.length % 6 }
         });
         
-        // Track as missed by OCR
         corrections.push({ ocr: 'MISSED', fixed: val });
-        
         input.value = '';
         renderNameList();
     }
     
-    // Step 4: Face selection
+    // Face selection
+    function promptForSeatingChart() {
+        if (pdfCanvas && pdfCanvas.width > 0) {
+            startFaceSelection();
+        } else {
+            goToStep('1b');
+        }
+    }
+    
     function startFaceSelection() {
         goToStep(4);
         pdfScroll = document.getElementById('pdfScroll');
@@ -1774,38 +1510,43 @@
         pdfCanvas.addEventListener('mouseup', onUp);
         document.addEventListener('keydown', onKey);
         
-        currentIdx = 0;
+        currentIdx = students.findIndex(s => !s.confirmed && !s.noPhoto);
+        if (currentIdx === -1) currentIdx = 0;
         
-        // Initialize with learned patterns from Firebase (if available)
         const learned = window.learnedPatterns || {};
         gridLearn = {
             confirmedPositions: [],
-            colPositions: [],
-            rowPositions: [],
             avgWidth: learned.avgWidth || 150,
             avgHeight: learned.avgHeight || 180,
             colSpacing: learned.colSpacing || 0,
-            rowSpacing: learned.rowSpacing || 0,
-            currentCol: 0,
-            currentRow: 0
+            rowSpacing: learned.rowSpacing || 0
         };
         
-        console.log('Starting with learned patterns:', gridLearn);
+        undoStack = [];
         
         showCurrentStudent();
         renderStuList();
+        renderConfirmedOverlays();
+        updateConfirmedCount();
     }
     
     function showCurrentStudent() {
         const s = students[currentIdx];
         if (!s) return;
         
-        document.getElementById('curNameInput').value = s.displayName;
+        document.getElementById('curNameInput').value = `${s.lastName}, ${s.firstName}`;
         document.getElementById('progText').textContent = `${currentIdx + 1} of ${students.length}`;
-        document.getElementById('progFill').style.width = ((currentIdx + 1) / students.length * 100) + '%';
+        
+        const confirmed = students.filter(s => s.confirmed || s.noPhoto).length;
+        const pct = (confirmed / students.length) * 100;
+        const fill = document.getElementById('progFill');
+        fill.style.width = pct + '%';
+        fill.className = 'prog-fill' + (pct >= 100 ? ' complete' : '');
         
         const preview = document.getElementById('previewBox');
         preview.innerHTML = s.photoData ? `<img src="${s.photoData}">` : '';
+        
+        document.getElementById('undoBtn').disabled = undoStack.length === 0;
         
         clearRect();
         predictNextPosition();
@@ -1814,14 +1555,21 @@
     }
     
     function renderStuList() {
-        document.getElementById('stuList').innerHTML = students.map((s, i) => `
-            <div class="stu-item ${i === currentIdx ? 'active' : ''} ${s.confirmed ? 'done' : ''}"
-                 onclick="jumpTo(${i})">
-                <div class="thumb">${s.photoData ? `<img src="${s.photoData}">` : ''}</div>
-                <span class="nm">${s.displayName}</span>
-                ${s.confirmed ? '<span class="chk">✓</span>' : ''}
-            </div>
-        `).join('');
+        document.getElementById('stuList').innerHTML = students.map((s, i) => {
+            let classes = 'stu-item';
+            if (i === currentIdx) classes += ' active';
+            if (s.confirmed) classes += ' done';
+            if (s.noPhoto) classes += ' no-photo';
+            
+            return `
+                <div class="${classes}" onclick="jumpTo(${i})">
+                    <div class="thumb">${s.photoData ? `<img src="${s.photoData}">` : ''}</div>
+                    <span class="nm">${s.displayName}</span>
+                    ${s.confirmed ? '<span class="chk">✓</span>' : ''}
+                    ${s.noPhoto ? '<span class="no-photo-badge">no photo</span>' : ''}
+                </div>
+            `;
+        }).join('');
     }
     
     function jumpTo(idx) {
@@ -1830,104 +1578,96 @@
         renderStuList();
     }
     
+    function updateConfirmedCount() {
+        const done = students.filter(s => s.confirmed || s.noPhoto).length;
+        document.getElementById('confirmedCount').textContent = `${done} / ${students.length} done`;
+    }
+    
+    // Prediction
     function predictNextPosition() {
         const student = students[currentIdx];
         
-        // If we have text position from PDF extraction, use it!
-        // Face is typically BELOW the name text
+        // Use text position from PDF if available
         if (student && student.textX !== undefined && student.textY !== undefined) {
-            const faceOffsetY = 30; // Face starts below name
-            const faceWidth = gridLearn.avgWidth || 120;
-            const faceHeight = gridLearn.avgHeight || 150;
+            const faceOffsetY = 30;
+            const w = gridLearn.avgWidth || 120;
+            const h = gridLearn.avgHeight || 150;
             
-            showPredictedRect(
-                student.textX - 10,  // Slightly left of text
-                student.textY + faceOffsetY,  // Below name
-                faceWidth,
-                faceHeight
-            );
+            predictedRect = {
+                x: student.textX - 10,
+                y: student.textY + faceOffsetY,
+                w,
+                h
+            };
+            showPredictedRect(predictedRect.x, predictedRect.y, w, h);
             return;
         }
         
-        if (gridLearn.confirmedPositions.length < 1) {
-            // No data yet - place in center-ish
-            showPredictedRect(pdfCanvas.width / 2 - 75, 100, 150, 180);
-            return;
-        }
-        
-        const positions = gridLearn.confirmedPositions;
-        
-        // Detect columns from X positions
-        const xValues = positions.map(p => p.x).sort((a, b) => a - b);
-        const cols = clusterValues(xValues, 100);
-        
-        // Detect rows from Y positions
-        const yValues = positions.map(p => p.y).sort((a, b) => a - b);
-        const rows = clusterValues(yValues, 100);
-        
-        // Calculate spacing
-        if (cols.length > 1) {
-            gridLearn.colSpacing = (cols[cols.length - 1] - cols[0]) / (cols.length - 1);
-        }
-        if (rows.length > 1) {
-            gridLearn.rowSpacing = (rows[rows.length - 1] - rows[0]) / (rows.length - 1);
-        }
-        
-        // Predict next position
-        const lastPos = positions[positions.length - 1];
-        let nextX, nextY;
-        
-        // Try to go to next column
-        const currentColIdx = findClosestIdx(cols, lastPos.x);
-        
-        if (currentColIdx < cols.length - 1) {
-            // Move to next column
-            nextX = cols[currentColIdx + 1];
-            nextY = lastPos.y;
-        } else {
-            // End of row, go to next row
-            const currentRowIdx = findClosestIdx(rows, lastPos.y);
-            nextX = cols[0]; // First column
+        // Use grid learning
+        if (gridLearn.confirmedPositions.length >= 1) {
+            const positions = gridLearn.confirmedPositions;
+            const lastPos = positions[positions.length - 1];
             
-            if (currentRowIdx < rows.length - 1) {
-                nextY = rows[currentRowIdx + 1];
-            } else {
-                // Predict new row
-                nextY = lastPos.y + (gridLearn.rowSpacing || 200);
+            // Detect columns
+            const xValues = positions.map(p => p.x).sort((a, b) => a - b);
+            const cols = clusterValues(xValues, 100);
+            
+            // Detect rows
+            const yValues = positions.map(p => p.y).sort((a, b) => a - b);
+            const rows = clusterValues(yValues, 100);
+            
+            if (cols.length > 1) {
+                gridLearn.colSpacing = (cols[cols.length - 1] - cols[0]) / (cols.length - 1);
             }
+            if (rows.length > 1) {
+                gridLearn.rowSpacing = (rows[rows.length - 1] - rows[0]) / (rows.length - 1);
+            }
+            
+            const currentColIdx = findClosestIdx(cols, lastPos.x);
+            let nextX, nextY;
+            
+            if (currentColIdx < cols.length - 1) {
+                // Next column (move right)
+                nextX = cols[currentColIdx + 1];
+                nextY = lastPos.y;
+            } else {
+                // Next row (move down, back to first column)
+                const currentRowIdx = findClosestIdx(rows, lastPos.y);
+                nextX = cols[0];
+                nextY = currentRowIdx < rows.length - 1 
+                    ? rows[currentRowIdx + 1] 
+                    : lastPos.y + (gridLearn.rowSpacing || 200);
+            }
+            
+            predictedRect = { x: nextX, y: nextY, w: gridLearn.avgWidth, h: gridLearn.avgHeight };
+            showPredictedRect(nextX, nextY, gridLearn.avgWidth, gridLearn.avgHeight);
+            return;
         }
         
-        showPredictedRect(nextX, nextY, gridLearn.avgWidth, gridLearn.avgHeight);
+        // Default: center of view
+        predictedRect = { x: pdfCanvas.width / 2 - 75, y: 100, w: 150, h: 180 };
+        showPredictedRect(predictedRect.x, predictedRect.y, 150, 180);
     }
     
     function clusterValues(values, threshold) {
         if (values.length === 0) return [];
-        
         const clusters = [[values[0]]];
         for (let i = 1; i < values.length; i++) {
-            const lastCluster = clusters[clusters.length - 1];
-            const lastVal = lastCluster[lastCluster.length - 1];
-            
-            if (values[i] - lastVal < threshold) {
-                lastCluster.push(values[i]);
+            const last = clusters[clusters.length - 1];
+            if (values[i] - last[last.length - 1] < threshold) {
+                last.push(values[i]);
             } else {
                 clusters.push([values[i]]);
             }
         }
-        
-        // Return average of each cluster
         return clusters.map(c => c.reduce((a, b) => a + b) / c.length);
     }
     
     function findClosestIdx(arr, val) {
-        let minDist = Infinity;
-        let idx = 0;
+        let minDist = Infinity, idx = 0;
         arr.forEach((v, i) => {
             const dist = Math.abs(v - val);
-            if (dist < minDist) {
-                minDist = dist;
-                idx = i;
-            }
+            if (dist < minDist) { minDist = dist; idx = i; }
         });
         return idx;
     }
@@ -1947,21 +1687,21 @@
         predictedDiv.style.height = h + 'px';
         predictedDiv.style.display = 'block';
         
-        // Also scroll to this position
-        pdfScroll.scrollTop = Math.max(0, y - 100);
-        pdfScroll.scrollLeft = Math.max(0, x - 100);
+        // Scroll to show prediction
+        pdfScroll.scrollTop = Math.max(0, y - 150);
+        pdfScroll.scrollLeft = Math.max(0, x - 150);
         
         cropPreview();
         updateConfirmBtn();
     }
     
+    // Drawing handlers
     function onDown(e) {
         const scrollRect = pdfScroll.getBoundingClientRect();
         startX = e.clientX - scrollRect.left + pdfScroll.scrollLeft;
         startY = e.clientY - scrollRect.top + pdfScroll.scrollTop;
         isDrawing = true;
         
-        // Hide predicted rect when drawing
         if (predictedDiv) predictedDiv.style.display = 'none';
         clearRectDiv();
     }
@@ -1988,6 +1728,11 @@
         isDrawing = false;
         
         if (rect && rect.w > 20 && rect.h > 20) {
+            // Check for duplicates
+            const isDupe = checkDuplicate(rect);
+            if (isDupe) {
+                showDuplicateWarning(isDupe);
+            }
             cropPreview();
             updateConfirmBtn();
         }
@@ -2025,16 +1770,12 @@
         const crop = document.getElementById('cropCanvas');
         const ctx = crop.getContext('2d');
         
-        // Make square crop from CENTER of selection (no aspect ratio distortion)
         const size = Math.min(rect.w, rect.h);
         const srcX = rect.x + (rect.w - size) / 2;
         const srcY = rect.y + (rect.h - size) / 2;
         
-        // Higher res for quality (will display smaller)
         crop.width = 300;
         crop.height = 300;
-        
-        // Draw square region into square canvas (1:1 aspect ratio preserved)
         ctx.drawImage(pdfCanvas, srcX, srcY, size, size, 0, 0, 300, 300);
         
         students[currentIdx].tempPhoto = crop.toDataURL('image/jpeg', 0.9);
@@ -2051,13 +1792,57 @@
         
         if (n >= 3) {
             el.className = 'learn-status learned';
-            el.textContent = `✓ Pattern learned (${n} samples) - predicting positions`;
+            el.textContent = `✓ Pattern learned (${n} samples)`;
         } else {
             el.className = 'learn-status';
-            el.textContent = `🔍 Learning... (${n}/3 samples needed)`;
+            el.textContent = `🔍 Learning... (${n}/3 samples)`;
         }
     }
     
+    // Duplicate detection
+    function checkDuplicate(newRect) {
+        for (const s of students) {
+            if (s.confirmed && s.faceRect) {
+                const overlap = rectsOverlap(newRect, s.faceRect);
+                if (overlap > 0.5) {
+                    return s;
+                }
+            }
+        }
+        return null;
+    }
+    
+    function rectsOverlap(a, b) {
+        const x1 = Math.max(a.x, b.x);
+        const y1 = Math.max(a.y, b.y);
+        const x2 = Math.min(a.x + a.w, b.x + b.w);
+        const y2 = Math.min(a.y + a.h, b.y + b.h);
+        
+        if (x2 <= x1 || y2 <= y1) return 0;
+        
+        const intersection = (x2 - x1) * (y2 - y1);
+        const areaA = a.w * a.h;
+        return intersection / areaA;
+    }
+    
+    function showDuplicateWarning(existingStudent) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>⚠️ Possible Duplicate</h3>
+                <p>This face area overlaps with "${existingStudent.displayName}".<br>
+                   Are you sure this is a different student?</p>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button class="btn btn-warning" onclick="this.closest('.modal-overlay').remove()">Use Anyway</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Keyboard controls
     function onKey(e) {
         if (!document.getElementById('step4').classList.contains('active')) return;
         if (e.target.tagName === 'INPUT') return;
@@ -2089,17 +1874,22 @@
                 clearRect();
                 e.preventDefault();
                 break;
+            case 'n':
+            case 'N':
+                markNoPhoto();
+                e.preventDefault();
+                break;
+            case 'z':
+            case 'Z':
+                if (e.ctrlKey || e.metaKey) {
+                    undoLast();
+                    e.preventDefault();
+                }
+                break;
             case 'f':
             case 'F':
                 fixCurrentName();
                 e.preventDefault();
-                break;
-            case 'd':
-            case 'D':
-                if (e.shiftKey) { // Shift+D to delete (harder to hit accidentally)
-                    deleteCurrentStudent();
-                    e.preventDefault();
-                }
                 break;
         }
     }
@@ -2107,137 +1897,159 @@
     function updateRectDisplay() {
         if (rectDiv && rectDiv.style.display !== 'none') {
             drawRect();
-        } else if (predictedDiv) {
+        } else if (predictedDiv && predictedDiv.style.display !== 'none') {
             predictedDiv.style.left = rect.x + 'px';
             predictedDiv.style.top = rect.y + 'px';
         }
     }
     
+    // Confirm face
     function confirmFace() {
         const s = students[currentIdx];
         if (!s.tempPhoto) return;
         
+        // Save for undo
+        undoStack.push({
+            idx: currentIdx,
+            photoData: s.photoData,
+            confirmed: s.confirmed,
+            faceRect: s.faceRect
+        });
+        
+        // Track adjustment for learning
+        if (predictedRect && rect) {
+            const delta = {
+                dx: rect.x - predictedRect.x,
+                dy: rect.y - predictedRect.y,
+                dw: rect.w - predictedRect.w,
+                dh: rect.h - predictedRect.h
+            };
+            if (Math.abs(delta.dx) > 5 || Math.abs(delta.dy) > 5) {
+                adjustmentDeltas.push(delta);
+            }
+        }
+        
         s.photoData = s.tempPhoto;
         s.confirmed = true;
+        s.noPhoto = false;
+        s.faceRect = { ...rect };
         
-        // Learn from this position
+        console.log(`✓ Confirmed: ${s.displayName} (${currentIdx + 1}/${students.length})`);
+        console.log(`  Total confirmed: ${students.filter(x => x.confirmed).length}`);
+        
+        // Learn from position
         gridLearn.confirmedPositions.push({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
         gridLearn.avgWidth = gridLearn.confirmedPositions.reduce((a, p) => a + p.w, 0) / gridLearn.confirmedPositions.length;
         gridLearn.avgHeight = gridLearn.confirmedPositions.reduce((a, p) => a + p.h, 0) / gridLearn.confirmedPositions.length;
         
-        // Find next unconfirmed
-        const next = students.findIndex((s, i) => i > currentIdx && !s.confirmed);
-        if (next !== -1) {
-            currentIdx = next;
-        } else {
-            const first = students.findIndex(s => !s.confirmed);
-            if (first !== -1) {
-                currentIdx = first;
-            } else {
-                saveLearningData();
-                goToStep(5);
-                return;
-            }
+        autoSave();
+        renderConfirmedOverlays();
+        updateConfirmedCount();
+        moveToNextUnconfirmed();
+    }
+    
+    function markNoPhoto() {
+        const s = students[currentIdx];
+        
+        undoStack.push({
+            idx: currentIdx,
+            photoData: s.photoData,
+            confirmed: s.confirmed,
+            noPhoto: s.noPhoto,
+            faceRect: s.faceRect
+        });
+        
+        s.noPhoto = true;
+        s.confirmed = false;
+        s.photoData = null;
+        s.faceRect = null;
+        
+        autoSave();
+        updateConfirmedCount();
+        moveToNextUnconfirmed();
+    }
+    
+    function undoLast() {
+        if (undoStack.length === 0) return;
+        
+        const prev = undoStack.pop();
+        const s = students[prev.idx];
+        
+        s.photoData = prev.photoData;
+        s.confirmed = prev.confirmed;
+        s.noPhoto = prev.noPhoto || false;
+        s.faceRect = prev.faceRect;
+        
+        // Remove last confirmed position from learning
+        if (gridLearn.confirmedPositions.length > 0) {
+            gridLearn.confirmedPositions.pop();
         }
         
+        currentIdx = prev.idx;
+        autoSave();
+        renderConfirmedOverlays();
+        updateConfirmedCount();
         showCurrentStudent();
         renderStuList();
     }
     
+    function moveToNextUnconfirmed() {
+        // Find next unconfirmed (in visual order)
+        let next = -1;
+        for (let i = currentIdx + 1; i < students.length; i++) {
+            if (!students[i].confirmed && !students[i].noPhoto) {
+                next = i;
+                break;
+            }
+        }
+        
+        if (next === -1) {
+            // Check from beginning
+            for (let i = 0; i < currentIdx; i++) {
+                if (!students[i].confirmed && !students[i].noPhoto) {
+                    next = i;
+                    break;
+                }
+            }
+        }
+        
+        if (next !== -1) {
+            currentIdx = next;
+            showCurrentStudent();
+            renderStuList();
+        } else {
+            // All done!
+            showCurrentStudent();
+            renderStuList();
+        }
+    }
+    
     function skipStudent() {
-        const next = students.findIndex((s, i) => i > currentIdx && !s.confirmed);
-        currentIdx = next !== -1 ? next : (currentIdx + 1) % students.length;
-        showCurrentStudent();
-        renderStuList();
+        moveToNextUnconfirmed();
     }
     
     function fixCurrentName() {
         const student = students[currentIdx];
-        const ocrFound = student.ocrOriginal || student.displayName;
-        
-        // Show what OCR found and ask for correction
         const corrected = prompt(
-            `OCR found: "${ocrFound}"\n\nEnter the correct name:\nLastName, FirstName\n\n(e.g., "Powell, Ilya")`,
-            ocrFound
+            `Current: "${student.lastName}, ${student.firstName}"\n\nEnter correct name:`,
+            `${student.lastName}, ${student.firstName}`
         );
         
-        if (!corrected || corrected.trim() === '') return;
+        if (!corrected) return;
         
-        // Parse the correction
         const parts = corrected.split(',').map(s => s.trim());
-        const lastName = parts[0] || '';
-        const firstName = parts[1] || parts[0];
-        
-        // Track correction for global learning (preserves position!)
-        corrections.push({ 
-            ocr: ocrFound, 
-            fixed: corrected,
-            position: student.position  // Keep position for layout learning
-        });
-        
-        // Update student
-        student.lastName = lastName;
-        student.firstName = firstName;
-        student.displayName = formatDisplayName(firstName, lastName);
-        student.ocrOriginal = ocrFound; // Remember what OCR saw
-        student.wasCorrected = true;
-        
-        // Update UI
-        document.getElementById('curNameInput').value = student.displayName;
-        renderStuList();
-        
-        console.log(`Corrected: "${ocrFound}" → "${corrected}" at position`, student.position);
-    }
-    
-    function deleteCurrentStudent() {
-        if (students.length <= 1) {
-            alert('Cannot delete the last student.');
-            return;
-        }
-        
-        const student = students[currentIdx];
-        const name = student.displayName;
-        
-        // Suggest fixing instead
-        if (student.ocrOriginal) {
-            const choice = confirm(
-                `"${name}" will be removed.\n\nTip: Use "Fix Name" instead to correct OCR errors — this helps the app learn!\n\nStill delete?`
-            );
-            if (!choice) return;
-        } else {
-            if (!confirm(`Delete "${name}" from the class?`)) return;
-        }
-        
-        // Remove student
-        students.splice(currentIdx, 1);
-        
-        // Re-index
-        students.forEach((s, i) => s.id = i + 1);
-        
-        // Move to next
-        if (currentIdx >= students.length) {
-            currentIdx = students.length - 1;
-        }
-        
-        showCurrentStudent();
-        renderStuList();
-    }
-    
-    function updateCurName(val) {
-        students[currentIdx].displayName = val;
-        // Parse back to first/last
-        const parts = val.split(' ');
         if (parts.length >= 2) {
-            students[currentIdx].firstName = parts[0];
-            // Last initial might be "C-Q." - extract
-            const initialPart = parts[parts.length - 1].replace('.', '');
-            // Don't overwrite lastName since we only have initials
+            corrections.push({ ocr: student.ocrOriginal, fixed: corrected });
+            student.lastName = parts[0];
+            student.firstName = parts[1];
+            student.displayName = formatDisplayName(student.firstName, student.lastName);
+            document.getElementById('curNameInput').value = corrected;
+            renderStuList();
         }
-        renderStuList();
     }
     
     function addStudentDuringSelection() {
-        const name = prompt('Enter student name: LastName, FirstName');
+        const name = prompt('Enter: LastName, FirstName');
         if (!name) return;
         
         const parts = name.split(',').map(s => s.trim());
@@ -2250,101 +2062,89 @@
             lastName,
             displayName: formatDisplayName(firstName, lastName),
             ocrOriginal: null,
+            ocrConfidence: 1.0,
             photoData: null,
             confirmed: false,
+            noPhoto: false,
             position: { row: Math.floor(students.length / 6), col: students.length % 6 }
         });
         
-        // Track as missed
         corrections.push({ ocr: 'MISSED', fixed: name });
-        
-        // Jump to new student
         currentIdx = students.length - 1;
+        autoSave();
         showCurrentStudent();
+        renderStuList();
+        updateConfirmedCount();
+    }
+    
+    function updateCurName(val) {
+        const parts = val.split(',').map(s => s.trim());
+        if (parts.length >= 2) {
+            students[currentIdx].lastName = parts[0];
+            students[currentIdx].firstName = parts[1];
+            students[currentIdx].displayName = formatDisplayName(parts[1], parts[0]);
+        }
         renderStuList();
     }
     
-    // Extract ONLY character-level OCR patterns (NO names sent to server)
-    // Example: "Poweil" vs "Powell" → learns "ei" often misread as "o"
-    function extractOCRPatterns(corrections) {
-        const patterns = [];
-        
-        for (const c of corrections) {
-            if (c.ocr === 'MISSED') {
-                patterns.push({ type: 'missed' });
-                continue;
-            }
-            
-            // Split into words
-            const ocrWords = c.ocr.replace(',', '').split(/\s+/);
-            const fixedWords = c.fixed.replace(',', '').split(/\s+/);
-            
-            for (let i = 0; i < Math.min(ocrWords.length, fixedWords.length); i++) {
-                const ocr = ocrWords[i];
-                const fix = fixedWords[i];
-                
-                if (ocr !== fix) {
-                    // Extract CHARACTER-level diff only (no actual names!)
-                    const charPattern = extractCharDiff(ocr, fix);
-                    if (charPattern) {
-                        patterns.push({
-                            type: 'char_pattern',
-                            ...charPattern
-                        });
-                    }
-                }
-            }
+    // Render confirmed overlays on PDF
+    function renderConfirmedOverlays() {
+        // Get or create overlay container inside pdfScroll
+        let container = document.getElementById('overlaysContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'overlaysContainer';
+            pdfScroll.appendChild(container);
         }
         
-        return patterns;
+        container.innerHTML = '';
+        container.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
+        
+        const confirmedCount = students.filter(s => s.confirmed && s.faceRect).length;
+        console.log(`Rendering ${confirmedCount} confirmed overlays`);
+        
+        for (const s of students) {
+            if (s.confirmed && s.faceRect) {
+                const overlay = document.createElement('div');
+                overlay.className = 'confirmed-overlay';
+                overlay.style.cssText = `
+                    position: absolute;
+                    left: ${s.faceRect.x}px;
+                    top: ${s.faceRect.y}px;
+                    width: ${s.faceRect.w}px;
+                    height: ${s.faceRect.h}px;
+                    background: rgba(34, 197, 94, 0.3);
+                    border: 3px solid #22c55e;
+                    border-radius: 8px;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: flex-end;
+                    justify-content: center;
+                `;
+                overlay.innerHTML = `
+                    <span style="position:absolute;top:-10px;right:-10px;width:24px;height:24px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;color:white;">✓</span>
+                    <span style="background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-bottom:4px;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;">${s.displayName}</span>
+                `;
+                overlay.onclick = () => {
+                    currentIdx = students.indexOf(s);
+                    showCurrentStudent();
+                    renderStuList();
+                };
+                container.appendChild(overlay);
+            }
+        }
     }
     
-    // Extract character-level difference (privacy-safe)
-    // "Poweil" vs "Powell" → { wrong: "ei", right: "o", position: "middle" }
-    // "llya" vs "Ilya" → { wrong: "ll", right: "I", position: "start" }
-    function extractCharDiff(ocr, correct) {
-        if (!ocr || !correct || ocr === correct) return null;
-        
-        // Find first difference
-        let start = 0;
-        while (start < ocr.length && start < correct.length && ocr[start] === correct[start]) {
-            start++;
-        }
-        
-        // Find last difference (from end)
-        let endOcr = ocr.length - 1;
-        let endCorrect = correct.length - 1;
-        while (endOcr > start && endCorrect > start && ocr[endOcr] === correct[endCorrect]) {
-            endOcr--;
-            endCorrect--;
-        }
-        
-        const wrongChars = ocr.substring(start, endOcr + 1);
-        const rightChars = correct.substring(start, endCorrect + 1);
-        
-        // Only send if it's a small character pattern (not whole word)
-        if (wrongChars.length > 4 || rightChars.length > 4) {
-            // Too different - might be a completely different name, don't send
-            return { type: 'major_diff' }; // Just count it
-        }
-        
-        // Position context (not revealing)
-        const position = start === 0 ? 'start' : (endOcr >= ocr.length - 1 ? 'end' : 'middle');
-        
-        return {
-            wrong: wrongChars,   // e.g., "ll", "ei" 
-            right: rightChars,   // e.g., "I", "o"
-            position            // e.g., "start", "middle", "end"
-        };
+    function finishSelection() {
+        saveLearningData();
+        goToStep(5);
     }
     
+    // Save learning data
     async function saveLearningData() {
-        // Privacy-safe data: no full student names sent to server
-        const anonPatterns = extractOCRPatterns(corrections);
-        
         const data = {
             timestamp: new Date().toISOString(),
-            source: 'seating_chart', // Generic, not filename
             gridPattern: {
                 samples: gridLearn.confirmedPositions.length,
                 avgWidth: Math.round(gridLearn.avgWidth),
@@ -2352,53 +2152,44 @@
                 colSpacing: Math.round(gridLearn.colSpacing),
                 rowSpacing: Math.round(gridLearn.rowSpacing)
             },
-            patterns: anonPatterns, // Word-level only, no full names
+            adjustmentDeltas: adjustmentDeltas.slice(-20),
             stats: {
                 totalStudents: students.length,
                 confirmed: students.filter(s => s.confirmed).length,
-                correctionsMade: corrections.filter(c => c.ocr !== 'MISSED').length,
-                missedByOCR: corrections.filter(c => c.ocr === 'MISSED').length
+                noPhoto: students.filter(s => s.noPhoto).length,
+                corrections: corrections.length
             }
         };
         
-        // Save FULL data locally (teacher's own device - OK to keep names)
-        const localData = {
-            ...data,
-            corrections: corrections // Full corrections stay local only
-        };
+        // Local save (with full data)
+        const localData = { ...data, corrections };
         const history = JSON.parse(localStorage.getItem('hallpass_learning') || '[]');
         history.push(localData);
         localStorage.setItem('hallpass_learning', JSON.stringify(history.slice(-20)));
         
-        console.log('Learning data saved locally (full):', localData);
-        console.log('Privacy-safe data for Firebase:', data);
-        
-        // Submit to Firebase for global learning
+        // Firebase (privacy-safe)
         try {
-            if (window.firebaseDB && window.firebaseAddDoc && window.firebaseCollection) {
+            if (window.firebaseDB && window.firebaseAddDoc) {
                 await window.firebaseAddDoc(
                     window.firebaseCollection(window.firebaseDB, 'learning'),
                     data
                 );
-                console.log('✓ Learning data submitted to Firebase');
             }
         } catch (err) {
-            console.warn('Could not submit to Firebase:', err);
-            // Non-blocking - app continues to work offline
+            console.warn('Could not save to Firebase:', err);
         }
+        
+        localStorage.removeItem(AUTOSAVE_KEY);
     }
     
-    // Step 5: Review with Seating Grid
-    let gridRows = 5;
-    let gridCols = 6;
-    let seatingMap = {}; // { "row-col": studentId }
+    // Review/Seating grid
+    let gridRows = 5, gridCols = 6, seatingMap = {};
     
     function renderReview() {
-        const confirmed = students.filter(s => s.confirmed);
+        const all = students.filter(s => s.confirmed || s.noPhoto);
         
-        // Determine grid size from student positions
         let maxRow = 0, maxCol = 0;
-        confirmed.forEach(s => {
+        all.forEach(s => {
             if (s.position) {
                 maxRow = Math.max(maxRow, s.position.row);
                 maxCol = Math.max(maxCol, s.position.col);
@@ -2407,16 +2198,13 @@
         gridRows = Math.max(gridRows, maxRow + 1);
         gridCols = Math.max(gridCols, maxCol + 1);
         
-        // Build seating map
         seatingMap = {};
-        confirmed.forEach(s => {
+        all.forEach(s => {
             if (s.position) {
-                const key = `${s.position.row}-${s.position.col}`;
-                seatingMap[key] = s.id;
+                seatingMap[`${s.position.row}-${s.position.col}`] = s.id;
             }
         });
         
-        // Render grid
         const grid = document.getElementById('seatingGrid');
         grid.style.gridTemplateColumns = `repeat(${gridCols}, 100px)`;
         
@@ -2427,12 +2215,16 @@
                 const studentId = seatingMap[key];
                 const student = studentId ? students.find(s => s.id === studentId) : null;
                 
-                if (student && student.confirmed) {
+                if (student && (student.confirmed || student.noPhoto)) {
+                    const imgHtml = student.photoData 
+                        ? `<img src="${student.photoData}" alt="${student.displayName}">`
+                        : `<div style="width:60px;height:60px;background:var(--bg-card);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;">👤</div>`;
+                    
                     html += `
                         <div class="seat" draggable="true" data-row="${r}" data-col="${c}" data-id="${student.id}"
                              ondragstart="dragStart(event)" ondragend="dragEnd(event)"
                              ondragover="dragOver(event)" ondrop="dropSeat(event)">
-                            <img src="${student.photoData}" alt="${student.displayName}">
+                            ${imgHtml}
                             <div class="nm">${student.displayName}</div>
                         </div>`;
                 } else {
@@ -2446,15 +2238,13 @@
             }
         }
         grid.innerHTML = html;
-        
-        // Show unassigned students
         renderUnassigned();
     }
     
     function renderUnassigned() {
-        const confirmed = students.filter(s => s.confirmed);
+        const all = students.filter(s => s.confirmed || s.noPhoto);
         const assignedIds = new Set(Object.values(seatingMap));
-        const unassigned = confirmed.filter(s => !assignedIds.has(s.id));
+        const unassigned = all.filter(s => !assignedIds.has(s.id));
         
         const container = document.getElementById('unassignedStudents');
         if (unassigned.length === 0) {
@@ -2464,12 +2254,12 @@
         
         container.innerHTML = `
             <div class="unassigned-area">
-                <h4>📋 Unassigned Students (drag to seat)</h4>
+                <h4>📋 Unassigned (${unassigned.length})</h4>
                 <div class="unassigned-list">
                     ${unassigned.map(s => `
                         <div class="unassigned-student" draggable="true" data-id="${s.id}"
                              ondragstart="dragStart(event)" ondragend="dragEnd(event)">
-                            ${s.photoData ? `<img src="${s.photoData}">` : ''}
+                            ${s.photoData ? `<img src="${s.photoData}">` : '👤'}
                             ${s.displayName}
                         </div>
                     `).join('')}
@@ -2477,14 +2267,13 @@
             </div>`;
     }
     
-    // Drag and drop handlers
-    let draggedId = null;
-    let draggedFromSeat = null;
+    let draggedId = null, draggedFromSeat = null;
     
     function dragStart(e) {
         draggedId = parseInt(e.target.dataset.id);
-        draggedFromSeat = e.target.dataset.row !== undefined ? 
-            { row: parseInt(e.target.dataset.row), col: parseInt(e.target.dataset.col) } : null;
+        draggedFromSeat = e.target.dataset.row !== undefined 
+            ? { row: parseInt(e.target.dataset.row), col: parseInt(e.target.dataset.col) } 
+            : null;
         e.target.classList.add('dragging');
     }
     
@@ -2508,117 +2297,111 @@
         const existingId = seatingMap[targetKey];
         
         if (draggedFromSeat) {
-            // Swap or move from another seat
             const fromKey = `${draggedFromSeat.row}-${draggedFromSeat.col}`;
-            
             if (existingId) {
-                // Swap
                 seatingMap[fromKey] = existingId;
-                const existingStudent = students.find(s => s.id === existingId);
-                if (existingStudent) {
-                    existingStudent.position = { row: draggedFromSeat.row, col: draggedFromSeat.col };
-                }
+                const existing = students.find(s => s.id === existingId);
+                if (existing) existing.position = { row: draggedFromSeat.row, col: draggedFromSeat.col };
             } else {
-                // Just move
                 delete seatingMap[fromKey];
             }
         }
         
-        // Place dragged student
         seatingMap[targetKey] = draggedId;
-        const draggedStudent = students.find(s => s.id === draggedId);
-        if (draggedStudent) {
-            draggedStudent.position = { row: targetRow, col: targetCol };
-        }
+        const dragged = students.find(s => s.id === draggedId);
+        if (dragged) dragged.position = { row: targetRow, col: targetCol };
         
         renderReview();
     }
     
     function assignToSeat(row, col) {
-        // Find first unassigned student
         const assignedIds = new Set(Object.values(seatingMap));
-        const unassigned = students.find(s => s.confirmed && !assignedIds.has(s.id));
-        
+        const unassigned = students.find(s => (s.confirmed || s.noPhoto) && !assignedIds.has(s.id));
         if (unassigned) {
-            const key = `${row}-${col}`;
-            seatingMap[key] = unassigned.id;
+            seatingMap[`${row}-${col}`] = unassigned.id;
             unassigned.position = { row, col };
             renderReview();
         }
     }
     
-    function addRowToGrid() {
-        gridRows++;
-        renderReview();
-    }
-    
-    function addColToGrid() {
-        gridCols++;
-        renderReview();
-    }
+    function addRowToGrid() { gridRows++; renderReview(); }
+    function addColToGrid() { gridCols++; renderReview(); }
     
     function autoArrange() {
-        // Reset all positions and auto-fill left-to-right, top-to-bottom
-        const confirmed = students.filter(s => s.confirmed);
+        const all = students.filter(s => s.confirmed || s.noPhoto);
         seatingMap = {};
-        
         let idx = 0;
-        for (let r = 0; r < gridRows && idx < confirmed.length; r++) {
-            for (let c = 0; c < gridCols && idx < confirmed.length; c++) {
-                confirmed[idx].position = { row: r, col: c };
-                seatingMap[`${r}-${c}`] = confirmed[idx].id;
+        for (let r = 0; r < gridRows && idx < all.length; r++) {
+            for (let c = 0; c < gridCols && idx < all.length; c++) {
+                all[idx].position = { row: r, col: c };
+                seatingMap[`${r}-${c}`] = all[idx].id;
                 idx++;
             }
         }
-        
         renderReview();
     }
     
     async function saveClass() {
-        const className = document.getElementById('classNameInput').value.trim() || 'Unnamed';
-        const confirmed = students.filter(s => s.confirmed);
+        const all = students.filter(s => s.confirmed || s.noPhoto);
         
-        if (confirmed.length === 0) {
-            alert('No students confirmed.');
+        if (all.length === 0) {
+            alert('No students to save. Please confirm at least one face first.');
             return;
         }
         
+        // Prompt for class name
+        let className = document.getElementById('classNameInput').value.trim();
+        const promptedName = prompt(
+            `Saving ${all.length} students.\n\nEnter class name:`,
+            className || 'Period 1'
+        );
+        
+        if (!promptedName) {
+            return; // User cancelled
+        }
+        className = promptedName.trim() || 'Unnamed Class';
+        document.getElementById('classNameInput').value = className;
+        
+        console.log(`Saving class: ${className}`);
+        console.log(`Total students: ${students.length}`);
+        console.log(`Confirmed: ${students.filter(s => s.confirmed).length}`);
+        console.log(`No photo: ${students.filter(s => s.noPhoto).length}`);
+        console.log(`Saving: ${all.length} students`);
+        
         const classData = {
-            version: 4,
+            version: 5,
             settings: {
                 classId: 'class_' + Date.now(),
                 className,
                 gridSize: { 
-                    rows: Math.max(...confirmed.map(s => s.position?.row || 0)) + 1,
-                    cols: Math.max(...confirmed.map(s => s.position?.col || 0)) + 1
+                    rows: Math.max(...all.map(s => s.position?.row || 0)) + 1,
+                    cols: Math.max(...all.map(s => s.position?.col || 0)) + 1
                 }
             },
-            styles: {
-                available: [{ id: 'photo', name: 'Photo', emoji: '📷' }],
-                default: 'photo'
-            },
-            students: confirmed.map((s, i) => ({
+            students: all.map((s, i) => ({
                 id: i + 1,
-                firstName: s.firstName,           // Official first name
-                lastName: s.lastName,             // Official last name
-                preferredName: s.preferredName || s.firstName,  // What they go by
+                firstName: s.firstName,
+                lastName: s.lastName,
+                preferredName: s.preferredName || s.firstName,
                 lastInitial: getLastInitial(s.lastName),
                 displayName: formatDisplayName(s.preferredName || s.firstName, s.lastName),
                 position: s.position || { row: Math.floor(i / 6), col: i % 6 },
-                caricatures: { photo: s.photoData },
-                caricature: s.photoData,
+                caricatures: s.photoData ? { photo: s.photoData } : {},
+                caricature: s.photoData || null,
+                noPhoto: s.noPhoto || false,
                 status: 'active'
             }))
         };
         
         localStorage.setItem('hallpass_class', JSON.stringify(classData));
-        
-        // Final save of learning data (local + Firebase)
         await saveLearningData();
         
-        alert(`✓ Saved "${className}" with ${confirmed.length} students!\n☁️ Learning data shared to improve the app.`);
+        alert(`✓ Saved "${className}" with ${all.length} students!`);
         window.location.href = 'index.html';
     }
+    
+    // Init on load
+    init();
 </script>
 </body>
 </html>

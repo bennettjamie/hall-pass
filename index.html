@@ -1589,7 +1589,7 @@ ${students.map(s => `<Row><Cell><Data ss:Type="Number">${s.id}</Data></Cell><Cel
                     classData = data;
                     students = data.students.map(s => ({
                         ...s,
-                        status: 'absent'
+                        status: s.status || 'active'  // Preserve saved status, default to active
                     }));
                     
                     if (data.settings?.className) {
