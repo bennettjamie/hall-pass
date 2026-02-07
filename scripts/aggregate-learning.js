@@ -38,10 +38,11 @@ async function aggregate() {
     }
     
     // 2. Aggregate patterns
-    const ocrFixes = {};  // { "wrong": { "right": count } }
+    const charPatterns = {};  // { "wrong_chars": { "right_chars": count } }
     const gridPatterns = [];
     let totalMissed = 0;
     let totalCorrected = 0;
+    let totalMajorDiffs = 0;
     
     learningSnap.forEach(docSnap => {
         const data = docSnap.data();
@@ -51,14 +52,17 @@ async function aggregate() {
             gridPatterns.push(data.gridPattern);
         }
         
-        // OCR patterns
+        // Character patterns (privacy-safe)
         if (data.patterns) {
             for (const p of data.patterns) {
                 if (p.type === 'missed') {
                     totalMissed++;
-                } else if (p.type === 'ocr_fix' && p.wrong && p.right) {
-                    if (!ocrFixes[p.wrong]) ocrFixes[p.wrong] = {};
-                    ocrFixes[p.wrong][p.right] = (ocrFixes[p.wrong][p.right] || 0) + 1;
+                } else if (p.type === 'major_diff') {
+                    totalMajorDiffs++;
+                } else if (p.type === 'char_pattern' && p.wrong && p.right) {
+                    // Character-level patterns only (e.g., "ll" → "I")
+                    if (!charPatterns[p.wrong]) charPatterns[p.wrong] = {};
+                    charPatterns[p.wrong][p.right] = (charPatterns[p.wrong][p.right] || 0) + 1;
                     totalCorrected++;
                 }
             }
@@ -70,14 +74,16 @@ async function aggregate() {
         }
     });
     
-    console.log(`Total OCR corrections: ${totalCorrected}`);
-    console.log(`Total missed by OCR: ${totalMissed}\n`);
+    console.log(`Total char-level corrections: ${totalCorrected}`);
+    console.log(`Total missed by OCR: ${totalMissed}`);
+    console.log(`Total major diffs (not sent): ${totalMajorDiffs}\n`);
     
-    // 3. Build correction dictionary (threshold: 2+ occurrences)
+    // 3. Build character correction dictionary (threshold: 2+ occurrences)
+    // These are character patterns like "ll" → "I", not actual names
     const THRESHOLD = 2;
-    const ocrMistakes = {};
+    const charCorrections = {};
     
-    for (const [wrong, rights] of Object.entries(ocrFixes)) {
+    for (const [wrong, rights] of Object.entries(charPatterns)) {
         // Find most common correction
         let bestRight = null;
         let bestCount = 0;
@@ -90,12 +96,15 @@ async function aggregate() {
         }
         
         if (bestCount >= THRESHOLD) {
-            ocrMistakes[wrong] = bestRight;
-            console.log(`✓ "${wrong}" → "${bestRight}" (${bestCount} occurrences)`);
+            charCorrections[wrong] = bestRight;
+            console.log(`✓ "${wrong}" → "${bestRight}" (${bestCount} occurrences) [char pattern]`);
         } else {
             console.log(`  "${wrong}" → "${bestRight}" (${bestCount} - below threshold)`);
         }
     }
+    
+    console.log('\n📋 These are CHARACTER patterns, not names:');
+    console.log('   e.g., "ll" → "I" (common OCR confusion)');
     
     // 4. Aggregate grid patterns (average)
     let avgPattern = { avgWidth: 150, avgHeight: 180, colSpacing: 200, rowSpacing: 250 };
@@ -111,24 +120,26 @@ async function aggregate() {
         console.log(`\nAveraged grid pattern from ${gridPatterns.length} samples:`, avgPattern);
     }
     
-    // 5. Write to corrections collection
+    // 5. Write to corrections collection (NO NAMES - only char patterns + grid)
     const correctionsDoc = {
         updatedAt: new Date().toISOString(),
-        ocrMistakes,
-        patterns: avgPattern,
+        charCorrections,  // Character patterns like "ll" → "I", NOT names
+        gridPatterns: avgPattern,
         stats: {
             totalSubmissions: learningSnap.size,
-            totalCorrected,
+            totalCharCorrections: totalCorrected,
             totalMissed,
-            dictionarySize: Object.keys(ocrMistakes).length
+            totalMajorDiffs,
+            dictionarySize: Object.keys(charCorrections).length
         }
     };
     
     await setDoc(doc(db, 'corrections', 'aggregated'), correctionsDoc);
     
     console.log('\n✅ Corrections dictionary updated!');
-    console.log(`   ${Object.keys(ocrMistakes).length} OCR corrections active`);
-    console.log(`   Patterns averaged from ${gridPatterns.length} samples`);
+    console.log(`   ${Object.keys(charCorrections).length} character patterns active`);
+    console.log(`   Grid patterns averaged from ${gridPatterns.length} samples`);
+    console.log('\n🔒 Privacy: NO student names stored - only OCR char patterns');
 }
 
 aggregate()

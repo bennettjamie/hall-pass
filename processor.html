@@ -34,8 +34,9 @@
         window.firebaseLimit = limit;
         
         // Load learned corrections on startup (LOCAL + GLOBAL)
-        window.learnedCorrections = {};
-        window.localCorrections = {};  // Teacher's own corrections
+        window.learnedCorrections = {};     // Word-level (local only)
+        window.localCorrections = {};        // Teacher's own corrections (stays on device)
+        window.charPatterns = {};            // Character patterns from global (privacy-safe)
         window.learnedPatterns = { avgWidth: 150, avgHeight: 180, colSpacing: 200, rowSpacing: 250 };
         
         // Load LOCAL corrections first (teacher's own history)
@@ -84,17 +85,26 @@
                 
                 correctionsSnap.forEach(doc => {
                     const data = doc.data();
+                    // Character-level corrections (privacy-safe patterns like "ll" → "I")
+                    if (data.charCorrections) {
+                        for (const [wrong, right] of Object.entries(data.charCorrections)) {
+                            window.charPatterns[wrong] = right;
+                            globalCount++;
+                        }
+                    }
+                    // Legacy support for old format
                     if (data.ocrMistakes) {
-                        // Global corrections (don't override local)
                         for (const [wrong, right] of Object.entries(data.ocrMistakes)) {
                             if (!window.localCorrections[wrong]) {
                                 window.learnedCorrections[wrong] = right;
-                                globalCount++;
                             }
                         }
                     }
+                    if (data.gridPatterns) {
+                        Object.assign(window.learnedPatterns, data.gridPatterns);
+                    }
+                    // Legacy
                     if (data.patterns) {
-                        // Only use global patterns if no local patterns
                         if (Object.keys(window.learnedPatterns).length <= 4) {
                             Object.assign(window.learnedPatterns, data.patterns);
                         }
@@ -623,19 +633,31 @@
             
             // Apply learned corrections to OCR text
             let ocrText = data.text;
-            const corrections = window.learnedCorrections || {};
             let correctionsApplied = 0;
             
-            for (const [wrong, right] of Object.entries(corrections)) {
+            // 1. Apply LOCAL word-level corrections (teacher's own, stays on device)
+            const localCorr = window.learnedCorrections || {};
+            for (const [wrong, right] of Object.entries(localCorr)) {
                 if (ocrText.includes(wrong)) {
                     ocrText = ocrText.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
                     correctionsApplied++;
-                    console.log(`✓ Auto-corrected: "${wrong}" → "${right}"`);
+                    console.log(`✓ Local correction: "${wrong}" → "${right}"`);
+                }
+            }
+            
+            // 2. Apply GLOBAL character patterns (privacy-safe, from all users)
+            // These are patterns like "ll" → "I" (common OCR confusions)
+            const charCorr = window.charPatterns || {};
+            for (const [wrong, right] of Object.entries(charCorr)) {
+                if (ocrText.includes(wrong)) {
+                    ocrText = ocrText.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), right);
+                    correctionsApplied++;
+                    console.log(`✓ Global char pattern: "${wrong}" → "${right}"`);
                 }
             }
             
             if (correctionsApplied > 0) {
-                console.log(`Applied ${correctionsApplied} learned corrections`);
+                console.log(`Applied ${correctionsApplied} total corrections (local + global patterns)`);
             }
             
             // Find "LastName, FirstName" patterns
@@ -1227,35 +1249,78 @@
         renderStuList();
     }
     
-    // Extract anonymous OCR patterns (word-level, no full names)
+    // Extract ONLY character-level OCR patterns (NO names sent to server)
+    // Example: "Poweil" vs "Powell" → learns "ei" often misread as "o"
     function extractOCRPatterns(corrections) {
         const patterns = [];
         
         for (const c of corrections) {
             if (c.ocr === 'MISSED') {
-                // Just count missed, don't send the name
                 patterns.push({ type: 'missed' });
                 continue;
             }
             
-            // Split into words and find differences
+            // Split into words
             const ocrWords = c.ocr.replace(',', '').split(/\s+/);
             const fixedWords = c.fixed.replace(',', '').split(/\s+/);
             
             for (let i = 0; i < Math.min(ocrWords.length, fixedWords.length); i++) {
-                if (ocrWords[i] !== fixedWords[i]) {
-                    // Only send the word that was wrong → right
-                    // e.g., "Poweil" → "Powell", not full name
-                    patterns.push({
-                        type: 'ocr_fix',
-                        wrong: ocrWords[i],
-                        right: fixedWords[i]
-                    });
+                const ocr = ocrWords[i];
+                const fix = fixedWords[i];
+                
+                if (ocr !== fix) {
+                    // Extract CHARACTER-level diff only (no actual names!)
+                    const charPattern = extractCharDiff(ocr, fix);
+                    if (charPattern) {
+                        patterns.push({
+                            type: 'char_pattern',
+                            ...charPattern
+                        });
+                    }
                 }
             }
         }
         
         return patterns;
+    }
+    
+    // Extract character-level difference (privacy-safe)
+    // "Poweil" vs "Powell" → { wrong: "ei", right: "o", position: "middle" }
+    // "llya" vs "Ilya" → { wrong: "ll", right: "I", position: "start" }
+    function extractCharDiff(ocr, correct) {
+        if (!ocr || !correct || ocr === correct) return null;
+        
+        // Find first difference
+        let start = 0;
+        while (start < ocr.length && start < correct.length && ocr[start] === correct[start]) {
+            start++;
+        }
+        
+        // Find last difference (from end)
+        let endOcr = ocr.length - 1;
+        let endCorrect = correct.length - 1;
+        while (endOcr > start && endCorrect > start && ocr[endOcr] === correct[endCorrect]) {
+            endOcr--;
+            endCorrect--;
+        }
+        
+        const wrongChars = ocr.substring(start, endOcr + 1);
+        const rightChars = correct.substring(start, endCorrect + 1);
+        
+        // Only send if it's a small character pattern (not whole word)
+        if (wrongChars.length > 4 || rightChars.length > 4) {
+            // Too different - might be a completely different name, don't send
+            return { type: 'major_diff' }; // Just count it
+        }
+        
+        // Position context (not revealing)
+        const position = start === 0 ? 'start' : (endOcr >= ocr.length - 1 ? 'end' : 'middle');
+        
+        return {
+            wrong: wrongChars,   // e.g., "ll", "ei" 
+            right: rightChars,   // e.g., "I", "o"
+            position            // e.g., "start", "middle", "end"
+        };
     }
     
     async function saveLearningData() {
