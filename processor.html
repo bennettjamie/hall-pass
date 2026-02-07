@@ -31,12 +31,7 @@
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-        
+        .container { max-width: 900px; margin: 0 auto; padding: 24px; }
         .section { display: none; }
         .section.active { display: block; }
         
@@ -46,8 +41,6 @@
             padding: 32px;
             margin-bottom: 24px;
         }
-        
-        .card h2 { margin-bottom: 16px; }
         
         .upload-zone {
             border: 2px dashed var(--border);
@@ -78,284 +71,184 @@
         .btn-primary { background: var(--accent); color: white; }
         .btn-primary:hover { background: var(--accent-light); }
         .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
-        .btn-danger { background: var(--danger); color: white; }
         .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .spinner {
-            width: 48px;
-            height: 48px;
+            width: 48px; height: 48px;
             border: 4px solid var(--bg-secondary);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 24px auto;
         }
-        
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* Name List Styles */
-        .name-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
+        /* Name List */
+        .name-list { max-height: 400px; overflow-y: auto; }
         
         .name-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            margin-bottom: 8px;
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px; background: var(--bg-secondary);
+            border-radius: 10px; margin-bottom: 8px;
         }
         
-        .name-item .number {
-            width: 28px;
-            height: 28px;
-            background: var(--accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            font-weight: 600;
-            flex-shrink: 0;
+        .name-item .num {
+            width: 28px; height: 28px;
+            background: var(--accent); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 600; flex-shrink: 0;
         }
         
         .name-item input {
-            flex: 1;
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 0.95rem;
+            flex: 1; padding: 8px 12px; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--bg-card);
+            color: var(--text-primary); font-size: 0.95rem;
         }
         
-        .name-item .delete-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            border: none;
-            background: transparent;
-            color: var(--danger);
-            cursor: pointer;
-            font-size: 1.1rem;
+        .name-item .del-btn {
+            width: 32px; height: 32px; border-radius: 8px; border: none;
+            background: transparent; color: var(--danger); cursor: pointer;
         }
+        .name-item .del-btn:hover { background: var(--danger); color: white; }
         
-        .name-item .delete-btn:hover {
-            background: var(--danger);
-            color: white;
-        }
-        
-        .add-name-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-        }
-        
-        .add-name-row input {
-            flex: 1;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
+        .add-row { display: flex; gap: 12px; margin-top: 16px; }
+        .add-row input {
+            flex: 1; padding: 12px; border-radius: 10px;
+            border: 1px solid var(--border); background: var(--bg-secondary);
             color: var(--text-primary);
         }
         
-        /* Face Selection Layout */
-        .selection-layout {
+        /* Face Selection */
+        .sel-layout {
             display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 24px;
-            height: calc(100vh - 48px);
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            height: calc(100vh - 40px);
+            padding: 20px;
         }
         
         .pdf-panel {
             background: var(--bg-card);
-            border-radius: 20px;
+            border-radius: 16px;
             overflow: hidden;
             position: relative;
         }
         
         .pdf-scroll {
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            position: relative;
+            width: 100%; height: 100%;
+            overflow: auto; position: relative;
         }
         
-        #pdfCanvas {
-            display: block;
-            cursor: crosshair;
-        }
+        #pdfCanvas { display: block; cursor: crosshair; }
         
-        .selection-rect {
+        .sel-rect {
             position: absolute;
             border: 3px solid var(--accent);
             background: rgba(99, 102, 241, 0.3);
             pointer-events: none;
         }
         
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
+        .predicted-rect {
+            position: absolute;
+            border: 2px dashed var(--success);
+            background: rgba(34, 197, 94, 0.15);
+            pointer-events: none;
         }
         
-        .sidebar-card {
+        .sidebar { display: flex; flex-direction: column; gap: 12px; }
+        
+        .side-card {
             background: var(--bg-card);
-            border-radius: 16px;
-            padding: 20px;
-        }
-        
-        .current-info h3 {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-        }
-        
-        .current-name-input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-        
-        .preview-area {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 16px;
-            border-radius: 50%;
-            overflow: hidden;
-            background: var(--bg-secondary);
-            border: 3px solid var(--border);
-        }
-        
-        .preview-area img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .progress-info {
-            text-align: center;
-            margin-bottom: 16px;
-        }
-        
-        .progress-bar {
-            height: 6px;
-            background: var(--bg-secondary);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 8px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: var(--accent);
-            transition: width 0.3s;
-        }
-        
-        .btn-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .btn-row {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .btn-row .btn { flex: 1; }
-        
-        .keyboard-hint {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            text-align: center;
-            margin-top: 12px;
-            line-height: 1.6;
-        }
-        
-        .keyboard-hint kbd {
-            background: var(--bg-secondary);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: inherit;
-        }
-        
-        .student-list {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 250px;
-        }
-        
-        .student-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 4px;
-        }
-        
-        .student-item:hover { background: var(--bg-secondary); }
-        .student-item.active { background: var(--accent); }
-        .student-item.done { opacity: 0.5; }
-        
-        .student-item .thumb {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--bg-secondary);
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        
-        .student-item .thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .student-item .name { flex: 1; font-size: 0.9rem; }
-        .student-item .check { color: var(--success); }
-        
-        /* Review Grid */
-        .review-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-            gap: 16px;
-        }
-        
-        .review-card {
-            background: var(--bg-card);
-            border-radius: 16px;
+            border-radius: 14px;
             padding: 16px;
+        }
+        
+        .cur-info h3 {
+            font-size: 0.8rem; color: var(--text-secondary);
+            margin-bottom: 6px; text-transform: uppercase;
+        }
+        
+        .cur-name-input {
+            width: 100%; padding: 10px 12px; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--bg-secondary);
+            color: var(--text-primary); font-size: 1.1rem; font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .preview-box {
+            width: 100px; height: 100px; margin: 0 auto 12px;
+            border-radius: 50%; overflow: hidden;
+            background: var(--bg-secondary); border: 3px solid var(--border);
+        }
+        .preview-box img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .prog-info { text-align: center; margin-bottom: 12px; font-size: 0.9rem; }
+        
+        .prog-bar {
+            height: 5px; background: var(--bg-secondary);
+            border-radius: 3px; overflow: hidden; margin-top: 6px;
+        }
+        .prog-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+        
+        .btn-stack { display: flex; flex-direction: column; gap: 8px; }
+        .btn-row { display: flex; gap: 8px; }
+        .btn-row .btn { flex: 1; padding: 10px; }
+        
+        .kb-hint {
+            font-size: 0.7rem; color: var(--text-secondary);
+            text-align: center; margin-top: 10px; line-height: 1.5;
+        }
+        .kb-hint kbd {
+            background: var(--bg-secondary); padding: 2px 5px;
+            border-radius: 3px; font-family: inherit;
+        }
+        
+        .learn-status {
+            font-size: 0.75rem; color: var(--text-secondary);
+            padding: 8px; background: var(--bg-secondary);
+            border-radius: 8px; margin-top: 8px;
+        }
+        .learn-status.learned { color: var(--success); }
+        
+        .stu-list { flex: 1; overflow-y: auto; max-height: 220px; }
+        
+        .stu-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 6px; cursor: pointer;
+            margin-bottom: 3px; font-size: 0.85rem;
+        }
+        .stu-item:hover { background: var(--bg-secondary); }
+        .stu-item.active { background: var(--accent); }
+        .stu-item.done { opacity: 0.5; }
+        
+        .stu-item .thumb {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--bg-secondary); overflow: hidden; flex-shrink: 0;
+        }
+        .stu-item .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .stu-item .nm { flex: 1; }
+        .stu-item .chk { color: var(--success); }
+        
+        /* Review */
+        .rev-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 14px;
+        }
+        
+        .rev-card {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 14px;
             text-align: center;
         }
-        
-        .review-card img {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-bottom: 10px;
-            border: 2px solid var(--border);
+        .rev-card img {
+            width: 65px; height: 65px; border-radius: 50%;
+            object-fit: cover; margin-bottom: 8px; border: 2px solid var(--border);
         }
-        
-        .review-card .name {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
+        .rev-card .nm { font-weight: 600; font-size: 0.85rem; }
         
         #cropCanvas { display: none; }
     </style>
@@ -394,16 +287,16 @@
         <div class="card">
             <h2>📋 Step 1: Review Student Names</h2>
             <p style="color:var(--text-secondary);margin-bottom:20px;">
-                Edit any incorrect names. Add missing students. Delete extras.
+                Edit incorrect names. Delete extras. Add missing students.
             </p>
             <div class="name-list" id="nameList"></div>
-            <div class="add-name-row">
-                <input type="text" id="newNameInput" placeholder="Add student: LastName, FirstName">
+            <div class="add-row">
+                <input type="text" id="newNameInput" placeholder="Add: LastName, FirstName (e.g., Smith, John)">
                 <button class="btn btn-secondary" onclick="addName()">+ Add</button>
             </div>
             <div style="margin-top:24px;display:flex;justify-content:space-between;">
                 <button class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
-                <button class="btn btn-primary" onclick="goToStep(4)">Continue to Face Selection →</button>
+                <button class="btn btn-primary" onclick="startFaceSelection()">Continue to Face Selection →</button>
             </div>
         </div>
     </div>
@@ -411,40 +304,36 @@
 
 <!-- STEP 4: Face Selection -->
 <div class="section" id="step4">
-    <div class="selection-layout" style="padding:24px;">
+    <div class="sel-layout">
         <div class="pdf-panel">
             <div class="pdf-scroll" id="pdfScroll">
                 <canvas id="pdfCanvas"></canvas>
             </div>
         </div>
         <div class="sidebar">
-            <div class="sidebar-card current-info">
-                <h3>CURRENT STUDENT</h3>
-                <input type="text" class="current-name-input" id="currentNameInput" 
-                       onchange="updateCurrentName(this.value)">
-                <div class="preview-area" id="previewArea"></div>
-                <div class="progress-info">
-                    <span id="progressText">1 of 26</span>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
+            <div class="side-card cur-info">
+                <h3>Current Student</h3>
+                <input type="text" class="cur-name-input" id="curNameInput" onchange="updateCurName(this.value)">
+                <div class="preview-box" id="previewBox"></div>
+                <div class="prog-info">
+                    <span id="progText">1 of 26</span>
+                    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
                 </div>
                 <div class="btn-stack">
-                    <button class="btn btn-success" id="confirmBtn" onclick="confirmFace()" disabled>
-                        ✓ Confirm Face
-                    </button>
+                    <button class="btn btn-success" id="confirmBtn" onclick="confirmFace()" disabled>✓ Confirm</button>
                     <div class="btn-row">
                         <button class="btn btn-secondary" onclick="skipStudent()">Skip</button>
                         <button class="btn btn-secondary" onclick="clearRect()">Clear</button>
                     </div>
+                    <button class="btn btn-primary" onclick="addStudentDuringSelection()">+ Add Student</button>
                 </div>
-                <div class="keyboard-hint">
-                    <kbd>↑↓←→</kbd> Move selection<br>
-                    <kbd>Shift</kbd>+Arrows = Larger move<br>
-                    <kbd>Enter</kbd> Confirm &nbsp; <kbd>Esc</kbd> Clear
+                <div class="kb-hint">
+                    <kbd>↑↓←→</kbd> Move &nbsp;<kbd>Shift</kbd>+Arrow = Big move<br>
+                    <kbd>Enter</kbd> Confirm &nbsp;<kbd>Esc</kbd> Clear
                 </div>
+                <div class="learn-status" id="learnStatus">🔍 Learning grid pattern...</div>
             </div>
-            <div class="sidebar-card student-list" id="studentList"></div>
+            <div class="side-card stu-list" id="stuList"></div>
         </div>
     </div>
 </div>
@@ -458,12 +347,12 @@
                 <div style="display:flex;gap:12px;align-items:center;">
                     <input type="text" id="classNameInput" placeholder="Class name" 
                            style="padding:10px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);width:200px;">
-                    <button class="btn btn-primary" onclick="saveClass()">💾 Save Class</button>
+                    <button class="btn btn-primary" onclick="saveClass()">💾 Save</button>
                 </div>
             </div>
-            <div class="review-grid" id="reviewGrid"></div>
+            <div class="rev-grid" id="revGrid"></div>
             <div style="margin-top:24px;">
-                <button class="btn btn-secondary" onclick="goToStep(4)">← Back to Face Selection</button>
+                <button class="btn btn-secondary" onclick="goToStep(4)">← Back</button>
             </div>
         </div>
     </div>
@@ -476,21 +365,33 @@
     
     // State
     let students = [];
-    let currentIndex = 0;
+    let currentIdx = 0;
     let pdfCanvas, pdfCtx, pdfScroll;
     let fileName = '';
     
-    // Rectangle drawing
+    // Drawing
     let isDrawing = false;
     let startX, startY;
     let rect = null;
     let rectDiv = null;
+    let predictedDiv = null;
     
-    // Pattern learning
-    let confirmedCount = 0;
-    let avgRect = { w: 150, h: 180 }; // Default size
+    // Learning
+    let gridLearn = {
+        confirmedPositions: [], // {x, y, w, h}
+        colPositions: [],
+        rowPositions: [],
+        avgWidth: 150,
+        avgHeight: 180,
+        colSpacing: 0,
+        rowSpacing: 0,
+        currentCol: 0,
+        currentRow: 0
+    };
     
-    // File input
+    let corrections = []; // {ocr, fixed}
+    
+    // Init
     document.getElementById('fileInput').addEventListener('change', e => {
         if (e.target.files[0]) loadPDF(e.target.files[0]);
     });
@@ -498,9 +399,21 @@
     function goToStep(n) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.getElementById('step' + n).classList.add('active');
-        
-        if (n === 4) initFaceSelection();
         if (n === 5) renderReview();
+    }
+    
+    // Get last initial - handles hyphenated names
+    function getLastInitial(lastName) {
+        if (!lastName) return 'X';
+        // Split by hyphen and get first letter of each part
+        const parts = lastName.split('-');
+        return parts.map(p => p[0]?.toUpperCase() || '').join('-');
+    }
+    
+    // Format display name: "FirstName L." or "FirstName L-M."
+    function formatDisplayName(firstName, lastName) {
+        const initial = getLastInitial(lastName);
+        return `${firstName} ${initial}.`;
     }
     
     async function loadPDF(file) {
@@ -530,30 +443,30 @@
             const { data } = await worker.recognize(pdfCanvas);
             await worker.terminate();
             
-            setStatus('Processing names...');
-            
-            // Find all "LastName, FirstName" patterns
+            // Find "LastName, FirstName" patterns
             const regex = /([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/g;
             let match;
             students = [];
             
             while ((match = regex.exec(data.text)) !== null) {
+                const lastName = match[1];
+                const firstName = match[2];
                 students.push({
-                    firstName: match[2],
-                    lastName: match[1],
-                    displayName: match[2] + ' ' + match[1][0] + '.',
+                    firstName,
+                    lastName,
+                    displayName: formatDisplayName(firstName, lastName),
+                    ocrOriginal: match[0],
                     photoData: null,
                     confirmed: false
                 });
             }
             
             if (students.length === 0) {
-                alert('No names found. Please check the PDF.');
+                alert('No names found. Check PDF format.');
                 goToStep(1);
                 return;
             }
             
-            // Assign positions (will be refined later)
             students.forEach((s, i) => {
                 s.id = i + 1;
                 s.position = { row: Math.floor(i / 6), col: i % 6 };
@@ -568,150 +481,272 @@
         }
     }
     
-    function setStatus(text) {
-        document.getElementById('processStatus').textContent = text;
+    function setStatus(t) {
+        document.getElementById('processStatus').textContent = t;
     }
     
-    // STEP 3: Name list
+    // Step 3: Name list
     function renderNameList() {
-        const list = document.getElementById('nameList');
-        list.innerHTML = students.map((s, i) => `
+        document.getElementById('nameList').innerHTML = students.map((s, i) => `
             <div class="name-item">
-                <span class="number">${i + 1}</span>
+                <span class="num">${i + 1}</span>
                 <input type="text" value="${s.lastName}, ${s.firstName}" 
-                       onchange="updateStudentName(${i}, this.value)">
-                <button class="delete-btn" onclick="deleteStudent(${i})">🗑️</button>
+                       onchange="updateName(${i}, this.value)" 
+                       data-original="${s.ocrOriginal || ''}">
+                <button class="del-btn" onclick="deleteName(${i})">🗑️</button>
             </div>
         `).join('');
     }
     
-    function updateStudentName(index, value) {
-        const parts = value.split(',').map(s => s.trim());
+    function updateName(idx, val) {
+        const original = students[idx].ocrOriginal;
+        const parts = val.split(',').map(s => s.trim());
+        
         if (parts.length >= 2) {
-            students[index].lastName = parts[0];
-            students[index].firstName = parts[1];
-            students[index].displayName = parts[1] + ' ' + parts[0][0] + '.';
+            students[idx].lastName = parts[0];
+            students[idx].firstName = parts[1];
         } else {
-            students[index].firstName = value;
-            students[index].displayName = value;
+            students[idx].firstName = val;
+            students[idx].lastName = '';
+        }
+        students[idx].displayName = formatDisplayName(students[idx].firstName, students[idx].lastName);
+        
+        // Track correction for learning
+        if (original && original !== val) {
+            corrections.push({ ocr: original, fixed: val });
         }
     }
     
-    function deleteStudent(index) {
-        students.splice(index, 1);
+    function deleteName(idx) {
+        students.splice(idx, 1);
         students.forEach((s, i) => s.id = i + 1);
         renderNameList();
     }
     
     function addName() {
         const input = document.getElementById('newNameInput');
-        const value = input.value.trim();
-        if (!value) return;
+        const val = input.value.trim();
+        if (!val) return;
         
-        const parts = value.split(',').map(s => s.trim());
-        const lastName = parts[0] || value;
-        const firstName = parts[1] || '';
+        const parts = val.split(',').map(s => s.trim());
+        const lastName = parts[0] || '';
+        const firstName = parts[1] || parts[0];
         
         students.push({
             id: students.length + 1,
             firstName,
             lastName,
-            displayName: firstName + ' ' + (lastName ? lastName[0] + '.' : ''),
+            displayName: formatDisplayName(firstName, lastName),
+            ocrOriginal: null, // Manual add
             photoData: null,
             confirmed: false,
             position: { row: Math.floor(students.length / 6), col: students.length % 6 }
         });
         
+        // Track as missed by OCR
+        corrections.push({ ocr: 'MISSED', fixed: val });
+        
         input.value = '';
         renderNameList();
     }
     
-    // STEP 4: Face selection
-    function initFaceSelection() {
+    // Step 4: Face selection
+    function startFaceSelection() {
+        goToStep(4);
         pdfScroll = document.getElementById('pdfScroll');
         
-        // Mouse events
-        pdfCanvas.addEventListener('mousedown', onMouseDown);
-        pdfCanvas.addEventListener('mousemove', onMouseMove);
-        pdfCanvas.addEventListener('mouseup', onMouseUp);
+        pdfCanvas.addEventListener('mousedown', onDown);
+        pdfCanvas.addEventListener('mousemove', onMove);
+        pdfCanvas.addEventListener('mouseup', onUp);
+        document.addEventListener('keydown', onKey);
         
-        // Keyboard events
-        document.addEventListener('keydown', onKeyDown);
+        currentIdx = 0;
+        gridLearn = {
+            confirmedPositions: [],
+            colPositions: [],
+            rowPositions: [],
+            avgWidth: 150,
+            avgHeight: 180,
+            colSpacing: 0,
+            rowSpacing: 0,
+            currentCol: 0,
+            currentRow: 0
+        };
         
-        currentIndex = 0;
         showCurrentStudent();
-        renderStudentList();
+        renderStuList();
     }
     
     function showCurrentStudent() {
-        const s = students[currentIndex];
+        const s = students[currentIdx];
         if (!s) return;
         
-        document.getElementById('currentNameInput').value = s.displayName;
-        document.getElementById('progressText').textContent = `${currentIndex + 1} of ${students.length}`;
-        document.getElementById('progressFill').style.width = ((currentIndex + 1) / students.length * 100) + '%';
+        document.getElementById('curNameInput').value = s.displayName;
+        document.getElementById('progText').textContent = `${currentIdx + 1} of ${students.length}`;
+        document.getElementById('progFill').style.width = ((currentIdx + 1) / students.length * 100) + '%';
         
-        // Preview
-        const preview = document.getElementById('previewArea');
+        const preview = document.getElementById('previewBox');
         preview.innerHTML = s.photoData ? `<img src="${s.photoData}">` : '';
         
-        // Reset rect
         clearRect();
-        
-        // If we have learned a pattern and have prior rects, suggest one
-        if (confirmedCount >= 2) {
-            suggestRect();
-        }
-        
+        predictNextPosition();
         updateConfirmBtn();
+        updateLearnStatus();
     }
     
-    function renderStudentList() {
-        const list = document.getElementById('studentList');
-        list.innerHTML = students.map((s, i) => `
-            <div class="student-item ${i === currentIndex ? 'active' : ''} ${s.confirmed ? 'done' : ''}"
-                 onclick="jumpToStudent(${i})">
-                <div class="thumb">
-                    ${s.photoData ? `<img src="${s.photoData}">` : ''}
-                </div>
-                <span class="name">${s.displayName}</span>
-                ${s.confirmed ? '<span class="check">✓</span>' : ''}
+    function renderStuList() {
+        document.getElementById('stuList').innerHTML = students.map((s, i) => `
+            <div class="stu-item ${i === currentIdx ? 'active' : ''} ${s.confirmed ? 'done' : ''}"
+                 onclick="jumpTo(${i})">
+                <div class="thumb">${s.photoData ? `<img src="${s.photoData}">` : ''}</div>
+                <span class="nm">${s.displayName}</span>
+                ${s.confirmed ? '<span class="chk">✓</span>' : ''}
             </div>
         `).join('');
     }
     
-    function jumpToStudent(index) {
-        currentIndex = index;
+    function jumpTo(idx) {
+        currentIdx = idx;
         showCurrentStudent();
-        renderStudentList();
+        renderStuList();
     }
     
-    function onMouseDown(e) {
+    function predictNextPosition() {
+        if (gridLearn.confirmedPositions.length < 1) {
+            // No data yet - place in center-ish
+            showPredictedRect(pdfCanvas.width / 2 - 75, 100, 150, 180);
+            return;
+        }
+        
+        const positions = gridLearn.confirmedPositions;
+        
+        // Detect columns from X positions
+        const xValues = positions.map(p => p.x).sort((a, b) => a - b);
+        const cols = clusterValues(xValues, 100);
+        
+        // Detect rows from Y positions
+        const yValues = positions.map(p => p.y).sort((a, b) => a - b);
+        const rows = clusterValues(yValues, 100);
+        
+        // Calculate spacing
+        if (cols.length > 1) {
+            gridLearn.colSpacing = (cols[cols.length - 1] - cols[0]) / (cols.length - 1);
+        }
+        if (rows.length > 1) {
+            gridLearn.rowSpacing = (rows[rows.length - 1] - rows[0]) / (rows.length - 1);
+        }
+        
+        // Predict next position
+        const lastPos = positions[positions.length - 1];
+        let nextX, nextY;
+        
+        // Try to go to next column
+        const currentColIdx = findClosestIdx(cols, lastPos.x);
+        
+        if (currentColIdx < cols.length - 1) {
+            // Move to next column
+            nextX = cols[currentColIdx + 1];
+            nextY = lastPos.y;
+        } else {
+            // End of row, go to next row
+            const currentRowIdx = findClosestIdx(rows, lastPos.y);
+            nextX = cols[0]; // First column
+            
+            if (currentRowIdx < rows.length - 1) {
+                nextY = rows[currentRowIdx + 1];
+            } else {
+                // Predict new row
+                nextY = lastPos.y + (gridLearn.rowSpacing || 200);
+            }
+        }
+        
+        showPredictedRect(nextX, nextY, gridLearn.avgWidth, gridLearn.avgHeight);
+    }
+    
+    function clusterValues(values, threshold) {
+        if (values.length === 0) return [];
+        
+        const clusters = [[values[0]]];
+        for (let i = 1; i < values.length; i++) {
+            const lastCluster = clusters[clusters.length - 1];
+            const lastVal = lastCluster[lastCluster.length - 1];
+            
+            if (values[i] - lastVal < threshold) {
+                lastCluster.push(values[i]);
+            } else {
+                clusters.push([values[i]]);
+            }
+        }
+        
+        // Return average of each cluster
+        return clusters.map(c => c.reduce((a, b) => a + b) / c.length);
+    }
+    
+    function findClosestIdx(arr, val) {
+        let minDist = Infinity;
+        let idx = 0;
+        arr.forEach((v, i) => {
+            const dist = Math.abs(v - val);
+            if (dist < minDist) {
+                minDist = dist;
+                idx = i;
+            }
+        });
+        return idx;
+    }
+    
+    function showPredictedRect(x, y, w, h) {
+        rect = { x, y, w, h };
+        
+        if (!predictedDiv) {
+            predictedDiv = document.createElement('div');
+            predictedDiv.className = 'predicted-rect';
+            pdfScroll.appendChild(predictedDiv);
+        }
+        
+        predictedDiv.style.left = x + 'px';
+        predictedDiv.style.top = y + 'px';
+        predictedDiv.style.width = w + 'px';
+        predictedDiv.style.height = h + 'px';
+        predictedDiv.style.display = 'block';
+        
+        // Also scroll to this position
+        pdfScroll.scrollTop = Math.max(0, y - 100);
+        pdfScroll.scrollLeft = Math.max(0, x - 100);
+        
+        cropPreview();
+        updateConfirmBtn();
+    }
+    
+    function onDown(e) {
         const scrollRect = pdfScroll.getBoundingClientRect();
         startX = e.clientX - scrollRect.left + pdfScroll.scrollLeft;
         startY = e.clientY - scrollRect.top + pdfScroll.scrollTop;
         isDrawing = true;
-        clearRect();
+        
+        // Hide predicted rect when drawing
+        if (predictedDiv) predictedDiv.style.display = 'none';
+        clearRectDiv();
     }
     
-    function onMouseMove(e) {
+    function onMove(e) {
         if (!isDrawing) return;
         
         const scrollRect = pdfScroll.getBoundingClientRect();
-        const currentX = e.clientX - scrollRect.left + pdfScroll.scrollLeft;
-        const currentY = e.clientY - scrollRect.top + pdfScroll.scrollTop;
+        const curX = e.clientX - scrollRect.left + pdfScroll.scrollLeft;
+        const curY = e.clientY - scrollRect.top + pdfScroll.scrollTop;
         
         rect = {
-            x: Math.min(startX, currentX),
-            y: Math.min(startY, currentY),
-            w: Math.abs(currentX - startX),
-            h: Math.abs(currentY - startY)
+            x: Math.min(startX, curX),
+            y: Math.min(startY, curY),
+            w: Math.abs(curX - startX),
+            h: Math.abs(curY - startY)
         };
         
         drawRect();
     }
     
-    function onMouseUp() {
+    function onUp() {
         if (!isDrawing) return;
         isDrawing = false;
         
@@ -724,7 +759,7 @@
     function drawRect() {
         if (!rectDiv) {
             rectDiv = document.createElement('div');
-            rectDiv.className = 'selection-rect';
+            rectDiv.className = 'sel-rect';
             pdfScroll.appendChild(rectDiv);
         }
         
@@ -735,79 +770,70 @@
         rectDiv.style.display = 'block';
     }
     
-    function clearRect() {
-        if (rectDiv) {
-            rectDiv.style.display = 'none';
-        }
-        rect = null;
-        document.getElementById('previewArea').innerHTML = '';
-        updateConfirmBtn();
+    function clearRectDiv() {
+        if (rectDiv) rectDiv.style.display = 'none';
     }
     
-    function suggestRect() {
-        // Use average size from confirmed selections
-        const centerX = pdfCanvas.width / 2;
-        const centerY = pdfScroll.scrollTop + 200;
-        
-        rect = {
-            x: centerX - avgRect.w / 2,
-            y: centerY,
-            w: avgRect.w,
-            h: avgRect.h
-        };
-        
-        drawRect();
-        cropPreview();
+    function clearRect() {
+        clearRectDiv();
+        if (predictedDiv) predictedDiv.style.display = 'none';
+        rect = null;
+        document.getElementById('previewBox').innerHTML = '';
         updateConfirmBtn();
     }
     
     function cropPreview() {
         if (!rect) return;
         
-        const cropCanvas = document.getElementById('cropCanvas');
-        const cropCtx = cropCanvas.getContext('2d');
-        cropCanvas.width = 150;
-        cropCanvas.height = 150;
+        const crop = document.getElementById('cropCanvas');
+        const ctx = crop.getContext('2d');
+        crop.width = 150;
+        crop.height = 150;
         
-        cropCtx.drawImage(
-            pdfCanvas,
-            rect.x, rect.y, rect.w, rect.h,
-            0, 0, 150, 150
-        );
+        ctx.drawImage(pdfCanvas, rect.x, rect.y, rect.w, rect.h, 0, 0, 150, 150);
         
-        students[currentIndex].tempPhoto = cropCanvas.toDataURL('image/jpeg', 0.85);
-        document.getElementById('previewArea').innerHTML = 
-            `<img src="${students[currentIndex].tempPhoto}">`;
+        students[currentIdx].tempPhoto = crop.toDataURL('image/jpeg', 0.85);
+        document.getElementById('previewBox').innerHTML = `<img src="${students[currentIdx].tempPhoto}">`;
     }
     
     function updateConfirmBtn() {
         document.getElementById('confirmBtn').disabled = !rect || rect.w < 20;
     }
     
-    function onKeyDown(e) {
-        // Only handle in step 4
-        if (!document.getElementById('step4').classList.contains('active')) return;
+    function updateLearnStatus() {
+        const el = document.getElementById('learnStatus');
+        const n = gridLearn.confirmedPositions.length;
         
-        // Don't handle if typing in input
+        if (n >= 3) {
+            el.className = 'learn-status learned';
+            el.textContent = `✓ Pattern learned (${n} samples) - predicting positions`;
+        } else {
+            el.className = 'learn-status';
+            el.textContent = `🔍 Learning... (${n}/3 samples needed)`;
+        }
+    }
+    
+    function onKey(e) {
+        if (!document.getElementById('step4').classList.contains('active')) return;
         if (e.target.tagName === 'INPUT') return;
         
-        const step = e.shiftKey ? 20 : 5;
+        const step = e.shiftKey ? 25 : 5;
         
         switch (e.key) {
             case 'ArrowUp':
-                if (rect) { rect.y -= step; drawRect(); cropPreview(); }
+                if (rect) { rect.y -= step; updateRectDisplay(); cropPreview(); }
                 e.preventDefault();
                 break;
             case 'ArrowDown':
-                if (rect) { rect.y += step; drawRect(); cropPreview(); }
+                if (rect) { rect.y += step; updateRectDisplay(); cropPreview(); }
                 e.preventDefault();
                 break;
             case 'ArrowLeft':
-                if (rect) { rect.x -= step; drawRect(); cropPreview(); }
+                if (rect) { rect.x -= step; updateRectDisplay(); cropPreview(); }
                 e.preventDefault();
                 break;
             case 'ArrowRight':
-                if (rect) { rect.x += step; drawRect(); cropPreview(); }
+                if (rect) { rect.x += step; updateRectDisplay(); cropPreview(); }
                 e.preventDefault();
                 break;
             case 'Enter':
@@ -821,72 +847,133 @@
         }
     }
     
+    function updateRectDisplay() {
+        if (rectDiv && rectDiv.style.display !== 'none') {
+            drawRect();
+        } else if (predictedDiv) {
+            predictedDiv.style.left = rect.x + 'px';
+            predictedDiv.style.top = rect.y + 'px';
+        }
+    }
+    
     function confirmFace() {
-        const s = students[currentIndex];
+        const s = students[currentIdx];
         if (!s.tempPhoto) return;
         
         s.photoData = s.tempPhoto;
         s.confirmed = true;
-        confirmedCount++;
         
-        // Learn from this selection
-        if (rect) {
-            avgRect.w = (avgRect.w * (confirmedCount - 1) + rect.w) / confirmedCount;
-            avgRect.h = (avgRect.h * (confirmedCount - 1) + rect.h) / confirmedCount;
-        }
+        // Learn from this position
+        gridLearn.confirmedPositions.push({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+        gridLearn.avgWidth = gridLearn.confirmedPositions.reduce((a, p) => a + p.w, 0) / gridLearn.confirmedPositions.length;
+        gridLearn.avgHeight = gridLearn.confirmedPositions.reduce((a, p) => a + p.h, 0) / gridLearn.confirmedPositions.length;
         
-        // Next student
-        const next = students.findIndex((s, i) => i > currentIndex && !s.confirmed);
+        // Find next unconfirmed
+        const next = students.findIndex((s, i) => i > currentIdx && !s.confirmed);
         if (next !== -1) {
-            currentIndex = next;
+            currentIdx = next;
         } else {
             const first = students.findIndex(s => !s.confirmed);
             if (first !== -1) {
-                currentIndex = first;
+                currentIdx = first;
             } else {
-                // All done
+                saveLearningData();
                 goToStep(5);
                 return;
             }
         }
         
         showCurrentStudent();
-        renderStudentList();
+        renderStuList();
     }
     
     function skipStudent() {
-        const next = students.findIndex((s, i) => i > currentIndex && !s.confirmed);
-        if (next !== -1) {
-            currentIndex = next;
-        } else {
-            currentIndex = (currentIndex + 1) % students.length;
-        }
+        const next = students.findIndex((s, i) => i > currentIdx && !s.confirmed);
+        currentIdx = next !== -1 ? next : (currentIdx + 1) % students.length;
         showCurrentStudent();
-        renderStudentList();
+        renderStuList();
     }
     
-    function updateCurrentName(value) {
-        students[currentIndex].displayName = value;
-        renderStudentList();
+    function updateCurName(val) {
+        students[currentIdx].displayName = val;
+        // Parse back to first/last
+        const parts = val.split(' ');
+        if (parts.length >= 2) {
+            students[currentIdx].firstName = parts[0];
+            // Last initial might be "C-Q." - extract
+            const initialPart = parts[parts.length - 1].replace('.', '');
+            // Don't overwrite lastName since we only have initials
+        }
+        renderStuList();
     }
     
-    // STEP 5: Review
+    function addStudentDuringSelection() {
+        const name = prompt('Enter student name: LastName, FirstName');
+        if (!name) return;
+        
+        const parts = name.split(',').map(s => s.trim());
+        const lastName = parts[0] || '';
+        const firstName = parts[1] || parts[0];
+        
+        students.push({
+            id: students.length + 1,
+            firstName,
+            lastName,
+            displayName: formatDisplayName(firstName, lastName),
+            ocrOriginal: null,
+            photoData: null,
+            confirmed: false,
+            position: { row: Math.floor(students.length / 6), col: students.length % 6 }
+        });
+        
+        // Track as missed
+        corrections.push({ ocr: 'MISSED', fixed: name });
+        
+        // Jump to new student
+        currentIdx = students.length - 1;
+        showCurrentStudent();
+        renderStuList();
+    }
+    
+    function saveLearningData() {
+        const data = {
+            timestamp: new Date().toISOString(),
+            source: fileName,
+            gridPattern: {
+                samples: gridLearn.confirmedPositions.length,
+                avgWidth: Math.round(gridLearn.avgWidth),
+                avgHeight: Math.round(gridLearn.avgHeight),
+                colSpacing: Math.round(gridLearn.colSpacing),
+                rowSpacing: Math.round(gridLearn.rowSpacing)
+            },
+            corrections: corrections
+        };
+        
+        // Save locally
+        const history = JSON.parse(localStorage.getItem('hallpass_learning') || '[]');
+        history.push(data);
+        localStorage.setItem('hallpass_learning', JSON.stringify(history.slice(-20))); // Keep last 20
+        
+        console.log('Learning data saved:', data);
+    }
+    
+    // Step 5: Review
     function renderReview() {
         const confirmed = students.filter(s => s.confirmed);
-        document.getElementById('reviewGrid').innerHTML = confirmed.map(s => `
-            <div class="review-card">
+        document.getElementById('revGrid').innerHTML = confirmed.map(s => `
+            <div class="rev-card">
                 <img src="${s.photoData}" alt="${s.displayName}">
-                <div class="name">${s.displayName}</div>
+                <div class="nm">${s.displayName}</div>
             </div>
         `).join('');
     }
     
     function saveClass() {
-        const className = document.getElementById('classNameInput').value.trim() || 'Unnamed Class';
+        const className = document.getElementById('classNameInput').value.trim() || 'Unnamed';
         const confirmed = students.filter(s => s.confirmed);
         
         if (confirmed.length === 0) {
-            alert('No students confirmed. Go back and select faces.');
+            alert('No students confirmed.');
             return;
         }
         
@@ -894,7 +981,7 @@
             version: 4,
             settings: {
                 classId: 'class_' + Date.now(),
-                className: className,
+                className,
                 gridSize: { 
                     rows: Math.max(...confirmed.map(s => s.position?.row || 0)) + 1,
                     cols: Math.max(...confirmed.map(s => s.position?.col || 0)) + 1
@@ -907,7 +994,7 @@
             students: confirmed.map((s, i) => ({
                 id: i + 1,
                 firstName: s.firstName,
-                lastInitial: s.lastName?.[0] || 'X',
+                lastInitial: getLastInitial(s.lastName),
                 displayName: s.displayName,
                 position: s.position || { row: Math.floor(i / 6), col: i % 6 },
                 caricatures: { photo: s.photoData },
@@ -917,7 +1004,11 @@
         };
         
         localStorage.setItem('hallpass_class', JSON.stringify(classData));
-        alert('✓ Saved "' + className + '" with ' + confirmed.length + ' students!');
+        
+        // Final save of learning data
+        saveLearningData();
+        
+        alert(`✓ Saved "${className}" with ${confirmed.length} students!`);
         window.location.href = 'index.html';
     }
 </script>
