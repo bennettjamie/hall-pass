@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hall Pass - PDF Processor</title>
+    <title>Hall Pass - Import Class</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -32,26 +32,19 @@
             padding: 24px;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
         
-        h1 {
-            margin-bottom: 8px;
-        }
+        h1 { margin-bottom: 8px; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 32px; }
         
-        .subtitle {
-            color: var(--text-secondary);
-            margin-bottom: 32px;
-        }
-        
-        .upload-section {
+        .section {
             background: var(--bg-card);
             border-radius: 20px;
             padding: 32px;
             margin-bottom: 24px;
         }
+        
+        .section.hidden { display: none; }
         
         .upload-zone {
             border: 2px dashed var(--border);
@@ -71,16 +64,6 @@
         .upload-text { font-size: 1.1rem; margin-bottom: 8px; }
         .upload-hint { color: var(--text-secondary); font-size: 0.9rem; }
         
-        .progress-section {
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 32px;
-            margin-bottom: 24px;
-            display: none;
-        }
-        
-        .progress-section.active { display: block; }
-        
         .progress-bar {
             height: 8px;
             background: var(--bg-secondary);
@@ -96,50 +79,49 @@
             transition: width 0.3s;
         }
         
-        .progress-status {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
+        .progress-status { color: var(--text-secondary); font-size: 0.9rem; }
         
         .log {
             background: var(--bg-secondary);
             border-radius: 12px;
             padding: 16px;
             margin-top: 16px;
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
         
         .log-entry { margin-bottom: 4px; }
         .log-entry.success { color: var(--success); }
         .log-entry.error { color: var(--danger); }
-        .log-entry.info { color: var(--text-secondary); }
         
-        .results-section {
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 32px;
-            display: none;
+        /* Review Section */
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
         }
         
-        .results-section.active { display: block; }
+        .review-header h2 { margin: 0; }
         
         .class-name-input {
             display: flex;
             gap: 12px;
-            margin-bottom: 24px;
+            align-items: center;
         }
         
         .class-name-input input {
-            flex: 1;
-            padding: 12px 16px;
+            padding: 10px 16px;
             border-radius: 10px;
-            border: none;
+            border: 1px solid var(--border);
             background: var(--bg-secondary);
             color: var(--text-primary);
             font-size: 1rem;
+            width: 250px;
         }
         
         .btn {
@@ -149,48 +131,90 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            font-size: 0.95rem;
         }
         
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-light); }
+        .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-small { padding: 6px 12px; font-size: 0.8rem; }
         
-        .btn-primary:hover {
-            background: var(--accent-light);
-        }
-        
-        .btn-secondary {
+        .review-instructions {
             background: var(--bg-secondary);
-            color: var(--text-primary);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
         }
+        
+        .review-instructions strong { color: var(--text-primary); }
         
         .student-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 16px;
-            margin-top: 24px;
         }
         
         .student-card {
             background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 12px;
+            border-radius: 16px;
+            padding: 16px;
             text-align: center;
+            position: relative;
+            border: 2px solid transparent;
+            transition: all 0.2s;
         }
         
+        .student-card:hover { border-color: var(--accent); }
+        
+        .student-card.error { border-color: var(--danger); background: rgba(239,68,68,0.1); }
+        .student-card.withdrawn { opacity: 0.5; }
+        
+        .card-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .student-card:hover .card-actions { opacity: 1; }
+        
+        .card-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .card-btn:hover { background: var(--accent); }
+        .card-btn.delete:hover { background: var(--danger); }
+        
         .student-photo {
-            width: 80px;
-            height: 80px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            margin-bottom: 8px;
-            border: 2px solid var(--border);
+            margin-bottom: 12px;
+            border: 3px solid var(--border);
+            background: var(--bg-card);
         }
         
         .student-name {
-            font-weight: 500;
-            font-size: 0.9rem;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 4px;
         }
         
         .student-pos {
@@ -198,17 +222,96 @@
             color: var(--text-secondary);
         }
         
-        #pdfCanvas { display: none; }
-        #cropCanvas { display: none; }
+        .student-name-input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        
+        /* Edit Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-overlay.open { display: flex; }
+        
+        .modal {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .modal h3 { margin-bottom: 20px; }
+        
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 0.9rem; color: var(--text-secondary); }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        
+        /* Hidden canvases */
+        #pdfCanvas, #cropCanvas { display: none; }
+        
+        /* Summary bar */
+        .summary-bar {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .summary-stat {
+            background: var(--bg-secondary);
+            padding: 12px 20px;
+            border-radius: 10px;
+        }
+        
+        .summary-stat .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .summary-stat .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎟️ Hall Pass — Import Class</h1>
-        <p class="subtitle">Upload a PDF seating chart to extract students</p>
+        <p class="subtitle">Upload a PDF seating chart from MyEd</p>
         
-        <div class="upload-section">
-            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('pdfInput').click()">
+        <!-- Step 1: Upload -->
+        <div class="section" id="uploadSection">
+            <div class="upload-zone" id="uploadZone">
                 <div class="upload-icon">📄</div>
                 <div class="upload-text">Drop PDF seating chart here</div>
                 <div class="upload-hint">or click to browse</div>
@@ -216,8 +319,9 @@
             <input type="file" id="pdfInput" accept=".pdf" style="display:none">
         </div>
         
-        <div class="progress-section" id="progressSection">
-            <h2>Processing...</h2>
+        <!-- Step 2: Processing -->
+        <div class="section hidden" id="progressSection">
+            <h2>⏳ Processing PDF...</h2>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
@@ -225,13 +329,52 @@
             <div class="log" id="log"></div>
         </div>
         
-        <div class="results-section" id="resultsSection">
-            <h2>✓ Students Extracted</h2>
-            <div class="class-name-input">
-                <input type="text" id="className" placeholder="Class name (e.g., CLE 10 - Block 4)">
-                <button class="btn btn-primary" onclick="saveClass()">💾 Save Class</button>
+        <!-- Step 3: Review & Edit -->
+        <div class="section hidden" id="reviewSection">
+            <div class="review-header">
+                <h2>✓ Review Students</h2>
+                <div class="class-name-input">
+                    <label>Class Name:</label>
+                    <input type="text" id="className" placeholder="e.g., CLE 10 - Block 4">
+                    <button class="btn btn-primary" onclick="saveClass()">💾 Save Class</button>
+                </div>
             </div>
+            
+            <div class="review-instructions">
+                <strong>Review before saving:</strong> Check that names and photos are correct. 
+                Hover over a card to edit ✏️ or delete 🗑️. 
+                Click a name to edit it directly.
+            </div>
+            
+            <div class="summary-bar" id="summaryBar"></div>
+            
             <div class="student-grid" id="studentGrid"></div>
+        </div>
+    </div>
+    
+    <!-- Edit Student Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <h3>✏️ Edit Student</h3>
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="editFirstName">
+            </div>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" id="editLastName">
+            </div>
+            <div class="form-group">
+                <label>Position</label>
+                <div style="display:flex;gap:12px;">
+                    <input type="number" id="editRow" placeholder="Row" style="width:50%">
+                    <input type="number" id="editCol" placeholder="Col" style="width:50%">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+            </div>
         </div>
     </div>
     
@@ -239,14 +382,17 @@
     <canvas id="cropCanvas"></canvas>
     
     <script>
-        // Set PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         
         let extractedStudents = [];
-        let pdfImageData = null;
+        let editingIndex = -1;
+        let pdfCanvas, pdfCtx;
         
-        // Drag and drop handlers
+        // Upload handlers
         const uploadZone = document.getElementById('uploadZone');
+        const pdfInput = document.getElementById('pdfInput');
+        
+        uploadZone.addEventListener('click', () => pdfInput.click());
         
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -261,156 +407,175 @@
             e.preventDefault();
             uploadZone.classList.remove('dragover');
             const file = e.dataTransfer.files[0];
-            if (file && file.type === 'application/pdf') {
-                processPDF(file);
-            }
+            if (file?.type === 'application/pdf') processPDF(file);
         });
         
-        document.getElementById('pdfInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) processPDF(file);
+        pdfInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) processPDF(e.target.files[0]);
         });
         
-        function log(message, type = 'info') {
-            const logEl = document.getElementById('log');
+        function log(msg, type = 'info') {
+            const el = document.getElementById('log');
             const entry = document.createElement('div');
             entry.className = 'log-entry ' + type;
-            entry.textContent = message;
-            logEl.appendChild(entry);
-            logEl.scrollTop = logEl.scrollHeight;
+            entry.textContent = msg;
+            el.appendChild(entry);
+            el.scrollTop = el.scrollHeight;
         }
         
-        function setProgress(percent, status) {
-            document.getElementById('progressFill').style.width = percent + '%';
+        function setProgress(pct, status) {
+            document.getElementById('progressFill').style.width = pct + '%';
             document.getElementById('progressStatus').textContent = status;
         }
         
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+        
         async function processPDF(file) {
-            document.getElementById('progressSection').classList.add('active');
-            document.getElementById('resultsSection').classList.remove('active');
+            showSection('progressSection');
             document.getElementById('log').innerHTML = '';
+            extractedStudents = [];
             
             try {
+                // Step 1: Load PDF
                 log('Loading PDF: ' + file.name);
                 setProgress(5, 'Loading PDF...');
                 
-                // Load PDF
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                log('PDF loaded, pages: ' + pdf.numPages, 'success');
+                log('✓ PDF loaded, pages: ' + pdf.numPages, 'success');
                 
-                // Render first page to canvas
-                setProgress(15, 'Rendering page...');
+                // Step 2: Render to canvas at high resolution
+                setProgress(10, 'Rendering page...');
                 const page = await pdf.getPage(1);
-                const scale = 2; // Higher resolution for better OCR
+                const scale = 3; // High res for better OCR
                 const viewport = page.getViewport({ scale });
                 
-                const canvas = document.getElementById('pdfCanvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
+                pdfCanvas = document.getElementById('pdfCanvas');
+                pdfCtx = pdfCanvas.getContext('2d');
+                pdfCanvas.width = viewport.width;
+                pdfCanvas.height = viewport.height;
                 
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                log('Page rendered: ' + canvas.width + 'x' + canvas.height, 'success');
+                await page.render({ canvasContext: pdfCtx, viewport }).promise;
+                log('✓ Page rendered: ' + pdfCanvas.width + 'x' + pdfCanvas.height, 'success');
                 
-                pdfImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // Try to extract class name from PDF metadata or filename
-                const suggestedName = file.name.replace('.pdf', '').replace(/_/g, ' ');
+                // Suggest class name from filename
+                const suggestedName = file.name.replace('.pdf', '').replace(/[_-]/g, ' ');
                 document.getElementById('className').value = suggestedName;
                 
-                // Run OCR
-                setProgress(25, 'Running OCR (this may take a minute)...');
+                // Step 3: Run OCR
+                setProgress(20, 'Running OCR (this takes 30-60 seconds)...');
                 log('Starting OCR...');
                 
                 const worker = await Tesseract.createWorker('eng');
+                const { data } = await worker.recognize(pdfCanvas);
+                await worker.terminate();
                 
-                const { data } = await worker.recognize(canvas);
-                log('OCR complete, found ' + data.words.length + ' words', 'success');
+                log('✓ OCR complete, analyzing text...', 'success');
+                setProgress(60, 'Finding names...');
                 
-                setProgress(60, 'Finding student names...');
+                // Step 4: Find name patterns with bounding boxes
+                // Pattern: "LastName, FirstName" - name is ABOVE the photo
+                const namePattern = /^([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/;
+                const foundNames = [];
                 
-                // Find names (pattern: "LastName, FirstName" or just names)
-                const namePattern = /([A-Z][a-z]+(?:-[A-Z][a-z]+)?),\s*([A-Z][a-z]+)/g;
-                const names = [];
-                let match;
+                // Group words into lines based on Y position
+                const lines = groupWordsIntoLines(data.words);
                 
-                // Look for name patterns in the text
-                while ((match = namePattern.exec(data.text)) !== null) {
-                    const lastName = match[1];
-                    const firstName = match[2];
+                for (const line of lines) {
+                    const lineText = line.words.map(w => w.text).join(' ');
+                    const match = lineText.match(namePattern);
                     
-                    // Find the bounding box for this name in the OCR data
-                    const nameStr = match[0];
-                    const wordData = findWordBounds(data.words, nameStr, lastName);
-                    
-                    if (wordData) {
-                        names.push({
+                    if (match) {
+                        const lastName = match[1];
+                        const firstName = match[2];
+                        
+                        // Get bounding box of the line
+                        const bbox = getLineBounds(line.words);
+                        
+                        foundNames.push({
                             firstName,
                             lastName,
                             lastInitial: lastName[0],
                             displayName: firstName + ' ' + lastName[0] + '.',
-                            bounds: wordData.bounds
+                            bbox,
+                            confidence: line.words.reduce((sum, w) => sum + w.confidence, 0) / line.words.length
                         });
+                        
+                        log('Found: ' + firstName + ' ' + lastName + ' @ y=' + Math.round(bbox.y));
                     }
                 }
                 
-                log('Found ' + names.length + ' student names', names.length > 0 ? 'success' : 'error');
+                log('✓ Found ' + foundNames.length + ' student names', foundNames.length > 0 ? 'success' : 'error');
                 
-                if (names.length === 0) {
-                    // Fallback: try simpler extraction
-                    log('Trying fallback name extraction...');
-                    const simpleNames = extractNamesSimple(data);
-                    names.push(...simpleNames);
-                    log('Fallback found ' + simpleNames.length + ' names');
+                if (foundNames.length === 0) {
+                    log('No names found. Check PDF format.', 'error');
+                    return;
                 }
                 
-                setProgress(75, 'Extracting faces...');
+                // Step 5: Calculate grid layout from name positions
+                setProgress(70, 'Calculating grid layout...');
                 
-                // Extract faces above each name
-                extractedStudents = [];
-                const cropCanvas = document.getElementById('cropCanvas');
-                const cropCtx = cropCanvas.getContext('2d');
-                
-                // Calculate grid layout from positions
-                const sortedNames = [...names].sort((a, b) => {
-                    const rowA = Math.floor(a.bounds.y / 200); // Approximate row height
-                    const rowB = Math.floor(b.bounds.y / 200);
-                    if (rowA !== rowB) return rowA - rowB;
-                    return a.bounds.x - b.bounds.x;
+                // Sort names by position (top to bottom, left to right)
+                foundNames.sort((a, b) => {
+                    const rowDiff = Math.floor(a.bbox.y / 100) - Math.floor(b.bbox.y / 100);
+                    if (rowDiff !== 0) return rowDiff;
+                    return a.bbox.x - b.bbox.x;
                 });
                 
+                // Determine row breaks
+                const rowThreshold = 100; // pixels between rows
                 let currentRow = 0;
                 let currentCol = 0;
-                let lastRowY = -1;
+                let lastY = foundNames[0]?.bbox.y || 0;
                 
-                for (let i = 0; i < sortedNames.length; i++) {
-                    const name = sortedNames[i];
-                    const rowY = Math.floor(name.bounds.y / 200);
+                // Calculate typical cell dimensions from spacing
+                const cellHeight = estimateCellHeight(foundNames);
+                const cellWidth = estimateCellWidth(foundNames);
+                
+                log('Cell size estimate: ' + Math.round(cellWidth) + 'x' + Math.round(cellHeight));
+                
+                // Step 6: Extract photos (BELOW each name)
+                setProgress(80, 'Extracting photos...');
+                
+                const cropCanvas = document.getElementById('cropCanvas');
+                const cropCtx = cropCanvas.getContext('2d');
+                cropCanvas.width = 200;
+                cropCanvas.height = 200;
+                
+                for (let i = 0; i < foundNames.length; i++) {
+                    const name = foundNames[i];
                     
-                    if (lastRowY !== -1 && rowY > lastRowY) {
+                    // Check for row break
+                    if (i > 0 && name.bbox.y - lastY > rowThreshold) {
                         currentRow++;
                         currentCol = 0;
                     }
-                    lastRowY = rowY;
+                    lastY = name.bbox.y;
                     
-                    // Crop face region (above the name)
-                    const faceWidth = 150 * scale;
-                    const faceHeight = 150 * scale;
-                    const faceX = name.bounds.x - 20;
-                    const faceY = name.bounds.y - faceHeight - 20;
+                    // Photo is BELOW the name
+                    // Calculate photo region
+                    const photoX = name.bbox.x - 20; // Slight left offset
+                    const photoY = name.bbox.y + name.bbox.height + 5; // Below name
+                    const photoW = Math.max(cellWidth, name.bbox.width + 40);
+                    const photoH = cellHeight * 0.7; // Photo portion of cell
                     
-                    cropCanvas.width = 150;
-                    cropCanvas.height = 150;
+                    // Crop the photo region
+                    cropCtx.fillStyle = '#1a1a2e';
+                    cropCtx.fillRect(0, 0, 200, 200);
                     
-                    // Draw cropped region
                     cropCtx.drawImage(
-                        canvas,
-                        Math.max(0, faceX), Math.max(0, faceY), faceWidth, faceHeight,
-                        0, 0, 150, 150
+                        pdfCanvas,
+                        Math.max(0, photoX), 
+                        Math.max(0, photoY),
+                        photoW, 
+                        photoH,
+                        0, 0, 200, 200
                     );
                     
-                    const photoData = cropCanvas.toDataURL('image/jpeg', 0.8);
+                    const photoData = cropCanvas.toDataURL('image/jpeg', 0.85);
                     
                     extractedStudents.push({
                         id: i + 1,
@@ -425,96 +590,212 @@
                     });
                     
                     currentCol++;
-                    log('Extracted: ' + name.displayName + ' @ row ' + currentRow + ' col ' + currentCol);
                 }
-                
-                await worker.terminate();
                 
                 setProgress(100, 'Complete!');
-                log('Extraction complete: ' + extractedStudents.length + ' students', 'success');
+                log('✓ Extracted ' + extractedStudents.length + ' students', 'success');
                 
-                // Show results
-                displayResults();
+                // Show review section
+                renderReview();
+                showSection('reviewSection');
                 
-            } catch (error) {
-                log('Error: ' + error.message, 'error');
-                console.error(error);
+            } catch (err) {
+                log('Error: ' + err.message, 'error');
+                console.error(err);
             }
         }
         
-        function findWordBounds(words, fullName, lastName) {
-            // Find the word that matches the last name
-            for (const word of words) {
-                if (word.text.includes(lastName)) {
-                    return {
-                        bounds: {
-                            x: word.bbox.x0,
-                            y: word.bbox.y0,
-                            width: word.bbox.x1 - word.bbox.x0,
-                            height: word.bbox.y1 - word.bbox.y0
-                        }
-                    };
-                }
-            }
-            return null;
-        }
-        
-        function extractNamesSimple(data) {
-            // Simpler extraction: look for capitalized words that could be names
-            const names = [];
-            const words = data.words.filter(w => w.confidence > 60);
+        function groupWordsIntoLines(words) {
+            // Group words that are on the same horizontal line
+            const lines = [];
+            const threshold = 15; // Y tolerance for same line
             
-            for (let i = 0; i < words.length - 1; i++) {
-                const word = words[i];
-                const text = word.text.replace(/[^a-zA-Z]/g, '');
+            for (const word of words) {
+                if (word.confidence < 50) continue; // Skip low confidence
                 
-                // Check if it looks like "LastName," pattern
-                if (text.length > 2 && /^[A-Z][a-z]+$/.test(text) && words[i].text.includes(',')) {
-                    const nextWord = words[i + 1];
-                    const firstName = nextWord.text.replace(/[^a-zA-Z]/g, '');
-                    
-                    if (firstName.length > 1 && /^[A-Z][a-z]+$/.test(firstName)) {
-                        names.push({
-                            firstName,
-                            lastName: text,
-                            lastInitial: text[0],
-                            displayName: firstName + ' ' + text[0] + '.',
-                            bounds: {
-                                x: word.bbox.x0,
-                                y: word.bbox.y0,
-                                width: word.bbox.x1 - word.bbox.x0,
-                                height: word.bbox.y1 - word.bbox.y0
-                            }
-                        });
+                const y = word.bbox.y0;
+                let foundLine = false;
+                
+                for (const line of lines) {
+                    if (Math.abs(line.y - y) < threshold) {
+                        line.words.push(word);
+                        foundLine = true;
+                        break;
                     }
                 }
+                
+                if (!foundLine) {
+                    lines.push({ y, words: [word] });
+                }
             }
             
-            return names;
+            // Sort words within each line by X position
+            for (const line of lines) {
+                line.words.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+            }
+            
+            return lines;
         }
         
-        function displayResults() {
-            document.getElementById('resultsSection').classList.add('active');
+        function getLineBounds(words) {
+            let minX = Infinity, minY = Infinity;
+            let maxX = 0, maxY = 0;
             
+            for (const word of words) {
+                minX = Math.min(minX, word.bbox.x0);
+                minY = Math.min(minY, word.bbox.y0);
+                maxX = Math.max(maxX, word.bbox.x1);
+                maxY = Math.max(maxY, word.bbox.y1);
+            }
+            
+            return {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY
+            };
+        }
+        
+        function estimateCellHeight(names) {
+            // Calculate typical vertical spacing between names
+            if (names.length < 2) return 300;
+            
+            const yPositions = names.map(n => n.bbox.y).sort((a, b) => a - b);
+            const gaps = [];
+            
+            for (let i = 1; i < yPositions.length; i++) {
+                const gap = yPositions[i] - yPositions[i-1];
+                if (gap > 50) gaps.push(gap); // Ignore same-row gaps
+            }
+            
+            if (gaps.length === 0) return 300;
+            return gaps.reduce((a, b) => a + b) / gaps.length;
+        }
+        
+        function estimateCellWidth(names) {
+            // Calculate typical horizontal spacing
+            if (names.length < 2) return 200;
+            
+            // Group by approximate row
+            const rows = {};
+            for (const name of names) {
+                const rowKey = Math.floor(name.bbox.y / 100);
+                if (!rows[rowKey]) rows[rowKey] = [];
+                rows[rowKey].push(name.bbox.x);
+            }
+            
+            const widths = [];
+            for (const row of Object.values(rows)) {
+                row.sort((a, b) => a - b);
+                for (let i = 1; i < row.length; i++) {
+                    widths.push(row[i] - row[i-1]);
+                }
+            }
+            
+            if (widths.length === 0) return 200;
+            return widths.reduce((a, b) => a + b) / widths.length;
+        }
+        
+        function renderReview() {
+            // Summary
+            const summary = document.getElementById('summaryBar');
+            const maxRow = Math.max(...extractedStudents.map(s => s.position.row));
+            const maxCol = Math.max(...extractedStudents.map(s => s.position.col));
+            
+            summary.innerHTML = `
+                <div class="summary-stat">
+                    <div class="value">${extractedStudents.length}</div>
+                    <div class="label">Students</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="value">${maxRow + 1} × ${maxCol + 1}</div>
+                    <div class="label">Grid Size</div>
+                </div>
+            `;
+            
+            // Student cards
             const grid = document.getElementById('studentGrid');
-            grid.innerHTML = extractedStudents.map(s => `
-                <div class="student-card">
+            grid.innerHTML = extractedStudents.map((s, i) => `
+                <div class="student-card" data-index="${i}">
+                    <div class="card-actions">
+                        <button class="card-btn" onclick="editStudent(${i})" title="Edit">✏️</button>
+                        <button class="card-btn delete" onclick="deleteStudent(${i})" title="Delete">🗑️</button>
+                    </div>
                     <img class="student-photo" src="${s.caricature}" alt="${s.firstName}">
-                    <div class="student-name">${s.displayName}</div>
+                    <input class="student-name-input" value="${s.displayName}" 
+                           onchange="updateName(${i}, this.value)"
+                           title="Click to edit name">
                     <div class="student-pos">Row ${s.position.row + 1}, Col ${s.position.col + 1}</div>
                 </div>
             `).join('');
         }
         
+        function updateName(index, value) {
+            // Parse "FirstName L." format
+            const parts = value.trim().split(' ');
+            if (parts.length >= 2) {
+                extractedStudents[index].firstName = parts[0];
+                extractedStudents[index].lastInitial = parts[1].replace('.', '')[0];
+                extractedStudents[index].displayName = parts[0] + ' ' + parts[1].replace('.', '')[0] + '.';
+            }
+        }
+        
+        function editStudent(index) {
+            editingIndex = index;
+            const s = extractedStudents[index];
+            document.getElementById('editFirstName').value = s.firstName;
+            document.getElementById('editLastName').value = s.lastName || '';
+            document.getElementById('editRow').value = s.position.row + 1;
+            document.getElementById('editCol').value = s.position.col + 1;
+            document.getElementById('editModal').classList.add('open');
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('open');
+            editingIndex = -1;
+        }
+        
+        function saveEdit() {
+            if (editingIndex < 0) return;
+            
+            const s = extractedStudents[editingIndex];
+            s.firstName = document.getElementById('editFirstName').value;
+            s.lastName = document.getElementById('editLastName').value;
+            s.lastInitial = s.lastName ? s.lastName[0] : 'X';
+            s.displayName = s.firstName + ' ' + s.lastInitial + '.';
+            s.position.row = parseInt(document.getElementById('editRow').value) - 1;
+            s.position.col = parseInt(document.getElementById('editCol').value) - 1;
+            
+            closeEditModal();
+            renderReview();
+        }
+        
+        function deleteStudent(index) {
+            if (confirm('Remove ' + extractedStudents[index].displayName + '?')) {
+                extractedStudents.splice(index, 1);
+                // Re-index
+                extractedStudents.forEach((s, i) => s.id = i + 1);
+                renderReview();
+            }
+        }
+        
         function saveClass() {
-            const className = document.getElementById('className').value || 'Unnamed Class';
+            const className = document.getElementById('className').value.trim() || 'Unnamed Class';
+            
+            if (extractedStudents.length === 0) {
+                alert('No students to save.');
+                return;
+            }
+            
+            const maxRow = Math.max(...extractedStudents.map(s => s.position.row));
+            const maxCol = Math.max(...extractedStudents.map(s => s.position.col));
             
             const classData = {
                 version: 4,
                 settings: {
                     classId: 'class_' + Date.now(),
                     className: className,
-                    gridSize: calculateGridSize()
+                    gridSize: { rows: maxRow + 1, cols: maxCol + 1 }
                 },
                 styles: {
                     available: [{ id: 'photo', name: 'Photo', emoji: '📷' }],
@@ -524,26 +805,15 @@
             };
             
             // Save to localStorage
+            localStorage.setItem('hallpass_class', JSON.stringify(classData));
+            
+            // Also save to class list
             const classes = JSON.parse(localStorage.getItem('hallpass_classes') || '{}');
             classes[classData.settings.classId] = classData;
             localStorage.setItem('hallpass_classes', JSON.stringify(classes));
             
-            // Also set as current class
-            localStorage.setItem('hallpass_class', JSON.stringify(classData));
-            
-            alert('✓ Class saved! ' + extractedStudents.length + ' students.\n\nGo to Hall Pass to see your class.');
-            
-            // Redirect to main app
+            alert('✓ Saved "' + className + '" with ' + extractedStudents.length + ' students!');
             window.location.href = 'index.html';
-        }
-        
-        function calculateGridSize() {
-            let maxRow = 0, maxCol = 0;
-            for (const s of extractedStudents) {
-                maxRow = Math.max(maxRow, s.position.row);
-                maxCol = Math.max(maxCol, s.position.col);
-            }
-            return { rows: maxRow + 1, cols: maxCol + 1 };
         }
     </script>
 </body>
