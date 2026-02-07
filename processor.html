@@ -1144,10 +1144,12 @@
     }
     
     // Assign grid positions based on actual PDF layout (not alphabetical)
+    // FIXED: Direct coordinate sorting instead of unreliable clustering
     function sortStudentsByVisualOrder() {
-        const hasPositions = students.some(s => s.textY !== undefined && s.textX !== undefined);
+        const withPositions = students.filter(s => s.textY !== undefined && s.textX !== undefined);
+        const withoutPositions = students.filter(s => s.textY === undefined || s.textX === undefined);
         
-        if (!hasPositions) {
+        if (withPositions.length === 0) {
             // Fallback: assign sequential positions
             const cols = 6;
             students.forEach((s, i) => {
@@ -1157,40 +1159,66 @@
             return;
         }
         
-        // Step 1: Cluster Y positions into rows
-        const yValues = students.filter(s => s.textY !== undefined).map(s => s.textY).sort((a, b) => a - b);
-        const rowClusters = clusterPositions(yValues, 80); // 80px threshold for same row
+        console.log(`=== SORTING ${withPositions.length} students by visual position ===`);
         
-        // Step 2: Cluster X positions into columns
-        const xValues = students.filter(s => s.textX !== undefined).map(s => s.textX).sort((a, b) => a - b);
-        const colClusters = clusterPositions(xValues, 100); // 100px threshold for same column
+        // Log positions BEFORE sorting
+        console.log('BEFORE sort:');
+        withPositions.forEach((s, i) => {
+            console.log(`  ${i+1}. ${s.lastName}, ${s.firstName} @ textY=${Math.round(s.textY)}, textX=${Math.round(s.textX)}`);
+        });
         
-        console.log(`Detected ${rowClusters.length} rows, ${colClusters.length} columns`);
+        // SIMPLE SORT: by textY first (top to bottom), then textX (left to right)
+        // Use a row threshold: students within 60px vertically are on the same row
+        const ROW_THRESHOLD = 60;
         
-        // Step 3: Assign each student their actual grid position
-        students.forEach(s => {
-            if (s.textY !== undefined && s.textX !== undefined) {
-                // Find which row cluster this Y belongs to
-                const row = findClusterIndex(s.textY, rowClusters);
-                // Find which column cluster this X belongs to
-                const col = findClusterIndex(s.textX, colClusters);
-                s.position = { row, col };
+        withPositions.sort((a, b) => {
+            // Check if they're on the same visual row
+            const sameRow = Math.abs(a.textY - b.textY) < ROW_THRESHOLD;
+            
+            if (sameRow) {
+                // Same row: sort by X (left to right)
+                return a.textX - b.textX;
             } else {
-                // No position data - put at end
-                s.position = { row: 99, col: 0 };
+                // Different rows: sort by Y (top to bottom)
+                return a.textY - b.textY;
             }
         });
         
-        // Step 4: Sort by position for display order (row first, then col)
-        students.sort((a, b) => {
-            if (a.position.row !== b.position.row) return a.position.row - b.position.row;
-            return a.position.col - b.position.col;
+        // Assign row/col positions based on sorted order
+        let currentRow = 0;
+        let currentCol = 0;
+        let lastY = withPositions[0]?.textY || 0;
+        
+        withPositions.forEach((s, i) => {
+            // Check if we've moved to a new row
+            if (i > 0 && Math.abs(s.textY - lastY) >= ROW_THRESHOLD) {
+                currentRow++;
+                currentCol = 0;
+            }
+            
+            s.position = { row: currentRow, col: currentCol };
+            lastY = s.textY;
+            currentCol++;
         });
+        
+        // Put students without positions at the end
+        withoutPositions.forEach((s, i) => {
+            s.position = { row: 99, col: i };
+        });
+        
+        // Combine: positioned students first (already sorted), then unpositioned
+        students = [...withPositions, ...withoutPositions];
         
         // Renumber IDs based on new order
         students.forEach((s, i) => s.id = i + 1);
         
-        console.log('Grid positions assigned:', students.map(s => `${s.displayName}@(${s.position.row},${s.position.col})`));
+        // Log positions AFTER sorting
+        console.log('AFTER sort (final order):');
+        students.forEach((s, i) => {
+            console.log(`  ${i+1}. ${s.lastName}, ${s.firstName} @ row=${s.position.row}, col=${s.position.col}`);
+        });
+        
+        console.log(`=== SORT COMPLETE: ${students.length} students in visual order ===`);
     }
     
     // Cluster nearby values together
@@ -1673,6 +1701,9 @@
     function showCurrentStudent() {
         const s = students[currentIdx];
         if (!s) return;
+        
+        // DEBUG: Log current student selection
+        console.log(`>>> showCurrentStudent: idx=${currentIdx}, name="${s.lastName}, ${s.firstName}", textX=${s.textX?.toFixed(0)}, textY=${s.textY?.toFixed(0)}`);
         
         document.getElementById('curNameInput').value = `${s.lastName}, ${s.firstName}`;
         document.getElementById('progText').textContent = `${currentIdx + 1} of ${students.length}`;
@@ -2308,30 +2339,40 @@
     
     function moveToNextUnconfirmed() {
         // Find next unconfirmed (in visual order)
+        console.log(`>>> moveToNextUnconfirmed: starting from idx=${currentIdx} (${students[currentIdx]?.displayName})`);
+        
         let next = -1;
         for (let i = currentIdx + 1; i < students.length; i++) {
-            if (!students[i].confirmed && !students[i].noPhoto) {
+            const candidate = students[i];
+            console.log(`  Checking idx=${i}: ${candidate.displayName} - confirmed=${candidate.confirmed}, noPhoto=${candidate.noPhoto}`);
+            if (!candidate.confirmed && !candidate.noPhoto) {
                 next = i;
+                console.log(`  >>> FOUND NEXT: idx=${i}, ${candidate.displayName}`);
                 break;
             }
         }
         
         if (next === -1) {
             // Check from beginning
+            console.log('  Wrapping to beginning of list...');
             for (let i = 0; i < currentIdx; i++) {
-                if (!students[i].confirmed && !students[i].noPhoto) {
+                const candidate = students[i];
+                if (!candidate.confirmed && !candidate.noPhoto) {
                     next = i;
+                    console.log(`  >>> FOUND (wrapped): idx=${i}, ${candidate.displayName}`);
                     break;
                 }
             }
         }
         
         if (next !== -1) {
+            console.log(`>>> Moving to idx=${next}: ${students[next].displayName}`);
             currentIdx = next;
             showCurrentStudent();
             renderStuList();
         } else {
             // All done!
+            console.log('>>> All students confirmed/skipped!');
             showCurrentStudent();
             renderStuList();
         }
