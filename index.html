@@ -224,39 +224,71 @@
         }
 
         /* ========== ATTENDANCE GRID ========== */
+        .grid-container {
+            overflow: auto;
+            padding: 16px;
+        }
+        
+        .zoom-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            justify-content: flex-end;
+        }
+        
+        .zoom-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .zoom-btn:hover {
+            background: var(--bg-card);
+        }
+        
         .attendance-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 16px;
+            gap: 12px;
+            transform-origin: top left;
+            transition: transform 0.2s;
         }
         
         .student-card {
             background: var(--bg-card);
-            border-radius: 16px;
-            padding: 16px;
+            border-radius: 12px;
+            padding: 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
             border: 2px solid transparent;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         
         .student-card:hover {
-            transform: translateY(-2px);
+            transform: scale(1.02);
             box-shadow: var(--shadow);
         }
         
         .student-card.checked-in {
             border-color: var(--success);
-            background: rgba(34, 197, 94, 0.1);
+            background: rgba(34, 197, 94, 0.15);
         }
         
         .student-card.late {
             border-color: var(--warning);
-            background: rgba(245, 158, 11, 0.1);
+            background: rgba(245, 158, 11, 0.15);
         }
         
         .student-card.absent {
-            opacity: 0.6;
+            opacity: 0.7;
         }
         
         .student-card.withdrawn {
@@ -264,13 +296,28 @@
             pointer-events: none;
         }
         
+        .empty-seat {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            opacity: 0.3;
+        }
+        
         .student-avatar {
-            width: 80px;
-            height: 80px;
+            width: 85%;
+            max-width: 120px;
+            aspect-ratio: 1;
             border-radius: 50%;
             object-fit: cover;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
             border: 3px solid var(--border);
+        }
+        
+        .student-card.checked-in .student-avatar {
+            border-color: var(--success);
+        }
+        
+        .student-card.late .student-avatar {
+            border-color: var(--warning);
         }
         
         .student-card.checked-in .student-avatar {
@@ -651,13 +698,19 @@
             }
             
             .attendance-grid {
-                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-                gap: 12px;
+                gap: 8px;
             }
             
-            .student-avatar {
-                width: 60px;
-                height: 60px;
+            .student-card {
+                padding: 6px;
+            }
+            
+            .student-name {
+                font-size: 0.75rem;
+            }
+            
+            .zoom-controls {
+                margin-bottom: 8px;
             }
         }
     </style>
@@ -737,8 +790,15 @@
     <main class="main">
         <!-- Attendance View -->
         <div class="view active" id="attendanceView">
-            <div class="attendance-grid" id="attendanceGrid">
-                <!-- Students will be rendered here -->
+            <div class="grid-container">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomGrid(-0.1)">➖</button>
+                    <button class="zoom-btn" onclick="zoomGrid(0)">Fit</button>
+                    <button class="zoom-btn" onclick="zoomGrid(0.1)">➕</button>
+                </div>
+                <div class="attendance-grid" id="attendanceGrid">
+                    <!-- Students will be rendered here -->
+                </div>
             </div>
         </div>
 
@@ -1171,16 +1231,97 @@
             renderGrid();
         }
 
+        let currentZoom = 1;
+        
         function renderGrid() {
             const grid = document.getElementById('attendanceGrid');
-            grid.innerHTML = demoStudents.map(s => `
-                <div class="student-card ${s.status}" onclick="toggleCheckin(${s.id})">
-                    <img class="student-avatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=${s.firstName}" alt="${s.firstName}">
-                    <div class="student-name">${s.firstName} ${s.lastInitial}.</div>
-                    <div class="student-status">${getStatusText(s.status)}</div>
-                </div>
-            `).join('');
+            const useStudents = students.length > 0 ? students : demoStudents;
+            
+            // Get grid size from class data or default
+            let cols = 6, rows = 5;
+            if (classData && classData.settings && classData.settings.gridSize) {
+                cols = classData.settings.gridSize.cols || 6;
+                rows = classData.settings.gridSize.rows || 5;
+            } else {
+                // Calculate from student positions
+                const maxCol = Math.max(...useStudents.map(s => s.position?.col || 0));
+                const maxRow = Math.max(...useStudents.map(s => s.position?.row || 0));
+                cols = Math.max(cols, maxCol + 1);
+                rows = Math.max(rows, maxRow + 1);
+            }
+            
+            // Set grid columns
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(100px, 1fr))`;
+            
+            // Create position map
+            const posMap = {};
+            useStudents.forEach(s => {
+                const r = s.position?.row ?? Math.floor((s.id - 1) / cols);
+                const c = s.position?.col ?? (s.id - 1) % cols;
+                posMap[`${r}-${c}`] = s;
+            });
+            
+            // Render grid with empty placeholders
+            let html = '';
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const s = posMap[`${r}-${c}`];
+                    if (s) {
+                        const imgSrc = s.caricature || s.caricatures?.photo || 
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.firstName}`;
+                        const name = s.displayName || `${s.preferredName || s.firstName} ${s.lastInitial}.`;
+                        
+                        html += `
+                            <div class="student-card ${s.status || 'absent'}" onclick="toggleCheckin(${s.id})">
+                                <img class="student-avatar" src="${imgSrc}" alt="${name}">
+                                <div class="student-name">${name}</div>
+                            </div>`;
+                    } else {
+                        html += `<div class="empty-seat"></div>`;
+                    }
+                }
+            }
+            
+            grid.innerHTML = html;
+            fitGridToScreen();
         }
+        
+        function fitGridToScreen() {
+            const container = document.querySelector('.grid-container');
+            const grid = document.getElementById('attendanceGrid');
+            if (!container || !grid) return;
+            
+            // Reset zoom to calculate natural size
+            grid.style.transform = 'scale(1)';
+            
+            const containerWidth = container.clientWidth - 32;
+            const gridWidth = grid.scrollWidth;
+            
+            if (gridWidth > containerWidth) {
+                currentZoom = containerWidth / gridWidth;
+            } else {
+                currentZoom = 1;
+            }
+            
+            grid.style.transform = `scale(${currentZoom})`;
+        }
+        
+        function zoomGrid(delta) {
+            const grid = document.getElementById('attendanceGrid');
+            if (!grid) return;
+            
+            if (delta === 0) {
+                // Fit to screen
+                fitGridToScreen();
+            } else {
+                currentZoom = Math.max(0.3, Math.min(2, currentZoom + delta));
+                grid.style.transform = `scale(${currentZoom})`;
+            }
+        }
+        
+        window.addEventListener('resize', () => {
+            if (currentZoom <= 1) fitGridToScreen();
+        });
 
         function getStatusText(status) {
             switch(status) {
