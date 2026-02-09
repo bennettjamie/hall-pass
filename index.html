@@ -851,6 +851,7 @@
         <div class="context-menu-item" onclick="setStatus('late')">⚠️ Mark Late</div>
         <div class="context-menu-item" onclick="setStatus('absent')">❌ Mark Absent</div>
         <div class="context-menu-item" onclick="setStatus('excused')">📝 Mark Excused</div>
+        <div class="context-menu-item" onclick="clearStatus()">🔄 Clear (Reset)</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-note">
             <input type="text" id="contextMenuNote" placeholder="Add note..." onkeypress="if(event.key==='Enter')saveNote()">
@@ -1409,9 +1410,38 @@
             document.getElementById('contextMenuHeader').textContent = name;
             document.getElementById('contextMenuNote').value = student.note || '';
             
-            menu.style.left = event.clientX + 'px';
-            menu.style.top = event.clientY + 'px';
+            // Smart positioning - keep menu on screen
+            positionContextMenu(menu, event.clientX, event.clientY);
             menu.classList.add('open');
+        }
+        
+        function positionContextMenu(menu, x, y) {
+            // Temporarily show to get dimensions
+            menu.style.visibility = 'hidden';
+            menu.style.display = 'block';
+            const menuRect = menu.getBoundingClientRect();
+            menu.style.display = '';
+            menu.style.visibility = '';
+            
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            // Adjust X if menu would go off right edge
+            if (x + menuRect.width > viewportWidth - 10) {
+                x = viewportWidth - menuRect.width - 10;
+            }
+            
+            // Adjust Y if menu would go off bottom edge
+            if (y + menuRect.height > viewportHeight - 10) {
+                y = viewportHeight - menuRect.height - 10;
+            }
+            
+            // Ensure minimum values
+            x = Math.max(10, x);
+            y = Math.max(10, y);
+            
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
         }
         
         function closeContextMenu() {
@@ -2368,8 +2398,8 @@
                 x: event.offsetX - 50,
                 y: event.offsetY - 50
             };
-            menu.style.left = event.clientX + 'px';
-            menu.style.top = event.clientY + 'px';
+            // Smart positioning - keep menu on screen
+            positionContextMenu(menu, event.clientX, event.clientY);
             menu.classList.add('open');
         }
         
