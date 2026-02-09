@@ -2008,13 +2008,27 @@
             const cardWidth = 100;
             const cardHeight = 130;
             const padding = 20;
+            const gap = 15;
             
-            // Migrate positions
+            // Calculate optimal grid: prefer wider layouts (more columns)
+            // For 30 students: 6x5, for 35: 7x5, for 40: 8x5, etc.
+            const studentCount = students.length;
+            let cols = Math.min(10, Math.max(4, Math.ceil(Math.sqrt(studentCount * 1.5))));
+            let rows = Math.ceil(studentCount / cols);
+            
+            // Adjust canvas size to fit all students
+            const seatingEl = document.getElementById('seatingCanvas');
+            const neededWidth = padding * 2 + cols * (cardWidth + gap);
+            const neededHeight = padding * 2 + rows * (cardHeight + gap);
+            seatingEl.style.minWidth = neededWidth + 'px';
+            seatingEl.style.minHeight = neededHeight + 'px';
+            
+            // Migrate positions for students without positions
             students.forEach((s, idx) => {
                 if (!s.position || s.position.x === undefined) {
                     s.position = {
-                        x: padding + (idx % 6) * (cardWidth + 15),
-                        y: padding + Math.floor(idx / 6) * (cardHeight + 15)
+                        x: padding + (idx % cols) * (cardWidth + gap),
+                        y: padding + Math.floor(idx / cols) * (cardHeight + gap)
                     };
                 }
             });
@@ -2726,10 +2740,7 @@
                     status: 'unchecked',
                     caricature: finalPhoto,
                     caricatures: { photo: finalPhoto },
-                    position: addStudentPosition || {
-                        x: 20 + (students.length % 6) * 115,
-                        y: 20 + Math.floor(students.length / 6) * 145
-                    }
+                    position: addStudentPosition || calculateNewStudentPosition(students.length)
                 };
                 
                 students.push(newStudent);
@@ -3119,6 +3130,23 @@
                     miniCheckIn(id);
                     updatePopoutWindow();
                 }
+            };
+        }
+        
+        // Calculate position for a new student
+        function calculateNewStudentPosition(currentCount) {
+            const cardWidth = 100;
+            const cardHeight = 130;
+            const padding = 20;
+            const gap = 15;
+            
+            // Use same column calculation as renderCanvas
+            const totalCount = currentCount + 1;
+            let cols = Math.min(10, Math.max(4, Math.ceil(Math.sqrt(totalCount * 1.5))));
+            
+            return {
+                x: padding + (currentCount % cols) * (cardWidth + gap),
+                y: padding + Math.floor(currentCount / cols) * (cardHeight + gap)
             };
         }
         
