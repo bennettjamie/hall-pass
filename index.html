@@ -144,6 +144,90 @@
             gap: 24px;
         }
         
+        .date-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .date-display:hover {
+            background: var(--bg-hover);
+        }
+        
+        .date-day {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .date-full {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        
+        .schedule-type {
+            background: var(--accent);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .schedule-type.amfit {
+            background: #f59e0b;
+            color: black;
+        }
+        
+        .schedule-type.pmfit {
+            background: #8b5cf6;
+        }
+        
+        .schedule-type.custom {
+            background: #06b6d4;
+        }
+        
+        .class-name {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        /* Schedule Tabs */
+        .sched-tab.active {
+            background: var(--accent) !important;
+            color: white;
+        }
+        
+        .sched-panel {
+            display: none;
+        }
+        
+        .sched-panel.active {
+            display: block;
+        }
+        
+        .day-sched {
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: white;
+            border: 1px solid var(--border);
+            width: 120px;
+        }
+        
+        .class-assignment {
+            display: grid;
+            grid-template-columns: 100px 1fr 100px;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
         .period-badge {
             background: var(--accent);
             padding: 8px 16px;
@@ -1042,7 +1126,13 @@
     <!-- Status Bar -->
     <div class="status-bar">
         <div class="period-info">
+            <div class="date-display" id="dateDisplay" onclick="openSchedule()">
+                <span class="date-day" id="dateDay">Monday</span>
+                <span class="date-full" id="dateFull">Feb 10</span>
+                <span class="schedule-type" id="scheduleType">Regular</span>
+            </div>
             <div class="period-badge" onclick="openSchedule()" id="periodBadge">Period 1</div>
+            <div class="class-name" id="className" onclick="openSchedule()"></div>
             <div class="countdown pre-class" id="countdown">--:--</div>
             <div class="class-status" id="classStatus">Loading...</div>
         </div>
@@ -1300,60 +1390,187 @@
 
     <!-- Schedule Modal -->
     <div class="modal-overlay" id="scheduleModal" onclick="if(event.target===this)closeSchedule()">
-        <div class="modal">
+        <div class="modal" style="max-width:700px;">
             <div class="modal-header">
                 <h2>🕐 Schedule Settings</h2>
                 <button class="close-btn" onclick="closeSchedule()">✕</button>
             </div>
             <div class="modal-body">
-                <div class="setting-section">
-                    <h3>Today's Schedule</h3>
-                    <div class="schedule-grid">
-                        <div class="schedule-row">
-                            <label>Period:</label>
-                            <select id="schedPeriod" onchange="updateSchedulePreview()">
-                                <option value="1">Period 1</option>
-                                <option value="2">Period 2</option>
-                                <option value="3">Period 3</option>
-                                <option value="4">Period 4</option>
+                <!-- Tab Navigation -->
+                <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+                    <button class="btn btn-secondary sched-tab active" onclick="showSchedTab('today')">📅 Today</button>
+                    <button class="btn btn-secondary sched-tab" onclick="showSchedTab('weekly')">🗓️ Weekly Pattern</button>
+                    <button class="btn btn-secondary sched-tab" onclick="showSchedTab('classes')">📚 My Classes</button>
+                    <button class="btn btn-secondary sched-tab" onclick="showSchedTab('presets')">⚡ Presets</button>
+                </div>
+                
+                <!-- Today Tab -->
+                <div class="sched-panel active" id="schedPanelToday">
+                    <div class="setting-section">
+                        <h3>Today: <span id="schedTodayDate">Monday, Feb 10</span></h3>
+                        <div class="schedule-grid">
+                            <div class="schedule-row">
+                                <label>Schedule Type:</label>
+                                <select id="schedType" onchange="onSchedTypeChange()">
+                                    <option value="regular">Regular</option>
+                                    <option value="amfit">AM FIT</option>
+                                    <option value="pmfit">PM FIT</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="schedule-row">
+                                <label>Period:</label>
+                                <select id="schedPeriod" onchange="updateSchedulePreview()">
+                                    <option value="1">Period 1</option>
+                                    <option value="2">Period 2</option>
+                                    <option value="3">Period 3</option>
+                                    <option value="4">Period 4</option>
+                                </select>
+                            </div>
+                            <div class="schedule-row">
+                                <label>Class:</label>
+                                <select id="schedClass" onchange="onClassChange()">
+                                    <option value="">-- Select Class --</option>
+                                </select>
+                            </div>
+                            <div class="schedule-row">
+                                <label>Start:</label>
+                                <input type="time" id="schedStart" value="08:40" onchange="updateSchedulePreview()">
+                            </div>
+                            <div class="schedule-row">
+                                <label>End:</label>
+                                <input type="time" id="schedEnd" value="10:00" onchange="updateSchedulePreview()">
+                            </div>
+                        </div>
+                        <div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;font-size:0.85rem;">
+                            <div>🚪 Hall pass: <span id="hallpassWindow">8:50 AM - 9:50 AM</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Weekly Pattern Tab -->
+                <div class="sched-panel" id="schedPanelWeekly">
+                    <div class="setting-section">
+                        <h3>Weekly Pattern</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
+                            Set what schedule type applies to each day. The app will auto-detect based on this pattern.
+                        </p>
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;margin-bottom:8px;">Pattern Type:</label>
+                            <select id="weekPatternType" onchange="onWeekPatternTypeChange()" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
+                                <option value="simple">Same every week</option>
+                                <option value="biweekly">Week 1 / Week 2 (alternating)</option>
+                                <option value="cycle">Day cycle (1-2-3-4...)</option>
                             </select>
                         </div>
-                        <div class="schedule-row">
-                            <label>Start Time:</label>
-                            <input type="time" id="schedStart" value="08:40" onchange="updateSchedulePreview()">
+                        <div id="weekPatternSimple">
+                            <table style="width:100%;border-collapse:collapse;">
+                                <tr style="background:var(--bg-secondary);">
+                                    <th style="padding:10px;text-align:left;">Day</th>
+                                    <th style="padding:10px;text-align:left;">Schedule</th>
+                                </tr>
+                                <tr><td style="padding:8px;">Monday</td><td><select class="day-sched" data-day="mon"><option value="regular">Regular</option><option value="amfit">AM FIT</option><option value="pmfit">PM FIT</option><option value="noschool">No School</option></select></td></tr>
+                                <tr><td style="padding:8px;">Tuesday</td><td><select class="day-sched" data-day="tue"><option value="regular">Regular</option><option value="amfit">AM FIT</option><option value="pmfit" selected>PM FIT</option><option value="noschool">No School</option></select></td></tr>
+                                <tr><td style="padding:8px;">Wednesday</td><td><select class="day-sched" data-day="wed"><option value="regular">Regular</option><option value="amfit" selected>AM FIT</option><option value="pmfit">PM FIT</option><option value="noschool">No School</option></select></td></tr>
+                                <tr><td style="padding:8px;">Thursday</td><td><select class="day-sched" data-day="thu"><option value="regular">Regular</option><option value="amfit">AM FIT</option><option value="pmfit" selected>PM FIT</option><option value="noschool">No School</option></select></td></tr>
+                                <tr><td style="padding:8px;">Friday</td><td><select class="day-sched" data-day="fri"><option value="regular">Regular</option><option value="amfit" selected>AM FIT</option><option value="pmfit">PM FIT</option><option value="noschool">No School</option></select></td></tr>
+                            </table>
                         </div>
-                        <div class="schedule-row">
-                            <label>End Time:</label>
-                            <input type="time" id="schedEnd" value="10:00" onchange="updateSchedulePreview()">
+                        <div id="weekPatternBiweekly" style="display:none;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                                <div>
+                                    <h4 style="margin-bottom:8px;">Week 1</h4>
+                                    <div id="week1Pattern"></div>
+                                </div>
+                                <div>
+                                    <h4 style="margin-bottom:8px;">Week 2</h4>
+                                    <div id="week2Pattern"></div>
+                                </div>
+                            </div>
+                            <div style="margin-top:12px;padding:10px;background:var(--bg-secondary);border-radius:8px;font-size:0.85rem;">
+                                <label>Current week: </label>
+                                <select id="currentWeekNum" style="padding:4px;border-radius:4px;background:var(--bg-card);color:white;border:none;">
+                                    <option value="1">Week 1</option>
+                                    <option value="2">Week 2</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;font-size:0.85rem;">
-                        <div>🚪 Hall pass available: <span id="hallpassWindow">8:50 AM - 9:50 AM</span></div>
+                </div>
+                
+                <!-- My Classes Tab -->
+                <div class="sched-panel" id="schedPanelClasses">
+                    <div class="setting-section">
+                        <h3>My Classes</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
+                            Set up which class you teach at each period. The app will auto-load the right roster.
+                        </p>
+                        <div id="classAssignments">
+                            <div style="display:grid;grid-template-columns:100px 1fr 100px;gap:8px;align-items:center;margin-bottom:8px;">
+                                <strong>Period</strong>
+                                <strong>Class Name</strong>
+                                <strong>Roster</strong>
+                            </div>
+                            <div class="class-assignment" data-period="1">
+                                <span style="padding:8px;">Period 1</span>
+                                <input type="text" placeholder="e.g., CLE 10-003" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
+                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(1)">Load</button>
+                            </div>
+                            <div class="class-assignment" data-period="2">
+                                <span style="padding:8px;">Period 2</span>
+                                <input type="text" placeholder="e.g., CLE 10-004" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
+                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(2)">Load</button>
+                            </div>
+                            <div class="class-assignment" data-period="3">
+                                <span style="padding:8px;">Period 3</span>
+                                <input type="text" placeholder="e.g., Planning" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
+                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(3)">Load</button>
+                            </div>
+                            <div class="class-assignment" data-period="4">
+                                <span style="padding:8px;">Period 4</span>
+                                <input type="text" placeholder="e.g., CLE 10-005" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
+                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(4)">Load</button>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;">
+                            <p style="font-size:0.85rem;color:var(--text-secondary);">
+                                💡 Tip: Import each class roster from MyEd using the <strong>Settings → Create from MyEd</strong> tool, 
+                                then save each as a separate JSON file. Load them here by period.
+                            </p>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="setting-section">
-                    <h3>Save As</h3>
-                    <div class="pattern-select">
-                        <button class="pattern-btn active" onclick="setPattern('oneoff', this)">📅 One-off (just today)</button>
-                        <button class="pattern-btn" onclick="setPattern('regular', this)">🔄 Regular Pattern</button>
-                        <button class="pattern-btn" onclick="setPattern('special', this)">⭐ Special Pattern</button>
+                <!-- Presets Tab -->
+                <div class="sched-panel" id="schedPanelPresets">
+                    <div class="setting-section">
+                        <h3>Bell Schedule Presets</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
+                            Quick-load common bell schedules. Currently configured for Britannia Secondary.
+                        </p>
+                        <div style="display:grid;gap:12px;">
+                            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;cursor:pointer;" onclick="loadPreset('regular')">
+                                <div style="font-weight:600;margin-bottom:8px;">📗 Regular Day</div>
+                                <div style="font-size:0.85rem;color:var(--text-secondary);">P1: 8:40-10:00 • P2: 10:10-11:30 • P3: 12:15-1:35 • P4: 1:45-3:05</div>
+                            </div>
+                            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;cursor:pointer;" onclick="loadPreset('amfit')">
+                                <div style="font-weight:600;margin-bottom:8px;">🌅 AM FIT (Wed/Fri)</div>
+                                <div style="font-size:0.85rem;color:var(--text-secondary);">P1: 9:20-10:20 • P2: 10:30-11:30 • P3: 12:15-1:35 • P4: 1:45-3:05</div>
+                            </div>
+                            <div style="padding:16px;background:var(--bg-secondary);border-radius:12px;cursor:pointer;" onclick="loadPreset('pmfit')">
+                                <div style="font-weight:600;margin-bottom:8px;">🌆 PM FIT (Tue/Thu)</div>
+                                <div style="font-size:0.85rem;color:var(--text-secondary);">P1: 8:40-10:00 • P2: 10:10-11:30 • P3: 12:15-1:15 • P4: 1:25-2:25</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                            <h4 style="margin-bottom:12px;">Custom Preset</h4>
+                            <button class="btn btn-secondary" onclick="createCustomPreset()">+ Create New Preset</button>
+                        </div>
                     </div>
-                    <input type="text" id="patternName" placeholder="Pattern name (e.g., 'Assembly Day')" 
-                           style="display:none;margin-top:12px;width:100%;padding:10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
                 </div>
                 
-                <div class="setting-section">
-                    <h3>Quick Presets (Britannia)</h3>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-secondary" onclick="loadPreset('regular')">Regular Day</button>
-                        <button class="btn btn-secondary" onclick="loadPreset('amfit')">AM FIT (Wed/Fri)</button>
-                        <button class="btn btn-secondary" onclick="loadPreset('pmfit')">PM FIT (Tue/Thu)</button>
-                    </div>
-                </div>
-                
-                <div style="display:flex;gap:12px;margin-top:24px;">
-                    <button class="btn btn-primary" onclick="saveSchedule()">Save Schedule</button>
+                <div style="display:flex;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="saveSchedule()">💾 Save Schedule</button>
                     <button class="btn btn-secondary" onclick="closeSchedule()">Cancel</button>
                 </div>
             </div>
@@ -1613,16 +1830,69 @@
         }
         
         // ========== SCHEDULE ==========
+        let weeklyPattern = {
+            type: 'simple', // simple, biweekly, cycle
+            simple: { mon: 'regular', tue: 'pmfit', wed: 'amfit', thu: 'pmfit', fri: 'amfit' },
+            week1: { mon: 'regular', tue: 'pmfit', wed: 'amfit', thu: 'pmfit', fri: 'amfit' },
+            week2: { mon: 'regular', tue: 'pmfit', wed: 'amfit', thu: 'pmfit', fri: 'amfit' },
+            currentWeek: 1
+        };
+        
+        let classAssignments = {
+            1: { name: '', rosterId: null },
+            2: { name: '', rosterId: null },
+            3: { name: '', rosterId: null },
+            4: { name: '', rosterId: null }
+        };
+        
+        // Load saved patterns
+        const savedWeekly = localStorage.getItem('hallpass_weeklyPattern');
+        if (savedWeekly) {
+            try { weeklyPattern = JSON.parse(savedWeekly); } catch(e) {}
+        }
+        const savedClasses = localStorage.getItem('hallpass_classAssignments');
+        if (savedClasses) {
+            try { classAssignments = JSON.parse(savedClasses); } catch(e) {}
+        }
+        
         function openSchedule() {
+            // Update today's date display
+            const now = new Date();
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            document.getElementById('schedTodayDate').textContent = 
+                `${dayNames[now.getDay()]}, ${monthNames[now.getMonth()]} ${now.getDate()}`;
+            
+            // Load current values
             document.getElementById('schedPeriod').value = schedule.period;
             document.getElementById('schedStart').value = schedule.startTime;
             document.getElementById('schedEnd').value = schedule.endTime;
+            document.getElementById('schedType').value = schedule.scheduleType || 'regular';
+            
+            // Populate class dropdown
+            populateClassDropdown();
+            
+            // Load weekly pattern
+            loadWeeklyPatternUI();
+            
+            // Load class assignments
+            loadClassAssignmentsUI();
+            
             updateSchedulePreview();
+            showSchedTab('today');
             document.getElementById('scheduleModal').classList.add('open');
         }
         
         function closeSchedule() {
             document.getElementById('scheduleModal').classList.remove('open');
+        }
+        
+        function showSchedTab(tab) {
+            document.querySelectorAll('.sched-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.sched-panel').forEach(p => p.classList.remove('active'));
+            
+            document.querySelector(`.sched-tab[onclick*="${tab}"]`)?.classList.add('active');
+            document.getElementById('schedPanel' + tab.charAt(0).toUpperCase() + tab.slice(1))?.classList.add('active');
         }
         
         function updateSchedulePreview() {
@@ -1637,13 +1907,102 @@
                 `${formatTime(passStart)} - ${formatTime(passEnd)}`;
         }
         
-        function setPattern(pattern, btn) {
-            document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            schedule.pattern = pattern;
+        function onSchedTypeChange() {
+            const type = document.getElementById('schedType').value;
+            const period = parseInt(document.getElementById('schedPeriod').value);
             
-            const nameInput = document.getElementById('patternName');
-            nameInput.style.display = pattern === 'special' ? 'block' : 'none';
+            if (type !== 'custom' && presets[type] && presets[type][period]) {
+                document.getElementById('schedStart').value = presets[type][period].start;
+                document.getElementById('schedEnd').value = presets[type][period].end;
+                updateSchedulePreview();
+            }
+        }
+        
+        function onClassChange() {
+            const classSelect = document.getElementById('schedClass');
+            const className = classSelect.options[classSelect.selectedIndex]?.text || '';
+            // Could auto-load roster here
+        }
+        
+        function populateClassDropdown() {
+            const select = document.getElementById('schedClass');
+            select.innerHTML = '<option value="">-- Select Class --</option>';
+            
+            Object.entries(classAssignments).forEach(([period, data]) => {
+                if (data.name) {
+                    const opt = document.createElement('option');
+                    opt.value = period;
+                    opt.textContent = `P${period}: ${data.name}`;
+                    select.appendChild(opt);
+                }
+            });
+            
+            // Select current period's class
+            if (classAssignments[schedule.period]?.name) {
+                select.value = schedule.period;
+            }
+        }
+        
+        function loadWeeklyPatternUI() {
+            // Set pattern type
+            document.getElementById('weekPatternType').value = weeklyPattern.type;
+            onWeekPatternTypeChange();
+            
+            // Load simple pattern
+            document.querySelectorAll('.day-sched').forEach(sel => {
+                const day = sel.dataset.day;
+                sel.value = weeklyPattern.simple[day] || 'regular';
+            });
+            
+            // Set current week
+            const weekSelect = document.getElementById('currentWeekNum');
+            if (weekSelect) weekSelect.value = weeklyPattern.currentWeek || 1;
+        }
+        
+        function onWeekPatternTypeChange() {
+            const type = document.getElementById('weekPatternType').value;
+            document.getElementById('weekPatternSimple').style.display = type === 'simple' ? 'block' : 'none';
+            document.getElementById('weekPatternBiweekly').style.display = type === 'biweekly' ? 'block' : 'none';
+        }
+        
+        function loadClassAssignmentsUI() {
+            document.querySelectorAll('.class-assignment').forEach(row => {
+                const period = row.dataset.period;
+                const input = row.querySelector('.class-name-input');
+                if (input && classAssignments[period]) {
+                    input.value = classAssignments[period].name || '';
+                }
+            });
+        }
+        
+        function loadRosterForPeriod(period) {
+            // Open file picker to load a roster JSON for this period
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const data = JSON.parse(evt.target.result);
+                        // Save roster reference
+                        const className = document.querySelector(`.class-assignment[data-period="${period}"] .class-name-input`).value || `Period ${period}`;
+                        classAssignments[period] = {
+                            name: className,
+                            roster: data.students || data
+                        };
+                        localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+                        showToast(`Loaded roster for ${className}`);
+                    } catch (err) {
+                        showToast('Error loading roster file');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
         
         function loadPreset(preset) {
@@ -1652,36 +2011,120 @@
             if (times) {
                 document.getElementById('schedStart').value = times.start;
                 document.getElementById('schedEnd').value = times.end;
+                document.getElementById('schedType').value = preset;
                 updateSchedulePreview();
                 showToast('Loaded ' + preset + ' preset');
+                showSchedTab('today');
             }
         }
         
+        function createCustomPreset() {
+            const name = prompt('Enter preset name:');
+            if (!name) return;
+            // Would open a full preset editor - for now just show a message
+            showToast('Custom preset editor coming soon!');
+        }
+        
         function saveSchedule() {
+            // Save today's settings
             schedule.period = parseInt(document.getElementById('schedPeriod').value);
             schedule.startTime = document.getElementById('schedStart').value;
             schedule.endTime = document.getElementById('schedEnd').value;
-            schedule.patternName = document.getElementById('patternName').value;
+            schedule.scheduleType = document.getElementById('schedType').value;
             
             localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
             
-            // Save pattern if not one-off
-            if (schedule.pattern === 'regular' || schedule.pattern === 'special') {
-                const patterns = JSON.parse(localStorage.getItem('hallpass_patterns') || '{}');
-                const key = schedule.pattern === 'regular' 
-                    ? `regular_p${schedule.period}` 
-                    : schedule.patternName || 'special';
-                patterns[key] = { ...schedule };
-                localStorage.setItem('hallpass_patterns', JSON.stringify(patterns));
-            }
+            // Save weekly pattern
+            weeklyPattern.type = document.getElementById('weekPatternType').value;
+            document.querySelectorAll('.day-sched').forEach(sel => {
+                const day = sel.dataset.day;
+                weeklyPattern.simple[day] = sel.value;
+            });
+            const weekSelect = document.getElementById('currentWeekNum');
+            if (weekSelect) weeklyPattern.currentWeek = parseInt(weekSelect.value);
+            localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
             
+            // Save class assignments
+            document.querySelectorAll('.class-assignment').forEach(row => {
+                const period = row.dataset.period;
+                const input = row.querySelector('.class-name-input');
+                if (input) {
+                    if (!classAssignments[period]) classAssignments[period] = {};
+                    classAssignments[period].name = input.value;
+                }
+            });
+            localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+            
+            updateDateDisplay();
             updateStatusBar();
             closeSchedule();
             showToast('Schedule saved!');
         }
         
+        function getTodayScheduleType() {
+            const now = new Date();
+            const dayIndex = now.getDay(); // 0=Sun, 1=Mon, etc.
+            const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+            const dayKey = dayKeys[dayIndex];
+            
+            if (weeklyPattern.type === 'simple') {
+                return weeklyPattern.simple[dayKey] || 'regular';
+            } else if (weeklyPattern.type === 'biweekly') {
+                const pattern = weeklyPattern.currentWeek === 1 ? weeklyPattern.week1 : weeklyPattern.week2;
+                return pattern[dayKey] || 'regular';
+            }
+            return 'regular';
+        }
+        
+        function updateDateDisplay() {
+            const now = new Date();
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const dayEl = document.getElementById('dateDay');
+            const fullEl = document.getElementById('dateFull');
+            const typeEl = document.getElementById('scheduleType');
+            const classNameEl = document.getElementById('className');
+            
+            if (dayEl) dayEl.textContent = dayNames[now.getDay()];
+            if (fullEl) fullEl.textContent = `${monthNames[now.getMonth()]} ${now.getDate()}`;
+            
+            // Get schedule type for today
+            const todayType = getTodayScheduleType();
+            if (typeEl) {
+                typeEl.textContent = todayType === 'regular' ? 'Regular' : 
+                                    todayType === 'amfit' ? 'AM FIT' : 
+                                    todayType === 'pmfit' ? 'PM FIT' : 
+                                    todayType === 'noschool' ? 'No School' : todayType;
+                typeEl.className = 'schedule-type ' + todayType;
+            }
+            
+            // Show class name for current period
+            const className = classAssignments[schedule.period]?.name;
+            if (classNameEl) {
+                classNameEl.textContent = className || '';
+            }
+            
+            // Auto-apply schedule type if not manually overridden today
+            if (presets[todayType] && presets[todayType][schedule.period]) {
+                // Only auto-apply if schedule hasn't been manually set today
+                const lastSaved = localStorage.getItem('hallpass_schedule_date');
+                const today = getToday();
+                if (lastSaved !== today) {
+                    schedule.scheduleType = todayType;
+                    schedule.startTime = presets[todayType][schedule.period].start;
+                    schedule.endTime = presets[todayType][schedule.period].end;
+                    localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+                    localStorage.setItem('hallpass_schedule_date', today);
+                }
+            }
+        }
+        
         // ========== COUNTDOWN & STATUS ==========
         function updateStatusBar() {
+            // Update date display
+            updateDateDisplay();
+            
             const now = new Date();
             const start = parseTime(schedule.startTime);
             const end = parseTime(schedule.endTime);
@@ -1690,7 +2133,11 @@
             const countdown = document.getElementById('countdown');
             const classStatus = document.getElementById('classStatus');
             
+            // Show period and time range
+            const startFormatted = formatTime(start);
+            const endFormatted = formatTime(end);
             periodBadge.textContent = `Period ${schedule.period}`;
+            periodBadge.title = `${startFormatted} - ${endFormatted}`;
             
             if (now < start) {
                 // Pre-class
