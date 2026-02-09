@@ -1087,9 +1087,11 @@
                 <div class="setting-section">
                     <label style="display:block;margin-bottom:8px;font-weight:500;">Choose Avatar</label>
                     <div style="display:flex;gap:8px;margin-bottom:12px;">
-                        <button type="button" class="btn btn-secondary avatar-tab active" onclick="showAvatarTab('female')" style="padding:8px 16px;">👩 Female</button>
-                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('male')" style="padding:8px 16px;">👨 Male</button>
-                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('neutral')" style="padding:8px 16px;">🧑 Neutral</button>
+                        <button type="button" class="btn btn-secondary avatar-tab active" onclick="showAvatarTab('cartoon')" style="padding:6px 12px;font-size:13px;">🎨 Cartoon</button>
+                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('modern')" style="padding:6px 12px;font-size:13px;">✨ Modern</button>
+                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('playful')" style="padding:6px 12px;font-size:13px;">😊 Playful</button>
+                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('pixel')" style="padding:6px 12px;font-size:13px;">🎮 Pixel</button>
+                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('classic')" style="padding:6px 12px;font-size:13px;">🎭 Classic</button>
                     </div>
                     <div id="avatarGrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-height:180px;overflow-y:auto;padding:8px;background:var(--bg-secondary);border-radius:12px;">
                         <!-- Avatars loaded dynamically -->
@@ -2680,53 +2682,116 @@
             renderStudentManagerList();
         }
         
-        // Avatar options
+        // Avatar options - organized by style/vibe with diverse seeds
         const avatarOptions = {
-            female: [
+            cartoon: [
+                // Avataaars - Bitmoji-like, very popular
+                { seed: 'Aiden', style: 'avataaars' },
+                { seed: 'Bella', style: 'avataaars' },
+                { seed: 'Carlos', style: 'avataaars' },
+                { seed: 'Diana', style: 'avataaars' },
+                { seed: 'Ethan', style: 'avataaars' },
+                { seed: 'Fatima', style: 'avataaars' },
+                { seed: 'Kai', style: 'avataaars' },
+                { seed: 'Luna', style: 'avataaars' },
+                { seed: 'Marcus', style: 'avataaars' },
+                { seed: 'Nadia', style: 'avataaars' },
+                { seed: 'Omar', style: 'avataaars' },
+                { seed: 'Priya', style: 'avataaars' },
+                // Adventurer - cute cartoon style
+                { seed: 'River', style: 'adventurer' },
+                { seed: 'Sage', style: 'adventurer' },
+                { seed: 'Tyler', style: 'adventurer' },
+                { seed: 'Uma', style: 'adventurer' },
+                { seed: 'Victor', style: 'adventurer' },
+                { seed: 'Willow', style: 'adventurer' }
+            ],
+            modern: [
+                // Micah - clean modern illustrated
+                { seed: 'Alex', style: 'micah' },
+                { seed: 'Brooklyn', style: 'micah' },
+                { seed: 'Charlie', style: 'micah' },
+                { seed: 'Dakota', style: 'micah' },
+                { seed: 'Ellis', style: 'micah' },
+                { seed: 'Finley', style: 'micah' },
+                { seed: 'Gray', style: 'micah' },
+                { seed: 'Harper', style: 'micah' },
+                { seed: 'Indigo', style: 'micah' },
+                { seed: 'Jordan', style: 'micah' },
+                // Notionists - Notion-style clean
+                { seed: 'Kira', style: 'notionists' },
+                { seed: 'Leo', style: 'notionists' },
+                { seed: 'Morgan', style: 'notionists' },
+                { seed: 'Noah', style: 'notionists' },
+                { seed: 'Ocean', style: 'notionists' },
+                { seed: 'Phoenix', style: 'notionists' },
+                { seed: 'Quinn', style: 'notionists' },
+                { seed: 'Reese', style: 'notionists' }
+            ],
+            playful: [
+                // Big Smile - happy fun faces
+                { seed: 'Sunny', style: 'big-smile' },
+                { seed: 'Happy', style: 'big-smile' },
+                { seed: 'Joy', style: 'big-smile' },
+                { seed: 'Bliss', style: 'big-smile' },
+                { seed: 'Spark', style: 'big-smile' },
+                { seed: 'Glow', style: 'big-smile' },
+                { seed: 'Shine', style: 'big-smile' },
+                { seed: 'Bright', style: 'big-smile' },
+                { seed: 'Lucky', style: 'big-smile' },
+                { seed: 'Star', style: 'big-smile' },
+                // Fun Emoji - expressive emoji faces
+                { seed: 'Chill', style: 'fun-emoji' },
+                { seed: 'Vibe', style: 'fun-emoji' },
+                { seed: 'Cool', style: 'fun-emoji' },
+                { seed: 'Rad', style: 'fun-emoji' },
+                { seed: 'Epic', style: 'fun-emoji' },
+                { seed: 'Ace', style: 'fun-emoji' },
+                { seed: 'Zen', style: 'fun-emoji' },
+                { seed: 'Wave', style: 'fun-emoji' }
+            ],
+            pixel: [
+                // Pixel Art - retro gamer style
+                { seed: 'Player1', style: 'pixel-art' },
+                { seed: 'Player2', style: 'pixel-art' },
+                { seed: 'Gamer', style: 'pixel-art' },
+                { seed: 'Hero', style: 'pixel-art' },
+                { seed: 'Legend', style: 'pixel-art' },
+                { seed: 'Boss', style: 'pixel-art' },
+                { seed: 'Ninja', style: 'pixel-art' },
+                { seed: 'Knight', style: 'pixel-art' },
+                { seed: 'Mage', style: 'pixel-art' },
+                { seed: 'Rogue', style: 'pixel-art' },
+                { seed: 'Scout', style: 'pixel-art' },
+                { seed: 'Tank', style: 'pixel-art' },
+                { seed: 'Healer', style: 'pixel-art' },
+                { seed: 'Ranger', style: 'pixel-art' },
+                { seed: 'Mystic', style: 'pixel-art' },
+                { seed: 'Champion', style: 'pixel-art' }
+            ],
+            classic: [
+                // Lorelei - illustrated portraits
                 { seed: 'Emma', style: 'lorelei' },
-                { seed: 'Olivia', style: 'lorelei' },
-                { seed: 'Sophia', style: 'lorelei' },
-                { seed: 'Ava', style: 'lorelei' },
-                { seed: 'Isabella', style: 'lorelei' },
-                { seed: 'Mia', style: 'lorelei' },
-                { seed: 'Luna', style: 'lorelei' },
-                { seed: 'Chloe', style: 'lorelei' },
-                { seed: 'Aria', style: 'lorelei' },
-                { seed: 'Maya', style: 'lorelei' },
-                { seed: 'Zoe', style: 'lorelei' },
-                { seed: 'Lily', style: 'lorelei' }
-            ],
-            male: [
                 { seed: 'James', style: 'lorelei' },
+                { seed: 'Sophia', style: 'lorelei' },
                 { seed: 'William', style: 'lorelei' },
-                { seed: 'Oliver', style: 'lorelei' },
+                { seed: 'Olivia', style: 'lorelei' },
                 { seed: 'Benjamin', style: 'lorelei' },
+                { seed: 'Ava', style: 'lorelei' },
                 { seed: 'Lucas', style: 'lorelei' },
+                { seed: 'Mia', style: 'lorelei' },
                 { seed: 'Henry', style: 'lorelei' },
-                { seed: 'Alexander', style: 'lorelei' },
-                { seed: 'Michael', style: 'lorelei' },
-                { seed: 'Daniel', style: 'lorelei' },
-                { seed: 'Matthew', style: 'lorelei' },
-                { seed: 'David', style: 'lorelei' },
-                { seed: 'Joseph', style: 'lorelei' }
-            ],
-            neutral: [
-                { seed: 'Alex', style: 'bottts' },
-                { seed: 'Jordan', style: 'bottts' },
-                { seed: 'Taylor', style: 'bottts' },
-                { seed: 'Morgan', style: 'bottts' },
-                { seed: 'Casey', style: 'bottts' },
-                { seed: 'Riley', style: 'bottts' },
-                { seed: 'Quinn', style: 'thumbs' },
-                { seed: 'Avery', style: 'thumbs' },
-                { seed: 'Peyton', style: 'thumbs' },
-                { seed: 'Cameron', style: 'thumbs' },
-                { seed: 'Drew', style: 'thumbs' },
-                { seed: 'Sage', style: 'thumbs' }
+                // Open Peeps - hand-drawn trendy
+                { seed: 'Ash', style: 'open-peeps' },
+                { seed: 'Blake', style: 'open-peeps' },
+                { seed: 'Casey', style: 'open-peeps' },
+                { seed: 'Drew', style: 'open-peeps' },
+                { seed: 'Emery', style: 'open-peeps' },
+                { seed: 'Frankie', style: 'open-peeps' }
             ]
         };
         
-        let currentAvatarTab = 'female';
+        let currentAvatarTab = 'cartoon';
         
         function getAvatarUrl(seed, style = 'lorelei') {
             return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
@@ -2741,7 +2806,7 @@
         
         function renderAvatarGrid() {
             const grid = document.getElementById('avatarGrid');
-            const options = avatarOptions[currentAvatarTab] || avatarOptions.female;
+            const options = avatarOptions[currentAvatarTab] || avatarOptions.cartoon;
             const selectedAvatar = document.getElementById('editSelectedAvatar').value;
             
             grid.innerHTML = options.map(opt => {
@@ -2775,7 +2840,7 @@
             document.getElementById('editLastName').value = '';
             document.getElementById('editPreferredName').value = '';
             document.getElementById('editPhotoUrl').value = '';
-            currentAvatarTab = 'female';
+            currentAvatarTab = 'cartoon';
             document.querySelectorAll('.avatar-tab').forEach((btn, i) => {
                 btn.classList.toggle('active', i === 0);
             });
@@ -2802,7 +2867,7 @@
                 document.getElementById('editPhotoUrl').value = existingPhoto;
             }
             
-            currentAvatarTab = 'female';
+            currentAvatarTab = 'cartoon';
             document.querySelectorAll('.avatar-tab').forEach((btn, i) => {
                 btn.classList.toggle('active', i === 0);
             });
