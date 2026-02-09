@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hall Pass</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #252540;
+            --bg-hover: #2d2d4a;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --border: rgba(255,255,255,0.1);
+            --shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ========== NAVIGATION ========== */
+        .nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo-icon {
+            font-size: 1.6rem;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .nav-tab {
+            padding: 20px 16px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .nav-tab:hover {
+            color: var(--text-primary);
+        }
+        
+        .nav-tab.active {
+            color: var(--accent-light);
+            border-bottom-color: var(--accent);
+        }
+        
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .class-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+        
+        .class-selector select {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        
+        .class-selector select:focus {
+            outline: none;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        .icon-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        /* ========== STATUS BAR ========== */
+        .status-bar {
+            background: var(--bg-secondary);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .period-info {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        
+        .period-badge {
+            background: var(--accent);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .countdown {
+            font-size: 2rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .countdown.pre-class {
+            color: var(--success);
+        }
+        
+        .countdown.in-class {
+            color: var(--text-secondary);
+        }
+        
+        .class-status {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat.ontime .stat-value { color: var(--success); }
+        .stat.late .stat-value { color: var(--warning); }
+        .stat.absent .stat-value { color: var(--danger); }
+
+        /* ========== MAIN CONTENT ========== */
+        .main {
+            padding: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .view {
+            display: none;
+        }
+        
+        .view.active {
+            display: block;
+        }
+
+        /* ========== SEATING CANVAS ========== */
+        .seating-container {
+            padding: 16px;
+            height: calc(100vh - 140px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .seating-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .toolbar-btn {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .toolbar-btn:hover {
+            background: var(--bg-card);
+        }
+        
+        .toolbar-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        
+        .toolbar-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        
+        .toolbar-btn.primary:hover {
+            background: var(--accent-light);
+        }
+        
+        .seating-canvas {
+            flex: 1;
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 2px solid var(--border);
+            overflow: hidden;
+            min-height: 400px;
+        }
+        
+        .seating-canvas.edit-mode {
+            border-color: var(--accent);
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 50px,
+                rgba(99, 102, 241, 0.05) 50px,
+                rgba(99, 102, 241, 0.05) 51px
+            ),
+            repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 50px,
+                rgba(99, 102, 241, 0.05) 50px,
+                rgba(99, 102, 241, 0.05) 51px
+            ),
+            var(--bg-secondary);
+        }
+        
+        .canvas-student {
+            position: absolute;
+            width: 100px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: box-shadow 0.2s, border-color 0.2s;
+            border: 2px solid transparent;
+            user-select: none;
+        }
+        
+        .canvas-student:hover {
+            box-shadow: var(--shadow);
+        }
+        
+        .edit-mode .canvas-student {
+            cursor: move;
+        }
+        
+        .edit-mode .canvas-student:hover {
+            border-color: var(--accent);
+        }
+        
+        .canvas-student.dragging {
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            opacity: 0.9;
+        }
+        
+        .canvas-student.checked-in {
+            border-color: var(--success);
+            background: rgba(34, 197, 94, 0.15);
+        }
+        
+        .canvas-student.late {
+            border-color: var(--warning);
+            background: rgba(245, 158, 11, 0.15);
+        }
+        
+        .canvas-student .student-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 6px;
+            border: 3px solid var(--border);
+        }
+        
+        .canvas-student.checked-in .student-avatar {
+            border-color: var(--success);
+        }
+        
+        .canvas-student.late .student-avatar {
+            border-color: var(--warning);
+        }
+        
+        .canvas-student .student-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Group colors overlay */
+        .canvas-student.group-1 { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.3); }
+        .canvas-student.group-2 { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.3); }
+        .canvas-student.group-3 { border-color: #eab308; box-shadow: 0 0 0 3px rgba(234,179,8,0.3); }
+        .canvas-student.group-4 { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.3); }
+        .canvas-student.group-5 { border-color: #06b6d4; box-shadow: 0 0 0 3px rgba(6,182,212,0.3); }
+        .canvas-student.group-6 { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.3); }
+        .canvas-student.group-7 { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.3); }
+        .canvas-student.group-8 { border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236,72,153,0.3); }
+        
+        .group-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: white;
+        }
+        
+        /* Legacy grid support */
+        .attendance-grid {
+            display: grid;
+            gap: 12px;
+            transform-origin: top left;
+            transition: transform 0.2s;
+        }
+        
+        .student-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .student-card:hover {
+            transform: scale(1.02);
+            box-shadow: var(--shadow);
+        }
+        
+        .student-card.checked-in {
+            border-color: var(--success);
+            background: rgba(34, 197, 94, 0.15);
+        }
+        
+        .student-card.late {
+            border-color: var(--warning);
+            background: rgba(245, 158, 11, 0.15);
+        }
+        
+        .student-card.absent {
+            opacity: 0.7;
+        }
+        
+        .student-card.withdrawn {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        
+        .empty-seat {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            opacity: 0.3;
+        }
+        
+        .student-avatar {
+            width: 85%;
+            max-width: 120px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 6px;
+            border: 3px solid var(--border);
+        }
+        
+        .student-card.checked-in .student-avatar {
+            border-color: var(--success);
+        }
+        
+        .student-card.late .student-avatar {
+            border-color: var(--warning);
+        }
+        
+        .student-card.checked-in .student-avatar {
+            border-color: var(--success);
+        }
+        
+        .student-card.late .student-avatar {
+            border-color: var(--warning);
+        }
+        
+        .student-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+        
+        .student-status {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .student-card.checked-in .student-status {
+            color: var(--success);
+        }
+        
+        .student-card.late .student-status {
+            color: var(--warning);
+        }
+
+        /* ========== HALL PASS VIEW ========== */
+        .hall-pass-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 24px;
+        }
+        
+        .hall-pass-main {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+        }
+        
+        .current-pass {
+            margin-bottom: 32px;
+        }
+        
+        .current-pass h3 {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+        
+        .pass-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--accent);
+            margin-bottom: 16px;
+        }
+        
+        .pass-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .pass-timer {
+            font-size: 3rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--success);
+        }
+        
+        .pass-timer.warning {
+            color: var(--warning);
+        }
+        
+        .pass-timer.overdue {
+            color: var(--danger);
+        }
+        
+        .pass-reason {
+            display: inline-block;
+            background: var(--bg-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 12px;
+        }
+        
+        .no-pass {
+            color: var(--text-secondary);
+            padding: 60px 0;
+        }
+        
+        .hall-pass-queue {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 24px;
+        }
+        
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .queue-title {
+            font-weight: 600;
+        }
+        
+        .queue-count {
+            background: var(--bg-secondary);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+        
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .queue-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .queue-info {
+            flex: 1;
+        }
+        
+        .queue-name {
+            font-weight: 500;
+        }
+        
+        .queue-reason {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* ========== SETUP VIEW ========== */
+        .setup-container {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .setup-header {
+            margin-bottom: 40px;
+        }
+        
+        .setup-header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        
+        .setup-header p {
+            color: var(--text-secondary);
+        }
+        
+        .setup-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        
+        .setup-card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 48px 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.05);
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        .upload-text {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .upload-hint {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-light);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* ========== STYLE SELECTOR ========== */
+        .style-selector {
+            position: relative;
+        }
+        
+        .style-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: none;
+            border-radius: 10px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .style-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 180px;
+            box-shadow: var(--shadow);
+            display: none;
+            z-index: 200;
+        }
+        
+        .style-dropdown.open {
+            display: block;
+        }
+        
+        .style-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .style-option:hover {
+            background: var(--bg-hover);
+        }
+        
+        .style-option.active {
+            background: var(--accent);
+        }
+
+        /* ========== GROUPS ========== */
+        .groups-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .group-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+            min-width: 200px;
+            max-width: 280px;
+        }
+        
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .group-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .group-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+        
+        .group-members {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .group-member {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+        }
+        
+        .group-member img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .group-member .name {
+            font-weight: 500;
+        }
+        
+        .no-groups {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .no-groups h3 {
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .hall-pass-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-tabs {
+                display: none;
+            }
+            
+            .attendance-grid {
+                gap: 8px;
+            }
+            
+            .student-card {
+                padding: 6px;
+            }
+            
+            .student-name {
+                font-size: 0.75rem;
+            }
+            
+            .zoom-controls {
+                margin-bottom: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-left">
+            <div class="logo">
+                <span class="logo-icon">🎟️</span>
+                <span>Hall Pass</span>
+            </div>
+            <div class="nav-tabs">
+                <div class="nav-tab active" onclick="showView('attendance')">📋 Attendance</div>
+                <div class="nav-tab" onclick="showView('hallpass')">🚪 Hall Pass</div>
+                <div class="nav-tab" onclick="showView('groups')">👥 Groups</div>
+                <div class="nav-tab" onclick="showView('reports')">📊 Reports</div>
+            </div>
+        </div>
+        <div class="nav-right">
+            <div class="class-selector">
+                <select id="periodSelect">
+                    <option>Period 1</option>
+                    <option>Period 2</option>
+                    <option>Period 3</option>
+                    <option>Period 4</option>
+                </select>
+                <span style="color: var(--text-secondary)">—</span>
+                <select id="classSelect">
+                    <option>CLE 10 - Block 4</option>
+                </select>
+            </div>
+            <div class="style-selector">
+                <button class="style-btn" onclick="toggleStyleDropdown()">
+                    <span id="currentStyleEmoji">📷</span>
+                    <span id="currentStyleName">Photo</span>
+                    <span>▾</span>
+                </button>
+                <div class="style-dropdown" id="styleDropdown">
+                    <div class="style-option active" onclick="setStyle('photo', '📷', 'Photo')">📷 Photo</div>
+                    <div class="style-option" onclick="setStyle('line-art', '🎨', 'Line Art')">🎨 Line Art</div>
+                    <div class="style-option" onclick="setStyle('disney', '🏰', 'Disney')">🏰 Disney</div>
+                    <div class="style-option" onclick="setStyle('anime', '🌸', 'Anime')">🌸 Anime</div>
+                    <div class="style-option" onclick="setStyle('comic-book', '📰', 'Comic')">📰 Comic</div>
+                    <div class="style-option" onclick="setStyle('pixel-art', '🎮', 'Pixel')">🎮 Pixel</div>
+                </div>
+            </div>
+            <button class="icon-btn" title="Settings" onclick="openSettings()">⚙️</button>
+            <button class="icon-btn" title="Help" onclick="openHelp()">❓</button>
+        </div>
+    </nav>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="period-info">
+            <div class="period-badge">Period 2</div>
+            <div class="countdown pre-class" id="countdown">8:32</div>
+            <div class="class-status">Class starts in 8 minutes</div>
+        </div>
+        <div class="stats">
+            <div class="stat ontime">
+                <div class="stat-value">18</div>
+                <div class="stat-label">On Time</div>
+            </div>
+            <div class="stat late">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Late</div>
+            </div>
+            <div class="stat absent">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Absent</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Attendance View -->
+        <div class="view active" id="attendanceView">
+            <div class="seating-container">
+                <div class="seating-toolbar">
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" id="editModeBtn" onclick="toggleEditMode()">✏️ Edit Layout</button>
+                        <button class="toolbar-btn" id="setHomeBtn" onclick="setHomePositions()" style="display:none;">🏠 Set as Home</button>
+                        <button class="toolbar-btn" id="resetHomeBtn" onclick="resetToHome()" style="display:none;">↩️ Reset</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" onclick="zoomCanvas(-0.1)">➖</button>
+                        <button class="toolbar-btn" onclick="zoomCanvas(0)">Fit</button>
+                        <button class="toolbar-btn" onclick="zoomCanvas(0.1)">➕</button>
+                    </div>
+                </div>
+                <div class="seating-canvas" id="seatingCanvas">
+                    <!-- Students will be rendered here as absolutely positioned elements -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Hall Pass View -->
+        <div class="view" id="hallpassView">
+            <div class="hall-pass-layout">
+                <div class="hall-pass-main">
+                    <div class="current-pass">
+                        <h3>Currently Out</h3>
+                        <img class="pass-avatar" src="" alt="" id="passAvatar">
+                        <div class="pass-name" id="passName">Ahmad A.</div>
+                        <div class="pass-timer" id="passTimer">4:32</div>
+                        <div class="pass-reason">🚻 Washroom</div>
+                    </div>
+                </div>
+                <div class="hall-pass-queue">
+                    <div class="queue-header">
+                        <span class="queue-title">Queue</span>
+                        <span class="queue-count">1/2</span>
+                    </div>
+                    <div id="queueList">
+                        <div class="queue-item">
+                            <img class="queue-avatar" src="" alt="">
+                            <div class="queue-info">
+                                <div class="queue-name">Jett E.</div>
+                                <div class="queue-reason">💧 Water</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup View (First Time) -->
+        <div class="view" id="setupView">
+            <div class="setup-container">
+                <div class="setup-header">
+                    <h1>Welcome to Hall Pass 👋</h1>
+                    <p>Let's get your class set up</p>
+                </div>
+                
+                <div class="setup-card">
+                    <h2>📥 Import Class</h2>
+                    <div class="upload-zone" onclick="document.getElementById('importFile').click()">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">Drop your class file here</div>
+                        <div class="upload-hint">Accepts JSON export from Hall Pass</div>
+                    </div>
+                    <input type="file" id="importFile" accept=".json" style="display:none">
+                </div>
+                
+                <div class="setup-card">
+                    <h2>📸 From Seating Chart</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                        Upload a PDF seating chart from MyEd BC and we'll extract students automatically.
+                    </p>
+                    <button class="btn btn-secondary">Upload PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Groups View -->
+        <div class="view" id="groupsView">
+            <div class="setup-container" style="max-width: 1000px;">
+                <div style="margin-bottom:24px;">
+                    <h2 style="margin-bottom:16px;">👥 Quick Groups</h2>
+                    
+                    <!-- Groups OF N -->
+                    <div style="margin-bottom:16px;">
+                        <div style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:8px;">Groups of:</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary" onclick="makeGroups(2)">Pairs</button>
+                            <button class="btn btn-secondary" onclick="makeGroups(3)">3s</button>
+                            <button class="btn btn-secondary" onclick="makeGroups(4)">4s</button>
+                            <button class="btn btn-secondary" onclick="makeGroups(5)">5s</button>
+                            <button class="btn btn-secondary" onclick="makeGroups(6)">6s</button>
+                            <button class="btn btn-secondary" onclick="promptCustomGroupSize()">Custom...</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Divide INTO N groups -->
+                    <div style="margin-bottom:16px;">
+                        <div style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:8px;">Divide class into:</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary" onclick="divideInto(2)">½ Halves</button>
+                            <button class="btn btn-secondary" onclick="divideInto(3)">⅓ Thirds</button>
+                            <button class="btn btn-secondary" onclick="divideInto(4)">¼ Quarters</button>
+                            <button class="btn btn-secondary" onclick="promptCustomDivision()">Custom...</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border);">
+                        <button class="btn btn-primary" onclick="shuffleGroups()">🔀 Re-Shuffle</button>
+                        <button class="btn btn-secondary" onclick="showGroupsOnSeating()">👀 Show on Seating</button>
+                    </div>
+                </div>
+                
+                <div id="groupsContainer" class="groups-container"></div>
+                
+                <div style="margin-top:24px;display:flex;gap:12px;">
+                    <button class="btn btn-secondary" onclick="showView('attendance')">← Back to Seating</button>
+                    <button class="btn btn-secondary" onclick="clearGroups()">Clear Groups</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports View -->
+        <div class="view" id="reportsView">
+            <div class="setup-container">
+                <h2>📊 Reports</h2>
+                <p style="color: var(--text-secondary);">Coming soon - weekly summaries, trends, and student progress.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>⚙️ Settings</h2>
+                <button class="close-btn" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-section">
+                    <h3>📥 Import Class</h3>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px;">Choose how to import your class list:</p>
+                    
+                    <a href="processor.html?mode=paste" class="btn btn-primary" style="display:block;text-decoration:none;margin-bottom:8px;text-align:center;">
+                        ✨ Paste Text <span style="opacity:0.7;font-size:0.8rem;">(Best)</span>
+                    </a>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;padding-left:8px;">Copy from MyEd roster - fastest & most accurate</p>
+                    
+                    <a href="processor.html?mode=pdf" class="btn btn-secondary" style="display:block;text-decoration:none;margin-bottom:8px;text-align:center;">
+                        📄 Class List PDF <span style="opacity:0.7;font-size:0.8rem;">(Better)</span>
+                    </a>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;padding-left:8px;">Upload PDF - cleaner than screenshot</p>
+                    
+                    <a href="processor.html?mode=screenshot" class="btn btn-secondary" style="display:block;text-decoration:none;margin-bottom:8px;text-align:center;">
+                        📸 Screenshot <span style="opacity:0.7;font-size:0.8rem;">(May need edits)</span>
+                    </a>
+                    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;padding-left:8px;">Screenshot class list - OCR may need corrections</p>
+                    
+                    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px;">
+                        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">Or import existing backup:</p>
+                        <div class="upload-zone" onclick="document.getElementById('settingsImportFile').click()" style="padding:12px;">
+                            <div class="upload-text" style="font-size:0.85rem;">📁 Import JSON backup</div>
+                        </div>
+                        <input type="file" id="settingsImportFile" accept=".json" style="display:none" onchange="handleImport(event)">
+                    </div>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>🎨 Avatar Style</h3>
+                    <select id="styleSelect" onchange="setStyleFromSelect()">
+                        <option value="photo">📷 Photo</option>
+                        <option value="line-art">🎨 Line Art</option>
+                        <option value="disney">🏰 Disney</option>
+                        <option value="anime">🌸 Anime</option>
+                        <option value="comic-book">📰 Comic</option>
+                        <option value="pixel-art">🎮 Pixel</option>
+                    </select>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>📤 Export Data</h3>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="exportData('json')">💾 JSON</button>
+                        <button class="btn btn-secondary" onclick="exportData('csv')">📊 CSV</button>
+                        <button class="btn btn-secondary" onclick="exportData('xlsx')">📗 Excel</button>
+                    </div>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>🔄 Start Fresh</h3>
+                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">Clear current class and start over</p>
+                    <button class="btn btn-danger" onclick="startFresh()">Clear Class Data</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal" onclick="if(event.target===this)closeHelp()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>❓ How to Use Hall Pass</h2>
+                <button class="close-btn" onclick="closeHelp()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h3>🚀 Getting Started</h3>
+                    <ol>
+                        <li>Click ⚙️ Settings → Import Class</li>
+                        <li>Upload your class JSON file</li>
+                        <li>Students will appear in the grid</li>
+                    </ol>
+                </div>
+                <div class="help-section">
+                    <h3>📋 Taking Attendance</h3>
+                    <ol>
+                        <li>Students tap their face when they arrive</li>
+                        <li>Green border = On time</li>
+                        <li>Orange border = Late (after bell)</li>
+                        <li>Gray = Not checked in yet</li>
+                    </ol>
+                </div>
+                <div class="help-section">
+                    <h3>🚪 Hall Pass</h3>
+                    <ol>
+                        <li>Click "Hall Pass" tab</li>
+                        <li>Student taps their card to request</li>
+                        <li>Timer tracks how long they're out</li>
+                        <li>Max 1 out, 2 in queue</li>
+                    </ol>
+                </div>
+                <div class="help-section">
+                    <h3>🎨 Fun Features</h3>
+                    <ul>
+                        <li>Click style dropdown to change avatar art</li>
+                        <li>Some students have multiple art styles!</li>
+                        <li>Switch styles weekly for variety</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.open {
+            display: flex;
+        }
+        .modal {
+            background: var(--bg-card);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-header h2 {
+            font-size: 1.2rem;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .setting-section, .help-section {
+            margin-bottom: 24px;
+        }
+        .setting-section h3, .help-section h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        .setting-section p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .setting-section select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        .help-section ol, .help-section ul {
+            margin-left: 20px;
+            color: var(--text-secondary);
+        }
+        .help-section li {
+            margin-bottom: 8px;
+        }
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        .upload-text {
+            color: var(--text-secondary);
+        }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--success);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            z-index: 2000;
+            display: none;
+        }
+        .toast.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    </style>
+
+    <div class="toast" id="toast">✓ Class imported successfully!</div>
+
+    <script>
+        // App state
+        let students = [];
+        let classData = null;
+        let currentStyle = 'photo';
+
+        // Demo data (shown when no class imported)
+        const demoStudents = [
+            { id: 1, firstName: 'Ahmad', lastInitial: 'A', status: 'ontime' },
+            { id: 2, firstName: 'Ariel', lastInitial: 'C', status: 'withdrawn' },
+            { id: 3, firstName: 'Arin', lastInitial: 'K', status: 'ontime' },
+            { id: 4, firstName: 'Moqadasa', lastInitial: 'N', status: 'late' },
+            { id: 5, firstName: 'Ilya', lastInitial: 'P', status: 'absent' },
+            { id: 6, firstName: 'Alan', lastInitial: 'Z', status: 'ontime' },
+            { id: 7, firstName: 'Naiel', lastInitial: 'A', status: 'ontime' },
+            { id: 8, firstName: 'Jett', lastInitial: 'E', status: 'ontime' },
+        ];
+
+        function showView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            
+            const view = document.getElementById(viewName + 'View');
+            if (view) view.classList.add('active');
+            
+            // Update nav tabs
+            document.querySelectorAll('.nav-tab').forEach(t => {
+                if (t.textContent.toLowerCase().includes(viewName) || 
+                    (viewName === 'attendance' && t.textContent.includes('Attendance')) ||
+                    (viewName === 'hallpass' && t.textContent.includes('Hall Pass')) ||
+                    (viewName === 'groups' && t.textContent.includes('Groups')) ||
+                    (viewName === 'reports' && t.textContent.includes('Reports'))) {
+                    t.classList.add('active');
+                }
+            });
+            
+            // Render groups if showing groups view
+            if (viewName === 'groups') {
+                renderGroups();
+            }
+        }
+        
+        // ========== GROUPING ==========
+        let currentGroups = [];
+        const groupColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+        
+        function makeGroups(size) {
+            const students = getActiveStudents();
+            if (students.length === 0) {
+                alert('No students loaded. Import a class first.');
+                return;
+            }
+            
+            // Shuffle students
+            const shuffled = [...students].sort(() => Math.random() - 0.5);
+            
+            // Create groups
+            currentGroups = [];
+            for (let i = 0; i < shuffled.length; i += size) {
+                currentGroups.push({
+                    id: currentGroups.length + 1,
+                    members: shuffled.slice(i, i + size),
+                    color: groupColors[currentGroups.length % groupColors.length]
+                });
+            }
+            
+            renderGroups();
+        }
+        
+        function shuffleGroups() {
+            if (currentGroups.length === 0) {
+                makeGroups(2); // Default to pairs
+                return;
+            }
+            
+            // Preserve the number of groups (for divide-into mode) or group size
+            if (currentGroups._divideMode) {
+                divideInto(currentGroups.length);
+            } else {
+                const avgSize = Math.round(currentGroups.reduce((a, g) => a + g.members.length, 0) / currentGroups.length);
+                makeGroups(avgSize);
+            }
+        }
+        
+        function clearGroups() {
+            currentGroups = [];
+            showingGroupsOnSeating = false;
+            renderGroups();
+            renderCanvas();
+        }
+        
+        // ========== DIVIDE INTO N GROUPS ==========
+        function divideInto(numGroups) {
+            const students = getActiveStudents();
+            if (students.length === 0) {
+                alert('No students loaded. Import a class first.');
+                return;
+            }
+            
+            if (numGroups < 2) {
+                alert('Need at least 2 groups');
+                return;
+            }
+            
+            // Shuffle students
+            const shuffled = [...students].sort(() => Math.random() - 0.5);
+            
+            // Distribute evenly into N groups
+            currentGroups = [];
+            for (let i = 0; i < numGroups; i++) {
+                currentGroups.push({
+                    id: i + 1,
+                    members: [],
+                    color: groupColors[i % groupColors.length]
+                });
+            }
+            
+            // Round-robin distribution for even groups
+            shuffled.forEach((student, idx) => {
+                currentGroups[idx % numGroups].members.push(student);
+            });
+            
+            // Mark as divide mode for shuffle
+            currentGroups._divideMode = true;
+            
+            renderGroups();
+        }
+        
+        function promptCustomGroupSize() {
+            const size = prompt('Group size (number of students per group):');
+            if (size && !isNaN(parseInt(size)) && parseInt(size) >= 2) {
+                makeGroups(parseInt(size));
+            }
+        }
+        
+        function promptCustomDivision() {
+            const num = prompt('Number of groups to divide class into:');
+            if (num && !isNaN(parseInt(num)) && parseInt(num) >= 2) {
+                divideInto(parseInt(num));
+            }
+        }
+        
+        function showGroupsOnSeating() {
+            if (currentGroups.length === 0) {
+                showToast('Create groups first!');
+                return;
+            }
+            showingGroupsOnSeating = true;
+            showView('attendance');
+            renderCanvas();
+            showToast('👀 Groups shown on seating chart');
+        }
+        
+        function getActiveStudents() {
+            // Try to get from loaded class data
+            const classData = JSON.parse(localStorage.getItem('hallpass_class') || 'null');
+            if (classData && classData.students) {
+                return classData.students.filter(s => s.status !== 'absent');
+            }
+            // Fall back to demo
+            return demoStudents;
+        }
+        
+        function renderGroups() {
+            const container = document.getElementById('groupsContainer');
+            if (!container) return;
+            
+            if (currentGroups.length === 0) {
+                container.innerHTML = `
+                    <div class="no-groups">
+                        <h3>No groups yet</h3>
+                        <p>Click Pairs, 3s, 4s, or 5s above to create groups</p>
+                    </div>`;
+                return;
+            }
+            
+            container.innerHTML = currentGroups.map(g => `
+                <div class="group-card">
+                    <div class="group-header">
+                        <span class="group-title">Group ${g.id}</span>
+                        <div class="group-color" style="background:${g.color}"></div>
+                    </div>
+                    <div class="group-members">
+                        ${g.members.map(m => `
+                            <div class="group-member">
+                                ${m.caricature || m.caricatures?.photo ? 
+                                    `<img src="${m.caricature || m.caricatures.photo}" alt="${m.displayName || m.firstName}">` : 
+                                    '<div style="width:40px;height:40px;border-radius:50%;background:var(--bg-primary);"></div>'}
+                                <span class="name">${m.displayName || m.firstName + ' ' + m.lastInitial + '.'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleStyleDropdown() {
+            document.getElementById('styleDropdown').classList.toggle('open');
+        }
+
+        function setStyle(styleId, emoji, name) {
+            currentStyle = styleId;
+            document.getElementById('currentStyleEmoji').textContent = emoji;
+            document.getElementById('currentStyleName').textContent = name;
+            document.querySelectorAll('.style-option').forEach(o => o.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('styleDropdown').classList.remove('open');
+            renderGrid();
+        }
+
+        let currentZoom = 1;
+        let editMode = false;
+        let dragState = null;
+        let showingGroupsOnSeating = false;
+        
+        // ========== CANVAS RENDERING ==========
+        function renderCanvas() {
+            const canvas = document.getElementById('seatingCanvas');
+            if (!canvas) return;
+            
+            const useStudents = students.length > 0 ? students : demoStudents;
+            const canvasRect = canvas.getBoundingClientRect();
+            const cardWidth = 100;
+            const cardHeight = 110;
+            const padding = 20;
+            
+            // Migrate legacy row/col positions to x/y if needed
+            migratePositions(useStudents, canvasRect.width, canvasRect.height, cardWidth, cardHeight, padding);
+            
+            // Build HTML
+            let html = '';
+            useStudents.forEach((s, idx) => {
+                const imgSrc = getStudentImage(s);
+                const name = s.displayName || `${s.preferredName || s.firstName} ${s.lastInitial || ''}.`;
+                const x = s.position?.x ?? (padding + (idx % 6) * (cardWidth + 15));
+                const y = s.position?.y ?? (padding + Math.floor(idx / 6) * (cardHeight + 15));
+                
+                // Check if student is in a group (for coloring)
+                let groupClass = '';
+                let groupBadge = '';
+                if (showingGroupsOnSeating && currentGroups.length > 0) {
+                    const groupIdx = currentGroups.findIndex(g => g.members.some(m => m.id === s.id));
+                    if (groupIdx >= 0) {
+                        groupClass = `group-${(groupIdx % 8) + 1}`;
+                        groupBadge = `<div class="group-badge" style="background:${currentGroups[groupIdx].color}">${groupIdx + 1}</div>`;
+                    }
+                }
+                
+                html += `
+                    <div class="canvas-student ${s.status || 'absent'} ${groupClass}" 
+                         data-id="${s.id}"
+                         style="left:${x}px; top:${y}px;"
+                         onclick="handleStudentClick(event, ${s.id})"
+                         onmousedown="startDrag(event, ${s.id})"
+                         ontouchstart="startDrag(event, ${s.id})">
+                        ${groupBadge}
+                        <img class="student-avatar" src="${imgSrc}" alt="${name}">
+                        <div class="student-name">${name}</div>
+                    </div>`;
+            });
+            
+            canvas.innerHTML = html;
+        }
+        
+        // Migrate legacy row/col to x/y coordinates
+        function migratePositions(studentList, canvasWidth, canvasHeight, cardWidth, cardHeight, padding) {
+            const cols = 6;
+            const cellWidth = cardWidth + 15;
+            const cellHeight = cardHeight + 15;
+            
+            studentList.forEach((s, idx) => {
+                if (s.position?.x === undefined || s.position?.y === undefined) {
+                    // Use row/col if available, otherwise calculate from index
+                    const row = s.position?.row ?? Math.floor(idx / cols);
+                    const col = s.position?.col ?? (idx % cols);
+                    
+                    s.position = {
+                        ...s.position,
+                        x: padding + col * cellWidth,
+                        y: padding + row * cellHeight
+                    };
+                }
+            });
+        }
+        
+        // ========== EDIT MODE & DRAG-DROP ==========
+        function toggleEditMode() {
+            editMode = !editMode;
+            const canvas = document.getElementById('seatingCanvas');
+            const btn = document.getElementById('editModeBtn');
+            const setHomeBtn = document.getElementById('setHomeBtn');
+            const resetHomeBtn = document.getElementById('resetHomeBtn');
+            
+            if (editMode) {
+                canvas.classList.add('edit-mode');
+                btn.classList.add('active');
+                btn.textContent = '✓ Done Editing';
+                setHomeBtn.style.display = 'inline-block';
+                resetHomeBtn.style.display = 'inline-block';
+            } else {
+                canvas.classList.remove('edit-mode');
+                btn.classList.remove('active');
+                btn.textContent = '✏️ Edit Layout';
+                setHomeBtn.style.display = 'none';
+                resetHomeBtn.style.display = 'none';
+                // Save positions when exiting edit mode
+                savePositions();
+            }
+        }
+        
+        function startDrag(event, studentId) {
+            if (!editMode) return;
+            
+            event.preventDefault();
+            const canvas = document.getElementById('seatingCanvas');
+            const studentEl = canvas.querySelector(`[data-id="${studentId}"]`);
+            if (!studentEl) return;
+            
+            const canvasRect = canvas.getBoundingClientRect();
+            const touch = event.touches ? event.touches[0] : event;
+            
+            dragState = {
+                studentId,
+                element: studentEl,
+                startX: touch.clientX,
+                startY: touch.clientY,
+                origLeft: parseInt(studentEl.style.left) || 0,
+                origTop: parseInt(studentEl.style.top) || 0,
+                canvasRect
+            };
+            
+            studentEl.classList.add('dragging');
+            
+            // Add move/end listeners
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', onDrag, { passive: false });
+            document.addEventListener('touchend', endDrag);
+        }
+        
+        function onDrag(event) {
+            if (!dragState) return;
+            event.preventDefault();
+            
+            const touch = event.touches ? event.touches[0] : event;
+            const dx = touch.clientX - dragState.startX;
+            const dy = touch.clientY - dragState.startY;
+            
+            let newX = dragState.origLeft + dx;
+            let newY = dragState.origTop + dy;
+            
+            // Clamp to canvas bounds
+            const maxX = dragState.canvasRect.width - 100;
+            const maxY = dragState.canvasRect.height - 110;
+            newX = Math.max(0, Math.min(maxX, newX));
+            newY = Math.max(0, Math.min(maxY, newY));
+            
+            dragState.element.style.left = newX + 'px';
+            dragState.element.style.top = newY + 'px';
+        }
+        
+        function endDrag(event) {
+            if (!dragState) return;
+            
+            // Update student position in data
+            const useStudents = students.length > 0 ? students : demoStudents;
+            const student = useStudents.find(s => s.id === dragState.studentId);
+            if (student) {
+                student.position = {
+                    ...student.position,
+                    x: parseInt(dragState.element.style.left) || 0,
+                    y: parseInt(dragState.element.style.top) || 0
+                };
+            }
+            
+            dragState.element.classList.remove('dragging');
+            dragState = null;
+            
+            // Remove listeners
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchmove', onDrag);
+            document.removeEventListener('touchend', endDrag);
+        }
+        
+        function handleStudentClick(event, studentId) {
+            if (editMode) {
+                // In edit mode, clicks are handled by drag
+                return;
+            }
+            toggleCheckin(studentId);
+        }
+        
+        // ========== HOME POSITIONS ==========
+        function setHomePositions() {
+            const useStudents = students.length > 0 ? students : demoStudents;
+            const homeData = useStudents.map(s => ({
+                id: s.id,
+                x: s.position?.x ?? 0,
+                y: s.position?.y ?? 0
+            }));
+            
+            if (classData) {
+                classData.homePositions = homeData;
+                localStorage.setItem('hallpass_class', JSON.stringify(classData));
+            } else {
+                localStorage.setItem('hallpass_home_positions', JSON.stringify(homeData));
+            }
+            
+            showToast('🏠 Home positions saved!');
+        }
+        
+        function resetToHome() {
+            let homeData = null;
+            
+            if (classData?.homePositions) {
+                homeData = classData.homePositions;
+            } else {
+                const saved = localStorage.getItem('hallpass_home_positions');
+                if (saved) homeData = JSON.parse(saved);
+            }
+            
+            if (!homeData) {
+                showToast('No home positions saved yet');
+                return;
+            }
+            
+            const useStudents = students.length > 0 ? students : demoStudents;
+            homeData.forEach(home => {
+                const student = useStudents.find(s => s.id === home.id);
+                if (student) {
+                    student.position = { ...student.position, x: home.x, y: home.y };
+                }
+            });
+            
+            // Clear groups overlay
+            showingGroupsOnSeating = false;
+            
+            renderCanvas();
+            showToast('↩️ Reset to home positions');
+        }
+        
+        function savePositions() {
+            if (!classData) return;
+            
+            const useStudents = students.length > 0 ? students : demoStudents;
+            classData.students = useStudents;
+            localStorage.setItem('hallpass_class', JSON.stringify(classData));
+        }
+        
+        // ========== ZOOM ==========
+        function zoomCanvas(delta) {
+            const canvas = document.getElementById('seatingCanvas');
+            if (!canvas) return;
+            
+            if (delta === 0) {
+                currentZoom = 1;
+            } else {
+                currentZoom = Math.max(0.5, Math.min(2, currentZoom + delta));
+            }
+            canvas.style.transform = `scale(${currentZoom})`;
+            canvas.style.transformOrigin = 'top left';
+        }
+        
+        // Legacy alias
+        function renderGrid() { renderCanvas(); }
+        function fitGridToScreen() { /* no-op for canvas */ }
+        function zoomGrid(delta) { zoomCanvas(delta); }
+        
+        window.addEventListener('resize', () => {
+            if (currentZoom <= 1) fitGridToScreen();
+        });
+
+        function getStatusText(status) {
+            switch(status) {
+                case 'ontime': return '✓ On time';
+                case 'late': return '⏰ Late 3m';
+                case 'absent': return 'Tap to check in';
+                case 'withdrawn': return 'Withdrawn';
+                default: return '';
+            }
+        }
+
+        function toggleCheckin(id) {
+            const student = demoStudents.find(s => s.id === id);
+            if (student && student.status === 'absent') {
+                student.status = 'ontime';
+                renderGrid();
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.style-selector')) {
+                document.getElementById('styleDropdown').classList.remove('open');
+            }
+        });
+
+        // Settings & Help modals
+        function openSettings() {
+            document.getElementById('settingsModal').classList.add('open');
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('open');
+        }
+        
+        function openHelp() {
+            document.getElementById('helpModal').classList.add('open');
+        }
+        
+        function closeHelp() {
+            document.getElementById('helpModal').classList.remove('open');
+        }
+
+        // Import handler
+        async function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                if (data.students && Array.isArray(data.students)) {
+                    classData = data;
+                    students = data.students.map(s => ({
+                        ...s,
+                        status: 'absent'  // Reset attendance for new day
+                    }));
+                    
+                    // Update class name in selector
+                    if (data.settings?.className) {
+                        document.getElementById('classSelect').innerHTML = 
+                            `<option>${data.settings.className}</option>`;
+                    }
+                    
+                    // Update available styles
+                    if (data.styles?.available) {
+                        updateStyleOptions(data.styles.available);
+                    }
+                    
+                    renderGrid();
+                    closeSettings();
+                    showToast('✓ Class imported! ' + students.length + ' students loaded');
+                    
+                    // Save to localStorage
+                    localStorage.setItem('hallpass_class', JSON.stringify(data));
+                } else {
+                    alert('Invalid file format. Please use a Hall Pass JSON export.');
+                }
+            } catch (e) {
+                alert('Error reading file: ' + e.message);
+            }
+        }
+        
+        function updateStyleOptions(styles) {
+            const select = document.getElementById('styleSelect');
+            select.innerHTML = styles.map(s => 
+                `<option value="${s.id}">${s.emoji} ${s.name}</option>`
+            ).join('');
+        }
+        
+        function setStyleFromSelect() {
+            const select = document.getElementById('styleSelect');
+            currentStyle = select.value;
+            renderGrid();
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        function exportData(format = 'json') {
+            if (!classData) {
+                alert('No class data to export');
+                return;
+            }
+            
+            const className = classData.settings?.className || 'class';
+            const date = new Date().toISOString().split('T')[0];
+            
+            if (format === 'json') {
+                const blob = new Blob([JSON.stringify(classData, null, 2)], {type: 'application/json'});
+                downloadBlob(blob, `hallpass-${className}-${date}.json`);
+            } 
+            else if (format === 'csv') {
+                const students = classData.students || [];
+                const headers = ['ID', 'First Name', 'Last Name', 'Preferred Name', 'Row', 'Col', 'Status'];
+                const rows = students.map(s => [
+                    s.id,
+                    s.firstName || '',
+                    s.lastName || '',
+                    s.preferredName || s.firstName || '',
+                    s.position?.row ?? '',
+                    s.position?.col ?? '',
+                    s.status || 'active'
+                ]);
+                const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+                const blob = new Blob([csv], {type: 'text/csv'});
+                downloadBlob(blob, `hallpass-${className}-${date}.csv`);
+            }
+            else if (format === 'xlsx') {
+                // Simple Excel XML format
+                const students = classData.students || [];
+                const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Worksheet ss:Name="Students">
+<Table>
+<Row><Cell><Data ss:Type="String">ID</Data></Cell><Cell><Data ss:Type="String">First Name</Data></Cell><Cell><Data ss:Type="String">Last Name</Data></Cell><Cell><Data ss:Type="String">Preferred Name</Data></Cell><Cell><Data ss:Type="String">Row</Data></Cell><Cell><Data ss:Type="String">Col</Data></Cell><Cell><Data ss:Type="String">Status</Data></Cell></Row>
+${students.map(s => `<Row><Cell><Data ss:Type="Number">${s.id}</Data></Cell><Cell><Data ss:Type="String">${s.firstName || ''}</Data></Cell><Cell><Data ss:Type="String">${s.lastName || ''}</Data></Cell><Cell><Data ss:Type="String">${s.preferredName || s.firstName || ''}</Data></Cell><Cell><Data ss:Type="Number">${s.position?.row ?? ''}</Data></Cell><Cell><Data ss:Type="Number">${s.position?.col ?? ''}</Data></Cell><Cell><Data ss:Type="String">${s.status || 'active'}</Data></Cell></Row>`).join('\n')}
+</Table>
+</Worksheet>
+</Workbook>`;
+                const blob = new Blob([xml], {type: 'application/vnd.ms-excel'});
+                downloadBlob(blob, `hallpass-${className}-${date}.xls`);
+            }
+            
+            showToast(`Exported as ${format.toUpperCase()}`);
+        }
+        
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function startFresh() {
+            if (!classData && students.length === 0) {
+                alert('No class data to clear.');
+                return;
+            }
+            
+            const backup = confirm(
+                '⚠️ This will delete your current class.\n\n' +
+                'Do you want to download a backup first?\n\n' +
+                'Click OK to backup, then clear.\n' +
+                'Click Cancel to clear without backup.'
+            );
+            
+            if (backup) {
+                exportData('json');
+            }
+            
+            // Clear data
+            localStorage.removeItem('hallpass_class');
+            classData = null;
+            students = [];
+            
+            // Reset UI
+            renderGrid();
+            closeSettings();
+            
+            showToast('Class data cleared');
+        }
+        
+        // Get caricature for current style
+        function getStudentImage(student) {
+            if (student.caricatures && student.caricatures[currentStyle]) {
+                return student.caricatures[currentStyle];
+            }
+            if (student.caricatures && student.caricatures.photo) {
+                return student.caricatures.photo;
+            }
+            if (student.caricature) {
+                return student.caricature;
+            }
+            // Fallback to dicebear
+            return `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.firstName}`;
+        }
+
+// Load saved class on startup
+        function loadSavedClass() {
+            const saved = localStorage.getItem('hallpass_class');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    classData = data;
+                    students = data.students.map(s => ({
+                        ...s,
+                        status: s.status || 'active'  // Preserve saved status, default to active
+                    }));
+                    
+                    if (data.settings?.className) {
+                        document.getElementById('classSelect').innerHTML = 
+                            `<option>${data.settings.className}</option>`;
+                    }
+                    
+                    if (data.styles?.available) {
+                        updateStyleOptions(data.styles.available);
+                    }
+                } catch (e) {
+                    console.error('Error loading saved class:', e);
+                }
+            }
+        }
+
+        // Initial load
+        loadSavedClass();
+        renderGrid();
+        
+        // Show help on first visit
+        if (!localStorage.getItem('hallpass_seen_help')) {
+            setTimeout(() => {
+                openHelp();
+                localStorage.setItem('hallpass_seen_help', 'true');
+            }, 500);
+        }
+    </script>
+</body>
+</html>
