@@ -673,6 +673,154 @@
             transform: translateX(-50%) translateY(0);
         }
         
+        /* Mini Overlay */
+        .mini-overlay {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            width: 320px;
+            min-width: 200px;
+            max-width: 500px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 5000;
+            display: none;
+            opacity: 0.9;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            resize: both;
+        }
+        
+        .mini-overlay.open {
+            display: block;
+        }
+        
+        .mini-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            cursor: move;
+            gap: 8px;
+        }
+        
+        .mini-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        
+        .mini-stats {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .mini-stat {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 8px;
+        }
+        
+        .mini-stat.ontime { background: var(--success); color: white; }
+        .mini-stat.late { background: var(--warning); color: black; }
+        .mini-stat.absent { background: var(--danger); color: white; }
+        
+        .mini-controls {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .mini-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        
+        .mini-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 6px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .mini-student {
+            text-align: center;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        
+        .mini-student:hover {
+            background: var(--bg-hover);
+        }
+        
+        .mini-student.unchecked {
+            opacity: 0.5;
+        }
+        
+        .mini-student.ontime {
+            border-color: var(--success);
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .mini-student.late {
+            border-color: var(--warning);
+            background: rgba(245, 158, 11, 0.1);
+        }
+        
+        .mini-student.absent {
+            border-color: var(--danger);
+            opacity: 0.4;
+        }
+        
+        .mini-student img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+        }
+        
+        .mini-student .name {
+            font-size: 0.6rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+        
+        .mini-student .late-badge {
+            font-size: 0.55rem;
+            color: var(--warning);
+            font-weight: 600;
+        }
+        
+        .mini-resize {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 16px;
+            height: 16px;
+            cursor: se-resize;
+            background: linear-gradient(135deg, transparent 50%, var(--text-secondary) 50%);
+            opacity: 0.3;
+            border-radius: 0 0 16px 0;
+        }
+        
         /* Fun animations */
         @keyframes confetti {
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
@@ -801,6 +949,7 @@
                         <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset Day</button>
                     </div>
                     <div class="toolbar-group">
+                        <button class="toolbar-btn" id="miniModeBtn" onclick="toggleMiniOverlay()">📌 Mini Overlay</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(-0.1)">➖</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(0)">Fit</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(0.1)">➕</button>
@@ -1089,6 +1238,27 @@
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
+
+    <!-- Mini Overlay -->
+    <div class="mini-overlay" id="miniOverlay">
+        <div class="mini-header" id="miniHeader">
+            <span class="mini-title">📋 Attendance</span>
+            <div class="mini-stats">
+                <span class="mini-stat ontime" id="miniOntime">0</span>
+                <span class="mini-stat late" id="miniLate">0</span>
+                <span class="mini-stat absent" id="miniAbsent">0</span>
+            </div>
+            <div class="mini-controls">
+                <button class="mini-btn" onclick="adjustMiniOpacity(-0.1)" title="More transparent">👻</button>
+                <button class="mini-btn" onclick="adjustMiniOpacity(0.1)" title="Less transparent">🔲</button>
+                <button class="mini-btn" onclick="toggleMiniOverlay()" title="Close">✕</button>
+            </div>
+        </div>
+        <div class="mini-grid" id="miniGrid">
+            <!-- Mini student cards -->
+        </div>
+        <div class="mini-resize" id="miniResize"></div>
+    </div>
 
     <script>
         // ========== APP STATE ==========
@@ -2538,6 +2708,144 @@
             document.getElementById('canvasContextMenu').classList.remove('open');
         }
         
+        // ========== MINI OVERLAY ==========
+        let miniOverlayOpen = false;
+        let miniOpacity = 0.9;
+        let miniDragState = null;
+        
+        function toggleMiniOverlay() {
+            miniOverlayOpen = !miniOverlayOpen;
+            const overlay = document.getElementById('miniOverlay');
+            const btn = document.getElementById('miniModeBtn');
+            
+            if (miniOverlayOpen) {
+                overlay.classList.add('open');
+                btn.classList.add('active');
+                btn.textContent = '📌 Mini ON';
+                renderMiniGrid();
+            } else {
+                overlay.classList.remove('open');
+                btn.classList.remove('active');
+                btn.textContent = '📌 Mini Overlay';
+            }
+        }
+        
+        function renderMiniGrid() {
+            if (!miniOverlayOpen) return;
+            
+            const grid = document.getElementById('miniGrid');
+            let ontime = 0, late = 0, absent = 0;
+            
+            const html = students.map(s => {
+                const status = s.status || 'unchecked';
+                const name = s.preferredName || s.firstName || '';
+                const shortName = name.length > 6 ? name.substring(0, 5) + '…' : name;
+                const img = getStudentImage(s);
+                
+                if (status === 'ontime') ontime++;
+                else if (status === 'late') late++;
+                else if (status !== 'excused' && status !== 'withdrawn') absent++;
+                
+                const lateBadge = s.lateBy ? `<div class="late-badge">+${s.lateBy}m</div>` : '';
+                
+                return `
+                    <div class="mini-student ${status}" onclick="miniCheckIn(${s.id})" title="${name}">
+                        <img src="${img}" alt="${name}">
+                        <div class="name">${shortName}</div>
+                        ${lateBadge}
+                    </div>
+                `;
+            }).join('');
+            
+            grid.innerHTML = html;
+            
+            // Update mini stats
+            document.getElementById('miniOntime').textContent = ontime;
+            document.getElementById('miniLate').textContent = late;
+            document.getElementById('miniAbsent').textContent = absent;
+        }
+        
+        function miniCheckIn(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            // If already checked in, show quick menu
+            if (student.status === 'ontime' || student.status === 'late') {
+                // Toggle through: ontime -> late -> absent -> clear
+                if (student.status === 'ontime') {
+                    student.status = 'late';
+                    const now = new Date();
+                    const start = parseTime(schedule.startTime);
+                    student.lateBy = Math.max(1, Math.floor((now - start) / 60000));
+                } else if (student.status === 'late') {
+                    student.status = 'absent';
+                    student.lateBy = null;
+                } else {
+                    student.status = 'unchecked';
+                    student.lateBy = null;
+                }
+                saveAttendance(student);
+            } else {
+                // Check in
+                checkInStudent(student);
+            }
+            
+            renderMiniGrid();
+            renderCanvas();
+            updateStats();
+            saveClass();
+        }
+        
+        function adjustMiniOpacity(delta) {
+            miniOpacity = Math.max(0.3, Math.min(1, miniOpacity + delta));
+            document.getElementById('miniOverlay').style.opacity = miniOpacity;
+        }
+        
+        // Make mini overlay draggable
+        function initMiniDrag() {
+            const header = document.getElementById('miniHeader');
+            const overlay = document.getElementById('miniOverlay');
+            
+            header.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.mini-btn')) return;
+                
+                miniDragState = {
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    origLeft: overlay.offsetLeft,
+                    origTop: overlay.offsetTop
+                };
+                
+                document.addEventListener('mousemove', onMiniDrag);
+                document.addEventListener('mouseup', endMiniDrag);
+            });
+        }
+        
+        function onMiniDrag(e) {
+            if (!miniDragState) return;
+            
+            const overlay = document.getElementById('miniOverlay');
+            const dx = e.clientX - miniDragState.startX;
+            const dy = e.clientY - miniDragState.startY;
+            
+            let newLeft = miniDragState.origLeft + dx;
+            let newTop = miniDragState.origTop + dy;
+            
+            // Keep on screen
+            newLeft = Math.max(0, Math.min(window.innerWidth - overlay.offsetWidth, newLeft));
+            newTop = Math.max(0, Math.min(window.innerHeight - overlay.offsetHeight, newTop));
+            
+            overlay.style.left = newLeft + 'px';
+            overlay.style.top = newTop + 'px';
+            overlay.style.right = 'auto';
+        }
+        
+        function endMiniDrag() {
+            miniDragState = null;
+            document.removeEventListener('mousemove', onMiniDrag);
+            document.removeEventListener('mouseup', endMiniDrag);
+        }
+        
         // ========== UTILS ==========
         function showToast(message) {
             const toast = document.getElementById('toast');
@@ -2588,9 +2896,15 @@
         loadSavedData();
         renderCanvas();
         updateStatusBar();
+        initMiniDrag();
         
         // Update countdown every second
         setInterval(updateStatusBar, 1000);
+        
+        // Update mini overlay when open
+        setInterval(() => {
+            if (miniOverlayOpen) renderMiniGrid();
+        }, 5000);
     </script>
 </body>
 </html>
