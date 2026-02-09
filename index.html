@@ -908,6 +908,7 @@
             </select>
             <button class="icon-btn" title="Schedule" onclick="openSchedule()">🕐</button>
             <button class="icon-btn" title="Settings" onclick="openSettings()">⚙️</button>
+            <button class="icon-btn" title="Help" onclick="openHelp()">❓</button>
         </div>
     </nav>
 
@@ -1237,6 +1238,77 @@
     </div>
 
     <!-- Toast -->
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal" onclick="if(event.target===this)closeHelp()">
+        <div class="modal" style="max-width:550px;">
+            <div class="modal-header">
+                <h2>❓ Help</h2>
+                <button class="close-btn" onclick="closeHelp()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-section">
+                    <h3>📋 Taking Attendance</h3>
+                    <ul style="margin-left:20px;color:var(--text-secondary);line-height:1.8;">
+                        <li><strong>Click a student</strong> to check them in</li>
+                        <li><strong style="color:var(--success);">Green</strong> = On time</li>
+                        <li><strong style="color:var(--warning);">Amber</strong> = Late (shows how late)</li>
+                        <li><strong>Right-click</strong> to change status or add notes</li>
+                        <li><strong>Close Attendance</strong> marks remaining as absent</li>
+                    </ul>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>📌 Mini Overlay</h3>
+                    <p style="color:var(--text-secondary);margin-bottom:12px;">
+                        Perfect for marking attendance while presenting!
+                    </p>
+                    <ul style="margin-left:20px;color:var(--text-secondary);line-height:1.8;">
+                        <li>Click <strong>📌 Mini Overlay</strong> to show floating window</li>
+                        <li>Click <strong>🪟 Pop Out</strong> to open in separate window</li>
+                        <li>Drag to reposition, resize from corner</li>
+                    </ul>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>🪟 Keep Pop-Out Window on Top</h3>
+                    <div style="background:var(--bg-secondary);border-radius:12px;padding:16px;margin-top:8px;">
+                        <div style="margin-bottom:16px;">
+                            <strong style="font-size:1rem;">🪟 Windows</strong>
+                            <ol style="margin-left:20px;margin-top:8px;color:var(--text-secondary);line-height:1.8;">
+                                <li>Install <a href="https://github.com/microsoft/PowerToys/releases" target="_blank" style="color:var(--accent-light);">Microsoft PowerToys</a> (free)</li>
+                                <li>Click the pop-out attendance window</li>
+                                <li>Press <strong style="color:var(--text-primary);">Win + Ctrl + T</strong></li>
+                                <li>Window stays on top of PowerPoint! 📌</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <strong style="font-size:1rem;">🍎 Mac</strong>
+                            <ol style="margin-left:20px;margin-top:8px;color:var(--text-secondary);line-height:1.8;">
+                                <li>Install <a href="https://apps.apple.com/app/afloat/id1612376590" target="_blank" style="color:var(--accent-light);">Afloat</a> or <a href="https://www.macupdate.com/app/mac/31724/afloat" target="_blank" style="color:var(--accent-light);">Rectangle Pro</a></li>
+                                <li>Or use <strong>Shortcut:</strong> Some apps use <strong style="color:var(--text-primary);">Cmd + Shift + T</strong></li>
+                                <li>Alternative: Use Split View or position in corner</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>🔥 Streaks</h3>
+                    <ul style="margin-left:20px;color:var(--text-secondary);line-height:1.8;">
+                        <li>Students build streaks for consecutive on-time days</li>
+                        <li>3+ days shows a badge on their card</li>
+                        <li>5+ days = 🔥 fire badge</li>
+                        <li>View full history by right-clicking → View History</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-top:24px;text-align:center;">
+                    <button class="btn btn-primary" onclick="closeHelp()">Got it!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <!-- Mini Overlay -->
@@ -2242,6 +2314,14 @@
             document.getElementById('settingsModal').classList.remove('open');
         }
         
+        function openHelp() {
+            document.getElementById('helpModal').classList.add('open');
+        }
+        
+        function closeHelp() {
+            document.getElementById('helpModal').classList.remove('open');
+        }
+        
         async function handleImport(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -2952,6 +3032,20 @@
         .student img { width: 36px; height: 36px; border-radius: 50%; }
         .student .name { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .student .late-badge { font-size: 8px; color: #f59e0b; font-weight: 600; }
+        .help-tip {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #252540;
+            padding: 6px 10px;
+            font-size: 10px;
+            color: #a1a1aa;
+            text-align: center;
+            border-top: 1px solid #333;
+        }
+        .help-tip strong { color: #818cf8; }
+        .help-tip .toggle { cursor: pointer; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -2963,7 +3057,13 @@
             <span class="stat absent" id="statAbs">0</span>
         </div>
     </div>
-    <div class="grid" id="grid"></div>
+    <div class="grid" id="grid" style="padding-bottom:30px;"></div>
+    <div class="help-tip" id="helpTip">
+        📌 <strong>Pin on top:</strong> 
+        <span id="helpWin">Windows: <strong>Win+Ctrl+T</strong> (PowerToys)</span>
+        <span id="helpMac" style="display:none;">Mac: Use Afloat app or Rectangle Pro</span>
+        &nbsp;|&nbsp; <span class="toggle" onclick="toggleHelpOS()">Switch to <span id="otherOS">Mac</span></span>
+    </div>
     <script>
         function render() {
             const data = window.hallPassData;
@@ -2993,6 +3093,14 @@
             document.getElementById('statOn').textContent = on;
             document.getElementById('statLate').textContent = late;
             document.getElementById('statAbs').textContent = abs;
+        }
+        
+        let showingMac = false;
+        function toggleHelpOS() {
+            showingMac = !showingMac;
+            document.getElementById('helpWin').style.display = showingMac ? 'none' : 'inline';
+            document.getElementById('helpMac').style.display = showingMac ? 'inline' : 'none';
+            document.getElementById('otherOS').textContent = showingMac ? 'Windows' : 'Mac';
         }
         
         setInterval(render, 1000);
