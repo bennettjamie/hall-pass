@@ -792,6 +792,7 @@
                 <div class="seating-toolbar">
                     <div class="toolbar-group">
                         <button class="toolbar-btn" id="editModeBtn" onclick="toggleEditMode()">✏️ Edit Layout</button>
+                        <button class="toolbar-btn" onclick="openStudentManager()">👤 Edit Students</button>
                         <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset Day</button>
                     </div>
                     <div class="toolbar-group">
@@ -856,7 +857,74 @@
         </div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item" onclick="viewStudentHistory()">📊 View History</div>
-        <div class="context-menu-item danger" onclick="clearStatus()">🗑️ Clear Status</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="editStudent()">✏️ Edit Student</div>
+        <div class="context-menu-item danger" onclick="removeStudent()">🗑️ Remove Student</div>
+    </div>
+
+    <!-- Canvas Context Menu (for adding students) -->
+    <div class="context-menu" id="canvasContextMenu">
+        <div class="context-menu-header">Canvas Options</div>
+        <div class="context-menu-item" onclick="addStudentAtPosition()">➕ Add Student Here</div>
+        <div class="context-menu-item" onclick="openStudentManager()">👤 Manage Students</div>
+    </div>
+
+    <!-- Student Manager Modal -->
+    <div class="modal-overlay" id="studentManagerModal" onclick="if(event.target===this)closeStudentManager()">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h2>👤 Manage Students</h2>
+                <button class="close-btn" onclick="closeStudentManager()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex;gap:12px;margin-bottom:16px;">
+                    <button class="btn btn-primary" onclick="showAddStudentForm()">➕ Add Student</button>
+                    <input type="text" id="studentSearch" placeholder="Search students..." 
+                           style="flex:1;padding:10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);"
+                           oninput="filterStudentList()">
+                </div>
+                <div id="studentManagerList" style="max-height:400px;overflow-y:auto;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Student Modal -->
+    <div class="modal-overlay" id="editStudentModal" onclick="if(event.target===this)closeEditStudent()">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h2 id="editStudentTitle">➕ Add Student</h2>
+                <button class="close-btn" onclick="closeEditStudent()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editStudentId">
+                <div class="setting-section">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">First Name *</label>
+                    <input type="text" id="editFirstName" placeholder="First name" 
+                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                </div>
+                <div class="setting-section">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">Last Name</label>
+                    <input type="text" id="editLastName" placeholder="Last name" 
+                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                </div>
+                <div class="setting-section">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">Preferred Name (optional)</label>
+                    <input type="text" id="editPreferredName" placeholder="What they like to be called" 
+                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                </div>
+                <div class="setting-section">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">Photo URL (optional)</label>
+                    <input type="text" id="editPhotoUrl" placeholder="https://... or leave blank for avatar" 
+                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                </div>
+                <div style="display:flex;gap:12px;margin-top:24px;">
+                    <button class="btn btn-primary" onclick="saveStudent()">Save Student</button>
+                    <button class="btn btn-secondary" onclick="closeEditStudent()">Cancel</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Schedule Modal -->
@@ -2124,6 +2192,191 @@
             }
         }
         
+        // ========== STUDENT MANAGEMENT ==========
+        let addStudentPosition = null;
+        
+        function openStudentManager() {
+            renderStudentManagerList();
+            document.getElementById('studentManagerModal').classList.add('open');
+        }
+        
+        function closeStudentManager() {
+            document.getElementById('studentManagerModal').classList.remove('open');
+        }
+        
+        function renderStudentManagerList() {
+            const container = document.getElementById('studentManagerList');
+            const search = document.getElementById('studentSearch')?.value?.toLowerCase() || '';
+            
+            let filtered = students;
+            if (search) {
+                filtered = students.filter(s => 
+                    s.firstName?.toLowerCase().includes(search) ||
+                    s.lastName?.toLowerCase().includes(search) ||
+                    s.preferredName?.toLowerCase().includes(search)
+                );
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:24px;">No students found. Click "Add Student" to get started.</p>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(s => {
+                const name = s.displayName || `${s.preferredName || s.firstName} ${s.lastInitial || s.lastName?.charAt(0) || ''}.`;
+                return `
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-secondary);border-radius:10px;margin-bottom:8px;">
+                        <img src="${getStudentImage(s)}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">
+                        <div style="flex:1;">
+                            <div style="font-weight:500;">${name}</div>
+                            <div style="font-size:0.8rem;color:var(--text-secondary);">${s.firstName} ${s.lastName || ''}</div>
+                        </div>
+                        <button class="btn btn-secondary" style="padding:8px 12px;" onclick="showEditStudentForm(${s.id})">✏️ Edit</button>
+                        <button class="btn btn-danger" style="padding:8px 12px;" onclick="confirmRemoveStudent(${s.id})">🗑️</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function filterStudentList() {
+            renderStudentManagerList();
+        }
+        
+        function showAddStudentForm() {
+            document.getElementById('editStudentTitle').textContent = '➕ Add Student';
+            document.getElementById('editStudentId').value = '';
+            document.getElementById('editFirstName').value = '';
+            document.getElementById('editLastName').value = '';
+            document.getElementById('editPreferredName').value = '';
+            document.getElementById('editPhotoUrl').value = '';
+            document.getElementById('editStudentModal').classList.add('open');
+        }
+        
+        function showEditStudentForm(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            document.getElementById('editStudentTitle').textContent = '✏️ Edit Student';
+            document.getElementById('editStudentId').value = studentId;
+            document.getElementById('editFirstName').value = student.firstName || '';
+            document.getElementById('editLastName').value = student.lastName || '';
+            document.getElementById('editPreferredName').value = student.preferredName || '';
+            document.getElementById('editPhotoUrl').value = student.caricature || student.caricatures?.photo || '';
+            document.getElementById('editStudentModal').classList.add('open');
+        }
+        
+        function closeEditStudent() {
+            document.getElementById('editStudentModal').classList.remove('open');
+        }
+        
+        function saveStudent() {
+            const idVal = document.getElementById('editStudentId').value;
+            const firstName = document.getElementById('editFirstName').value.trim();
+            const lastName = document.getElementById('editLastName').value.trim();
+            const preferredName = document.getElementById('editPreferredName').value.trim();
+            const photoUrl = document.getElementById('editPhotoUrl').value.trim();
+            
+            if (!firstName) {
+                alert('First name is required');
+                return;
+            }
+            
+            if (idVal) {
+                // Edit existing
+                const student = students.find(s => s.id == idVal);
+                if (student) {
+                    student.firstName = firstName;
+                    student.lastName = lastName;
+                    student.preferredName = preferredName || firstName;
+                    student.lastInitial = lastName ? lastName.charAt(0) : '';
+                    student.displayName = `${preferredName || firstName} ${student.lastInitial}.`;
+                    if (photoUrl) {
+                        student.caricature = photoUrl;
+                        if (!student.caricatures) student.caricatures = {};
+                        student.caricatures.photo = photoUrl;
+                    }
+                    showToast(`Updated ${firstName}`);
+                }
+            } else {
+                // Add new
+                const newId = Math.max(0, ...students.map(s => s.id)) + 1;
+                const lastInit = lastName ? lastName.charAt(0) : '';
+                const newStudent = {
+                    id: newId,
+                    firstName,
+                    lastName,
+                    lastInitial: lastInit,
+                    preferredName: preferredName || firstName,
+                    displayName: `${preferredName || firstName} ${lastInit}.`,
+                    status: 'unchecked',
+                    position: addStudentPosition || {
+                        x: 20 + (students.length % 6) * 115,
+                        y: 20 + Math.floor(students.length / 6) * 145
+                    }
+                };
+                
+                if (photoUrl) {
+                    newStudent.caricature = photoUrl;
+                    newStudent.caricatures = { photo: photoUrl };
+                }
+                
+                students.push(newStudent);
+                addStudentPosition = null;
+                showToast(`Added ${firstName}`);
+            }
+            
+            closeEditStudent();
+            saveClass();
+            renderCanvas();
+            renderStudentManagerList();
+        }
+        
+        function editStudent() {
+            if (!contextStudentId) return;
+            closeContextMenu();
+            showEditStudentForm(contextStudentId);
+        }
+        
+        function removeStudent() {
+            if (!contextStudentId) return;
+            confirmRemoveStudent(contextStudentId);
+            closeContextMenu();
+        }
+        
+        function confirmRemoveStudent(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            const name = student.displayName || student.firstName;
+            if (!confirm(`Remove ${name} from the class?`)) return;
+            
+            students = students.filter(s => s.id !== studentId);
+            saveClass();
+            renderCanvas();
+            renderStudentManagerList();
+            showToast(`Removed ${name}`);
+        }
+        
+        function addStudentAtPosition() {
+            closeCanvasContextMenu();
+            showAddStudentForm();
+        }
+        
+        function openCanvasContextMenu(event) {
+            const menu = document.getElementById('canvasContextMenu');
+            addStudentPosition = {
+                x: event.offsetX - 50,
+                y: event.offsetY - 50
+            };
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('open');
+        }
+        
+        function closeCanvasContextMenu() {
+            document.getElementById('canvasContextMenu').classList.remove('open');
+        }
+        
         // ========== UTILS ==========
         function showToast(message) {
             const toast = document.getElementById('toast');
@@ -2150,13 +2403,23 @@
         document.addEventListener('click', e => {
             if (!e.target.closest('.context-menu') && !e.target.closest('.canvas-student')) {
                 closeContextMenu();
+                closeCanvasContextMenu();
             }
         });
         
-        // Prevent default context menu
+        // Context menu handling
         document.addEventListener('contextmenu', e => {
-            if (e.target.closest('.canvas-student')) {
+            const canvas = e.target.closest('.seating-canvas');
+            const studentCard = e.target.closest('.canvas-student');
+            
+            if (studentCard) {
+                // Right-click on student - handled by handleStudentClick
                 e.preventDefault();
+            } else if (canvas) {
+                // Right-click on empty canvas area
+                e.preventDefault();
+                closeContextMenu();
+                openCanvasContextMenu(e);
             }
         });
         
