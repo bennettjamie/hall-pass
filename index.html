@@ -562,6 +562,11 @@
             background: var(--danger);
             color: white;
         }
+        
+        .avatar-tab.active {
+            background: var(--accent) !important;
+            color: white;
+        }
 
         /* Schedule Editor */
         .schedule-grid {
@@ -893,33 +898,53 @@
 
     <!-- Add/Edit Student Modal -->
     <div class="modal-overlay" id="editStudentModal" onclick="if(event.target===this)closeEditStudent()">
-        <div class="modal" style="max-width:500px;">
+        <div class="modal" style="max-width:550px;">
             <div class="modal-header">
                 <h2 id="editStudentTitle">➕ Add Student</h2>
                 <button class="close-btn" onclick="closeEditStudent()">✕</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editStudentId">
-                <div class="setting-section">
-                    <label style="display:block;margin-bottom:8px;font-weight:500;">First Name *</label>
-                    <input type="text" id="editFirstName" placeholder="First name" 
-                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                <input type="hidden" id="editSelectedAvatar">
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div class="setting-section">
+                        <label style="display:block;margin-bottom:8px;font-weight:500;">First Name *</label>
+                        <input type="text" id="editFirstName" placeholder="First name" 
+                               style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                    </div>
+                    <div class="setting-section">
+                        <label style="display:block;margin-bottom:8px;font-weight:500;">Last Name</label>
+                        <input type="text" id="editLastName" placeholder="Last name" 
+                               style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                    </div>
                 </div>
-                <div class="setting-section">
-                    <label style="display:block;margin-bottom:8px;font-weight:500;">Last Name</label>
-                    <input type="text" id="editLastName" placeholder="Last name" 
-                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
-                </div>
+                
                 <div class="setting-section">
                     <label style="display:block;margin-bottom:8px;font-weight:500;">Preferred Name (optional)</label>
                     <input type="text" id="editPreferredName" placeholder="What they like to be called" 
                            style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
                 </div>
+                
                 <div class="setting-section">
-                    <label style="display:block;margin-bottom:8px;font-weight:500;">Photo URL (optional)</label>
-                    <input type="text" id="editPhotoUrl" placeholder="https://... or leave blank for avatar" 
-                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">Choose Avatar</label>
+                    <div style="display:flex;gap:8px;margin-bottom:12px;">
+                        <button type="button" class="btn btn-secondary avatar-tab active" onclick="showAvatarTab('female')" style="padding:8px 16px;">👩 Female</button>
+                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('male')" style="padding:8px 16px;">👨 Male</button>
+                        <button type="button" class="btn btn-secondary avatar-tab" onclick="showAvatarTab('neutral')" style="padding:8px 16px;">🧑 Neutral</button>
+                    </div>
+                    <div id="avatarGrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-height:180px;overflow-y:auto;padding:8px;background:var(--bg-secondary);border-radius:12px;">
+                        <!-- Avatars loaded dynamically -->
+                    </div>
                 </div>
+                
+                <div class="setting-section">
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">Or paste image URL</label>
+                    <input type="text" id="editPhotoUrl" placeholder="https://..." 
+                           style="width:100%;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:1rem;"
+                           oninput="clearAvatarSelection()">
+                </div>
+                
                 <div style="display:flex;gap:12px;margin-top:24px;">
                     <button class="btn btn-primary" onclick="saveStudent()">Save Student</button>
                     <button class="btn btn-secondary" onclick="closeEditStudent()">Cancel</button>
@@ -2272,13 +2297,106 @@
             renderStudentManagerList();
         }
         
+        // Avatar options
+        const avatarOptions = {
+            female: [
+                { seed: 'Emma', style: 'lorelei' },
+                { seed: 'Olivia', style: 'lorelei' },
+                { seed: 'Sophia', style: 'lorelei' },
+                { seed: 'Ava', style: 'lorelei' },
+                { seed: 'Isabella', style: 'lorelei' },
+                { seed: 'Mia', style: 'lorelei' },
+                { seed: 'Luna', style: 'lorelei' },
+                { seed: 'Chloe', style: 'lorelei' },
+                { seed: 'Aria', style: 'lorelei' },
+                { seed: 'Maya', style: 'lorelei' },
+                { seed: 'Zoe', style: 'lorelei' },
+                { seed: 'Lily', style: 'lorelei' }
+            ],
+            male: [
+                { seed: 'James', style: 'lorelei' },
+                { seed: 'William', style: 'lorelei' },
+                { seed: 'Oliver', style: 'lorelei' },
+                { seed: 'Benjamin', style: 'lorelei' },
+                { seed: 'Lucas', style: 'lorelei' },
+                { seed: 'Henry', style: 'lorelei' },
+                { seed: 'Alexander', style: 'lorelei' },
+                { seed: 'Michael', style: 'lorelei' },
+                { seed: 'Daniel', style: 'lorelei' },
+                { seed: 'Matthew', style: 'lorelei' },
+                { seed: 'David', style: 'lorelei' },
+                { seed: 'Joseph', style: 'lorelei' }
+            ],
+            neutral: [
+                { seed: 'Alex', style: 'bottts' },
+                { seed: 'Jordan', style: 'bottts' },
+                { seed: 'Taylor', style: 'bottts' },
+                { seed: 'Morgan', style: 'bottts' },
+                { seed: 'Casey', style: 'bottts' },
+                { seed: 'Riley', style: 'bottts' },
+                { seed: 'Quinn', style: 'thumbs' },
+                { seed: 'Avery', style: 'thumbs' },
+                { seed: 'Peyton', style: 'thumbs' },
+                { seed: 'Cameron', style: 'thumbs' },
+                { seed: 'Drew', style: 'thumbs' },
+                { seed: 'Sage', style: 'thumbs' }
+            ]
+        };
+        
+        let currentAvatarTab = 'female';
+        
+        function getAvatarUrl(seed, style = 'lorelei') {
+            return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+        }
+        
+        function showAvatarTab(tab) {
+            currentAvatarTab = tab;
+            document.querySelectorAll('.avatar-tab').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderAvatarGrid();
+        }
+        
+        function renderAvatarGrid() {
+            const grid = document.getElementById('avatarGrid');
+            const options = avatarOptions[currentAvatarTab] || avatarOptions.female;
+            const selectedAvatar = document.getElementById('editSelectedAvatar').value;
+            
+            grid.innerHTML = options.map(opt => {
+                const url = getAvatarUrl(opt.seed, opt.style);
+                const isSelected = selectedAvatar === url;
+                return `
+                    <div onclick="selectAvatar('${url}')" 
+                         style="cursor:pointer;padding:4px;border-radius:8px;border:3px solid ${isSelected ? 'var(--accent)' : 'transparent'};transition:border 0.2s;">
+                        <img src="${url}" style="width:100%;border-radius:50%;background:var(--bg-card);">
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function selectAvatar(url) {
+            document.getElementById('editSelectedAvatar').value = url;
+            document.getElementById('editPhotoUrl').value = '';
+            renderAvatarGrid();
+        }
+        
+        function clearAvatarSelection() {
+            document.getElementById('editSelectedAvatar').value = '';
+            renderAvatarGrid();
+        }
+        
         function showAddStudentForm() {
             document.getElementById('editStudentTitle').textContent = '➕ Add Student';
             document.getElementById('editStudentId').value = '';
+            document.getElementById('editSelectedAvatar').value = '';
             document.getElementById('editFirstName').value = '';
             document.getElementById('editLastName').value = '';
             document.getElementById('editPreferredName').value = '';
             document.getElementById('editPhotoUrl').value = '';
+            currentAvatarTab = 'female';
+            document.querySelectorAll('.avatar-tab').forEach((btn, i) => {
+                btn.classList.toggle('active', i === 0);
+            });
+            renderAvatarGrid();
             document.getElementById('editStudentModal').classList.add('open');
         }
         
@@ -2291,7 +2409,21 @@
             document.getElementById('editFirstName').value = student.firstName || '';
             document.getElementById('editLastName').value = student.lastName || '';
             document.getElementById('editPreferredName').value = student.preferredName || '';
-            document.getElementById('editPhotoUrl').value = student.caricature || student.caricatures?.photo || '';
+            
+            const existingPhoto = student.caricature || student.caricatures?.photo || '';
+            if (existingPhoto.includes('dicebear.com')) {
+                document.getElementById('editSelectedAvatar').value = existingPhoto;
+                document.getElementById('editPhotoUrl').value = '';
+            } else {
+                document.getElementById('editSelectedAvatar').value = '';
+                document.getElementById('editPhotoUrl').value = existingPhoto;
+            }
+            
+            currentAvatarTab = 'female';
+            document.querySelectorAll('.avatar-tab').forEach((btn, i) => {
+                btn.classList.toggle('active', i === 0);
+            });
+            renderAvatarGrid();
             document.getElementById('editStudentModal').classList.add('open');
         }
         
@@ -2304,7 +2436,11 @@
             const firstName = document.getElementById('editFirstName').value.trim();
             const lastName = document.getElementById('editLastName').value.trim();
             const preferredName = document.getElementById('editPreferredName').value.trim();
+            const selectedAvatar = document.getElementById('editSelectedAvatar').value.trim();
             const photoUrl = document.getElementById('editPhotoUrl').value.trim();
+            
+            // Use selected avatar, or photo URL, or generate from name
+            const finalPhoto = photoUrl || selectedAvatar || getAvatarUrl(firstName || 'Student', 'lorelei');
             
             if (!firstName) {
                 alert('First name is required');
@@ -2320,11 +2456,9 @@
                     student.preferredName = preferredName || firstName;
                     student.lastInitial = lastName ? lastName.charAt(0) : '';
                     student.displayName = `${preferredName || firstName} ${student.lastInitial}.`;
-                    if (photoUrl) {
-                        student.caricature = photoUrl;
-                        if (!student.caricatures) student.caricatures = {};
-                        student.caricatures.photo = photoUrl;
-                    }
+                    student.caricature = finalPhoto;
+                    if (!student.caricatures) student.caricatures = {};
+                    student.caricatures.photo = finalPhoto;
                     showToast(`Updated ${firstName}`);
                 }
             } else {
@@ -2339,16 +2473,13 @@
                     preferredName: preferredName || firstName,
                     displayName: `${preferredName || firstName} ${lastInit}.`,
                     status: 'unchecked',
+                    caricature: finalPhoto,
+                    caricatures: { photo: finalPhoto },
                     position: addStudentPosition || {
                         x: 20 + (students.length % 6) * 115,
                         y: 20 + Math.floor(students.length / 6) * 145
                     }
                 };
-                
-                if (photoUrl) {
-                    newStudent.caricature = photoUrl;
-                    newStudent.caricatures = { photo: photoUrl };
-                }
                 
                 students.push(newStudent);
                 addStudentPosition = null;
