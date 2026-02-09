@@ -563,6 +563,133 @@
             color: white;
         }
         
+        .btn-warning {
+            background: var(--warning);
+            color: black;
+        }
+        
+        .btn-warning:hover {
+            background: #d97706;
+        }
+        
+        /* Hall Pass */
+        .hp-duration.active {
+            background: var(--accent) !important;
+            color: white;
+        }
+        
+        .hp-student {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 2px solid transparent;
+        }
+        
+        .hp-student:hover {
+            background: var(--bg-hover);
+        }
+        
+        .hp-student.on-pass {
+            border-color: #06b6d4;
+            background: rgba(6,182,212,0.15);
+            animation: passGlow 2s infinite;
+        }
+        
+        .hp-student.in-queue {
+            border-color: var(--warning);
+            background: rgba(245,158,11,0.1);
+        }
+        
+        .hp-student img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            margin-bottom: 6px;
+        }
+        
+        .hp-student .name {
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .hp-student .pass-timer {
+            font-size: 11px;
+            color: #06b6d4;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .hp-student .queue-pos {
+            font-size: 10px;
+            color: var(--warning);
+            margin-top: 4px;
+        }
+        
+        @keyframes passGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(6,182,212,0.4); }
+            50% { box-shadow: 0 0 12px 4px rgba(6,182,212,0.2); }
+        }
+        
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .queue-item.active {
+            background: rgba(6,182,212,0.15);
+            border: 1px solid #06b6d4;
+        }
+        
+        .queue-item img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        
+        .queue-item .info {
+            flex: 1;
+        }
+        
+        .queue-item .name {
+            font-weight: 600;
+        }
+        
+        .queue-item .time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .queue-item .etd {
+            font-size: 13px;
+            font-weight: 600;
+            color: #06b6d4;
+        }
+        
+        .queue-item .back-btn {
+            padding: 6px 12px;
+            background: var(--success);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .queue-item .back-btn:hover {
+            background: #16a34a;
+        }
+        
         .avatar-tab.active {
             background: var(--accent) !important;
             color: white;
@@ -964,12 +1091,68 @@
 
         <!-- Hall Pass View -->
         <div class="view" id="hallpassView">
-            <div style="text-align:center;padding:60px;">
-                <h2>🚪 Hall Pass</h2>
-                <p style="color:var(--text-secondary);margin-top:16px;">
-                    Hall pass available during class time (not first or last 10 minutes).
-                </p>
-                <div id="hallpassStatus" style="margin-top:24px;"></div>
+            <div style="display:flex;gap:24px;padding:20px;height:calc(100vh - 84px);">
+                <!-- Left: Student Grid -->
+                <div style="flex:1;overflow-y:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <h2>🚪 Hall Pass</h2>
+                        <div style="font-size:14px;color:var(--text-secondary);">
+                            Tap a student to start a hall pass
+                        </div>
+                    </div>
+                    <div id="hallpassGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:12px;"></div>
+                </div>
+                <!-- Right: Queue -->
+                <div style="width:280px;background:var(--bg-card);border-radius:16px;padding:16px;display:flex;flex-direction:column;">
+                    <h3 style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+                        <span>📋 Queue</span>
+                        <span id="queueCount" style="background:var(--accent);padding:2px 8px;border-radius:10px;font-size:12px;">0</span>
+                    </h3>
+                    <div id="hallpassQueue" style="flex:1;overflow-y:auto;"></div>
+                    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--text-secondary);">
+                        <div>⚠️ One student out at a time</div>
+                        <div style="margin-top:4px;">🚨 Emergency override available</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hall Pass Duration Modal -->
+        <div class="modal-overlay" id="hallpassModal" onclick="if(event.target===this)closeHallPassModal()">
+            <div class="modal" style="max-width:400px;">
+                <div class="modal-header">
+                    <h2>🚶 Hall Pass</h2>
+                    <button class="close-btn" onclick="closeHallPassModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div id="hallpassModalStudent" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:12px;background:var(--bg-secondary);border-radius:12px;">
+                        <img id="hallpassModalImg" src="" style="width:48px;height:48px;border-radius:50%;">
+                        <div>
+                            <div id="hallpassModalName" style="font-weight:600;font-size:18px;"></div>
+                            <div id="hallpassModalStatus" style="font-size:13px;color:var(--text-secondary);"></div>
+                        </div>
+                    </div>
+                    <label style="display:block;margin-bottom:8px;font-weight:500;">How long?</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                        <button class="btn btn-secondary hp-duration active" data-min="3" onclick="selectHpDuration(3)">3 min</button>
+                        <button class="btn btn-secondary hp-duration" data-min="5" onclick="selectHpDuration(5)">5 min</button>
+                        <button class="btn btn-secondary hp-duration" data-min="8" onclick="selectHpDuration(8)">8 min</button>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;margin-bottom:6px;font-size:13px;color:var(--text-secondary);">Or special reason:</label>
+                        <input type="text" id="hallpassCustomReason" placeholder="e.g., Counselor visit, Office..." 
+                               style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:white;">
+                    </div>
+                    <div id="hallpassQueueWarning" style="display:none;padding:12px;background:rgba(245,158,11,0.1);border:1px solid var(--warning);border-radius:8px;margin-bottom:16px;">
+                        <div style="color:var(--warning);font-weight:500;">⚠️ Someone is already out</div>
+                        <div id="hallpassQueueInfo" style="font-size:13px;margin-top:4px;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeHallPassModal()">Cancel</button>
+                    <button class="btn btn-primary" id="hallpassStartBtn" onclick="startHallPass()">🚶 Start Pass</button>
+                    <button class="btn btn-warning" id="hallpassQueueBtn" style="display:none;" onclick="queueHallPass()">📋 Join Queue</button>
+                </div>
             </div>
         </div>
 
@@ -1015,6 +1198,8 @@
         <div class="context-menu-item" onclick="setStatus('absent')">❌ Mark Absent</div>
         <div class="context-menu-item" onclick="setStatus('excused')">📝 Mark Excused</div>
         <div class="context-menu-item" onclick="clearStatus()">🔄 Clear (Reset)</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" id="ctxHallPass" onclick="showHallPassModal()">🚶 Hall Pass</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-note">
             <input type="text" id="contextMenuNote" placeholder="Add note..." onkeypress="if(event.key==='Enter')saveNote()">
@@ -1695,6 +1880,9 @@
             document.getElementById('contextMenuHeader').textContent = name;
             document.getElementById('contextMenuNote').value = student.note || '';
             
+            // Update hall pass option based on student's pass status
+            updateHallPassContextMenu();
+            
             // Smart positioning - keep menu on screen
             positionContextMenu(menu, event.clientX, event.clientY);
             menu.classList.add('open');
@@ -2372,7 +2560,325 @@
             
             if (viewName === 'groups') renderGroups();
             if (viewName === 'history') renderHistoryView();
+            if (viewName === 'hallpass') renderHallPassView();
         }
+        
+        // ========== HALL PASS SYSTEM ==========
+        let hallPassQueue = []; // Array of { studentId, duration, reason, startTime, queuedAt }
+        let selectedHpDuration = 3;
+        let hallPassModalStudentId = null;
+        
+        function renderHallPassView() {
+            const grid = document.getElementById('hallpassGrid');
+            const queueEl = document.getElementById('hallpassQueue');
+            const countEl = document.getElementById('queueCount');
+            if (!grid || !queueEl) return;
+            
+            // Load hall pass state from localStorage
+            const saved = localStorage.getItem('hallpass_queue');
+            if (saved) {
+                try { hallPassQueue = JSON.parse(saved); } catch(e) {}
+            }
+            
+            // Clean up expired passes (auto-return after 30 min)
+            const now = Date.now();
+            hallPassQueue = hallPassQueue.filter(p => {
+                if (p.startTime && (now - p.startTime) > 30 * 60 * 1000) {
+                    // Auto-return after 30 min
+                    logHallPassReturn(p);
+                    return false;
+                }
+                return true;
+            });
+            saveHallPassQueue();
+            
+            // Render student grid
+            grid.innerHTML = students.map(s => {
+                const pass = hallPassQueue.find(p => p.studentId === s.id);
+                const isOut = pass && pass.startTime;
+                const inQueue = pass && !pass.startTime;
+                const queuePos = inQueue ? hallPassQueue.filter(p => !p.startTime).findIndex(p => p.studentId === s.id) + 1 : 0;
+                const img = getStudentImage(s);
+                const name = s.preferredName || s.firstName || '';
+                const lastName = s.lastName || '';
+                const displayName = name + (lastName ? ' ' + lastName.charAt(0) + '.' : '');
+                
+                let timerHtml = '';
+                if (isOut) {
+                    const mins = Math.floor((now - pass.startTime) / 60000);
+                    const etd = pass.duration - mins;
+                    timerHtml = `<div class="pass-timer">🚶 ${mins}m (ETD: ${etd > 0 ? etd : 0}m)</div>`;
+                } else if (inQueue) {
+                    timerHtml = `<div class="queue-pos">📋 #${queuePos} in queue</div>`;
+                }
+                
+                return `
+                    <div class="hp-student ${isOut ? 'on-pass' : ''} ${inQueue ? 'in-queue' : ''}" 
+                         onclick="${isOut ? `returnFromPass(${s.id})` : `openHallPassModal(${s.id})`}">
+                        <img src="${img}" alt="${name}">
+                        <div class="name">${displayName}</div>
+                        ${timerHtml}
+                    </div>
+                `;
+            }).join('');
+            
+            // Render queue
+            const activePass = hallPassQueue.find(p => p.startTime);
+            const waiting = hallPassQueue.filter(p => !p.startTime);
+            
+            let queueHtml = '';
+            
+            if (activePass) {
+                const student = students.find(s => s.id === activePass.studentId);
+                if (student) {
+                    const mins = Math.floor((now - activePass.startTime) / 60000);
+                    const etd = activePass.duration - mins;
+                    const img = getStudentImage(student);
+                    queueHtml += `
+                        <div class="queue-item active">
+                            <img src="${img}">
+                            <div class="info">
+                                <div class="name">${student.preferredName || student.firstName}</div>
+                                <div class="time">${activePass.reason || `${activePass.duration} min pass`}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div class="etd">ETD: ${etd > 0 ? etd : 0}m</div>
+                                <button class="back-btn" onclick="returnFromPass(${student.id})">I'm Back</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            waiting.forEach((p, i) => {
+                const student = students.find(s => s.id === p.studentId);
+                if (student) {
+                    const img = getStudentImage(student);
+                    queueHtml += `
+                        <div class="queue-item">
+                            <img src="${img}">
+                            <div class="info">
+                                <div class="name">${student.preferredName || student.firstName}</div>
+                                <div class="time">#${i + 1} in queue • ${p.duration} min</div>
+                            </div>
+                            <button class="btn btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="removeFromQueue(${student.id})">✕</button>
+                        </div>
+                    `;
+                }
+            });
+            
+            if (!activePass && waiting.length === 0) {
+                queueHtml = '<div style="text-align:center;padding:24px;color:var(--text-secondary);">No active passes</div>';
+            }
+            
+            queueEl.innerHTML = queueHtml;
+            countEl.textContent = hallPassQueue.length;
+            
+            // Update context menu item based on student status
+            updateHallPassContextMenu();
+        }
+        
+        function openHallPassModal(studentId) {
+            hallPassModalStudentId = studentId;
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            // Check if already has a pass
+            const existingPass = hallPassQueue.find(p => p.studentId === studentId);
+            if (existingPass) {
+                if (existingPass.startTime) {
+                    // Already out - offer to return
+                    if (confirm(`${student.preferredName || student.firstName} is already out. Mark as returned?`)) {
+                        returnFromPass(studentId);
+                    }
+                } else {
+                    // In queue - offer to remove
+                    if (confirm(`${student.preferredName || student.firstName} is in the queue. Remove from queue?`)) {
+                        removeFromQueue(studentId);
+                    }
+                }
+                return;
+            }
+            
+            // Set up modal
+            const img = getStudentImage(student);
+            document.getElementById('hallpassModalImg').src = img;
+            document.getElementById('hallpassModalName').textContent = student.preferredName || student.firstName;
+            document.getElementById('hallpassModalStatus').textContent = student.status === 'ontime' ? '✓ On time today' : student.status === 'late' ? '⏰ Late today' : '';
+            
+            // Reset duration selection
+            selectedHpDuration = 3;
+            document.querySelectorAll('.hp-duration').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.min === '3');
+            });
+            document.getElementById('hallpassCustomReason').value = '';
+            
+            // Check if someone is already out
+            const activePass = hallPassQueue.find(p => p.startTime);
+            const warning = document.getElementById('hallpassQueueWarning');
+            const startBtn = document.getElementById('hallpassStartBtn');
+            const queueBtn = document.getElementById('hallpassQueueBtn');
+            
+            if (activePass) {
+                const outStudent = students.find(s => s.id === activePass.studentId);
+                const mins = Math.floor((Date.now() - activePass.startTime) / 60000);
+                const etd = activePass.duration - mins;
+                warning.style.display = 'block';
+                document.getElementById('hallpassQueueInfo').textContent = 
+                    `${outStudent?.preferredName || outStudent?.firstName} is out (ETD: ${etd > 0 ? etd : 0}m)`;
+                startBtn.style.display = 'none';
+                queueBtn.style.display = 'inline-flex';
+            } else {
+                warning.style.display = 'none';
+                startBtn.style.display = 'inline-flex';
+                queueBtn.style.display = 'none';
+            }
+            
+            document.getElementById('hallpassModal').classList.add('open');
+        }
+        
+        function closeHallPassModal() {
+            document.getElementById('hallpassModal').classList.remove('open');
+            hallPassModalStudentId = null;
+        }
+        
+        function selectHpDuration(mins) {
+            selectedHpDuration = mins;
+            document.querySelectorAll('.hp-duration').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.min) === mins);
+            });
+        }
+        
+        function startHallPass() {
+            if (!hallPassModalStudentId) return;
+            
+            const customReason = document.getElementById('hallpassCustomReason').value.trim();
+            
+            hallPassQueue.push({
+                studentId: hallPassModalStudentId,
+                duration: selectedHpDuration,
+                reason: customReason || null,
+                startTime: Date.now(),
+                queuedAt: Date.now()
+            });
+            
+            saveHallPassQueue();
+            closeHallPassModal();
+            renderHallPassView();
+            renderCanvas(); // Update main view too
+            
+            const student = students.find(s => s.id === hallPassModalStudentId);
+            showToast(`🚶 ${student?.preferredName || student?.firstName} is out on hall pass`);
+        }
+        
+        function queueHallPass() {
+            if (!hallPassModalStudentId) return;
+            
+            const customReason = document.getElementById('hallpassCustomReason').value.trim();
+            
+            hallPassQueue.push({
+                studentId: hallPassModalStudentId,
+                duration: selectedHpDuration,
+                reason: customReason || null,
+                startTime: null, // Not started yet
+                queuedAt: Date.now()
+            });
+            
+            saveHallPassQueue();
+            closeHallPassModal();
+            renderHallPassView();
+            
+            const student = students.find(s => s.id === hallPassModalStudentId);
+            const pos = hallPassQueue.filter(p => !p.startTime).length;
+            showToast(`📋 ${student?.preferredName || student?.firstName} added to queue (#${pos})`);
+        }
+        
+        function returnFromPass(studentId) {
+            const passIndex = hallPassQueue.findIndex(p => p.studentId === studentId && p.startTime);
+            if (passIndex === -1) return;
+            
+            const pass = hallPassQueue[passIndex];
+            const duration = Math.floor((Date.now() - pass.startTime) / 60000);
+            
+            // Log the completed pass
+            logHallPassReturn(pass, duration);
+            
+            // Remove from queue
+            hallPassQueue.splice(passIndex, 1);
+            
+            // Start next person in queue
+            const nextInQueue = hallPassQueue.find(p => !p.startTime);
+            if (nextInQueue) {
+                nextInQueue.startTime = Date.now();
+                const nextStudent = students.find(s => s.id === nextInQueue.studentId);
+                showToast(`🚶 ${nextStudent?.preferredName || nextStudent?.firstName}'s turn!`);
+            }
+            
+            saveHallPassQueue();
+            renderHallPassView();
+            renderCanvas();
+            
+            const student = students.find(s => s.id === studentId);
+            showToast(`✓ ${student?.preferredName || student?.firstName} back in ${duration}m`);
+        }
+        
+        function removeFromQueue(studentId) {
+            hallPassQueue = hallPassQueue.filter(p => p.studentId !== studentId);
+            saveHallPassQueue();
+            renderHallPassView();
+        }
+        
+        function logHallPassReturn(pass, duration) {
+            // Save to history
+            const today = getToday();
+            const student = students.find(s => s.id === pass.studentId);
+            if (!student) return;
+            
+            if (!student.hallPassHistory) student.hallPassHistory = [];
+            student.hallPassHistory.push({
+                date: today,
+                duration: duration || Math.floor((Date.now() - pass.startTime) / 60000),
+                reason: pass.reason,
+                startTime: pass.startTime,
+                endTime: Date.now()
+            });
+            
+            saveToLocalStorage();
+        }
+        
+        function saveHallPassQueue() {
+            localStorage.setItem('hallpass_queue', JSON.stringify(hallPassQueue));
+        }
+        
+        function showHallPassModal() {
+            if (!contextStudentId) return;
+            closeContextMenu();
+            openHallPassModal(contextStudentId);
+        }
+        
+        function updateHallPassContextMenu() {
+            const ctxItem = document.getElementById('ctxHallPass');
+            if (!ctxItem || !contextStudentId) return;
+            
+            const pass = hallPassQueue.find(p => p.studentId === contextStudentId);
+            if (pass && pass.startTime) {
+                ctxItem.textContent = '🏁 End Hall Pass';
+                ctxItem.onclick = () => { closeContextMenu(); returnFromPass(contextStudentId); };
+            } else if (pass) {
+                ctxItem.textContent = '❌ Remove from Queue';
+                ctxItem.onclick = () => { closeContextMenu(); removeFromQueue(contextStudentId); };
+            } else {
+                ctxItem.textContent = '🚶 Hall Pass';
+                ctxItem.onclick = showHallPassModal;
+            }
+        }
+        
+        // Update hall pass view periodically
+        setInterval(() => {
+            if (document.getElementById('hallpassView')?.classList.contains('active')) {
+                renderHallPassView();
+            }
+        }, 10000);
         
         function renderHistoryView() {
             const container = document.getElementById('historyContainer');
