@@ -977,12 +977,20 @@
         <div class="view" id="groupsView">
             <div style="max-width:1000px;margin:0 auto;">
                 <h2 style="margin-bottom:24px;">👥 Quick Groups</h2>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
                     <button class="btn btn-secondary" onclick="makeGroups(2)">Pairs</button>
                     <button class="btn btn-secondary" onclick="makeGroups(3)">3s</button>
                     <button class="btn btn-secondary" onclick="makeGroups(4)">4s</button>
                     <button class="btn btn-secondary" onclick="makeGroups(5)">5s</button>
                     <button class="btn btn-secondary" onclick="shuffleGroups()">🔀 Shuffle</button>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;padding-top:12px;border-top:1px solid var(--border);">
+                    <button class="btn btn-primary" onclick="saveCurrentGroups()">💾 Save Groups</button>
+                    <button class="btn btn-secondary" onclick="showSavedGroups()">📂 Load Past Groups</button>
+                </div>
+                <div id="savedGroupsPanel" style="display:none;margin-bottom:24px;padding:16px;background:var(--bg-card);border-radius:12px;">
+                    <h3 style="margin-bottom:12px;">📂 Saved Groups</h3>
+                    <div id="savedGroupsList"></div>
                 </div>
                 <div id="groupsContainer"></div>
             </div>
@@ -2229,6 +2237,116 @@
                     </div>
                 </div>
             `).join('');
+        }
+        
+        // ========== SAVE/LOAD GROUPS ==========
+        function saveCurrentGroups() {
+            if (currentGroups.length === 0) {
+                showToast('Create groups first!');
+                return;
+            }
+            
+            const name = prompt('Name these groups (e.g., "Project Teams", "Lab Partners"):');
+            if (!name) return;
+            
+            const savedGroups = JSON.parse(localStorage.getItem('hallpass_saved_groups') || '[]');
+            
+            const groupData = {
+                id: Date.now(),
+                name: name,
+                date: new Date().toISOString(),
+                groupCount: currentGroups.length,
+                groups: currentGroups.map(g => ({
+                    id: g.id,
+                    color: g.color,
+                    memberIds: g.members.map(m => m.id),
+                    memberNames: g.members.map(m => m.displayName || m.firstName)
+                }))
+            };
+            
+            savedGroups.unshift(groupData);
+            
+            // Keep max 20 saved groups
+            if (savedGroups.length > 20) savedGroups.pop();
+            
+            localStorage.setItem('hallpass_saved_groups', JSON.stringify(savedGroups));
+            showToast(`💾 Saved "${name}"`);
+        }
+        
+        function showSavedGroups() {
+            const panel = document.getElementById('savedGroupsPanel');
+            const list = document.getElementById('savedGroupsList');
+            
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            const savedGroups = JSON.parse(localStorage.getItem('hallpass_saved_groups') || '[]');
+            
+            if (savedGroups.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-secondary);">No saved groups yet. Create groups and click "Save Groups".</p>';
+            } else {
+                list.innerHTML = savedGroups.map(sg => {
+                    const date = new Date(sg.date);
+                    const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    return `
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;">
+                            <div>
+                                <div style="font-weight:500;">${sg.name}</div>
+                                <div style="font-size:0.8rem;color:var(--text-secondary);">${dateStr} • ${sg.groupCount} groups</div>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn btn-primary" style="padding:6px 12px;font-size:0.85rem;" onclick="loadSavedGroup(${sg.id})">Load</button>
+                                <button class="btn btn-danger" style="padding:6px 12px;font-size:0.85rem;" onclick="deleteSavedGroup(${sg.id})">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            panel.style.display = 'block';
+        }
+        
+        function loadSavedGroup(groupId) {
+            const savedGroups = JSON.parse(localStorage.getItem('hallpass_saved_groups') || '[]');
+            const saved = savedGroups.find(g => g.id === groupId);
+            
+            if (!saved) {
+                showToast('Group not found');
+                return;
+            }
+            
+            // Rebuild groups with current student data
+            currentGroups = saved.groups.map(g => ({
+                id: g.id,
+                color: g.color,
+                members: g.memberIds.map(id => students.find(s => s.id === id)).filter(Boolean)
+            }));
+            
+            // Check if any students are missing
+            const missingCount = saved.groups.reduce((count, g) => 
+                count + g.memberIds.filter(id => !students.find(s => s.id === id)).length, 0);
+            
+            if (missingCount > 0) {
+                showToast(`⚠️ Loaded "${saved.name}" (${missingCount} students no longer in class)`);
+            } else {
+                showToast(`✓ Loaded "${saved.name}"`);
+            }
+            
+            document.getElementById('savedGroupsPanel').style.display = 'none';
+            renderGroups();
+        }
+        
+        function deleteSavedGroup(groupId) {
+            if (!confirm('Delete this saved group?')) return;
+            
+            let savedGroups = JSON.parse(localStorage.getItem('hallpass_saved_groups') || '[]');
+            savedGroups = savedGroups.filter(g => g.id !== groupId);
+            localStorage.setItem('hallpass_saved_groups', JSON.stringify(savedGroups));
+            
+            showSavedGroups(); // Refresh the list
+            showToast('Deleted');
         }
         
         // ========== VIEW SWITCHING ==========
