@@ -1364,6 +1364,7 @@
                         <button class="toolbar-btn" id="editModeBtn" onclick="toggleEditMode()">✏️ Edit</button>
                         <button class="toolbar-btn" onclick="openStudentManager()">👤 Students</button>
                         <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset</button>
+                        <button class="toolbar-btn" id="removeClassBtn" onclick="removeClassFromPeriod()" title="Remove class from this period" style="display:none;background:var(--error);">🚫 Prep</button>
                     </div>
                     <div class="toolbar-group" style="display:flex;align-items:center;gap:6px;">
                         <span style="font-size:0.75rem;color:var(--text-secondary);">Layout:</span>
@@ -3121,7 +3122,13 @@
                     lastAutoSwitchPeriod = currentPeriod;
                     showToast(`Auto-switched to ${allClasses[assignment.classId].classData?.settings?.className || assignment.classId}`);
                 }
+            } else if (!assignment || !assignment.classId) {
+                // No class for this period - show prep state
+                lastAutoSwitchPeriod = currentPeriod;
+                showPrepPeriod(currentPeriod);
             }
+            
+            updateRemoveButtonVisibility();
         }
         
         // Manually set period from dropdown
@@ -3152,9 +3159,10 @@
                 if (assignment.classId !== currentClassId) {
                     switchClass(assignment.classId);
                 }
+                showToast(`Switched to Period ${period} (manual)`);
             } else {
-                // No class assigned to this period - show warning
-                showPeriodWarning(period);
+                // No class assigned to this period - show prep state
+                showPrepPeriod(period);
             }
             
             // Reset auto-switch tracker so it doesn't fight us
@@ -3162,7 +3170,7 @@
             
             localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
             updateStatusBar();
-            showToast(`Switched to Period ${period} (manual)`);
+            updateRemoveButtonVisibility();
         }
         
         // Clear manual override (call when you want auto-detect to resume)
@@ -3201,6 +3209,79 @@
             const className = allClasses[currentClassId].classData?.settings?.className || currentClassId;
             assignClassToPeriod(schedule.period, currentClassId);
             showToast(`${className} → Period ${schedule.period}`);
+        }
+        
+        // Remove class from current period (set to prep)
+        function removeClassFromPeriod() {
+            const period = schedule.period;
+            const currentAssignment = classAssignments[period];
+            const className = currentAssignment?.name || 'current class';
+            
+            if (!confirm(`Remove ${className} from Period ${period}?\n\nThis will make Period ${period} a prep period.`)) {
+                return;
+            }
+            
+            // Clear the assignment
+            classAssignments[period] = { name: '', classId: null };
+            localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+            
+            // Show prep period state
+            showPrepPeriod(period);
+            showToast(`Period ${period} is now a prep period`);
+        }
+        
+        // Show prep period (no class) state
+        function showPrepPeriod(period) {
+            // Clear student display
+            students = [];
+            currentClassId = null;
+            classData = null;
+            
+            // Update class name in header
+            const classNameEl = document.getElementById('className');
+            if (classNameEl) {
+                classNameEl.textContent = '— Prep —';
+                classNameEl.style.color = 'var(--text-secondary)';
+            }
+            
+            // Update class selector
+            const classSelect = document.getElementById('classSelect');
+            if (classSelect) classSelect.value = '';
+            
+            // Hide remove button, since no class to remove
+            const removeBtn = document.getElementById('removeClassBtn');
+            if (removeBtn) removeBtn.style.display = 'none';
+            
+            // Show prep message on canvas
+            const canvas = document.getElementById('seatingCanvas');
+            if (canvas) {
+                canvas.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);gap:16px;">
+                        <div style="font-size:4rem;">📚</div>
+                        <div style="font-size:1.5rem;font-weight:600;">Period ${period} - Prep Time</div>
+                        <div style="font-size:0.9rem;">No class assigned to this period</div>
+                        <button class="btn btn-primary" onclick="openSchedule()" style="margin-top:16px;">
+                            ⚙️ Assign a Class
+                        </button>
+                    </div>
+                `;
+            }
+            
+            updateStats();
+            updateStatusBar();
+        }
+        
+        // Update remove button visibility based on current period assignment
+        function updateRemoveButtonVisibility() {
+            const removeBtn = document.getElementById('removeClassBtn');
+            if (!removeBtn) return;
+            
+            const assignment = classAssignments[schedule.period];
+            if (assignment && assignment.classId) {
+                removeBtn.style.display = 'inline-flex';
+            } else {
+                removeBtn.style.display = 'none';
+            }
         }
         
         function getTodayScheduleType() {
@@ -4956,6 +5037,12 @@
             renderCanvas();
             updateStats();
             updateStatusBar();
+            updateRemoveButtonVisibility();
+            
+            // Restore class name color (in case it was grayed out for prep)
+            const classNameEl = document.getElementById('className');
+            if (classNameEl) classNameEl.style.color = '';
+            
             showToast(`Switched to ${classData?.settings?.className || classId}`);
             
             // Persist
@@ -6370,6 +6457,7 @@
         loadSavedData();
         renderCanvas();
         updateStatusBar();
+        updateRemoveButtonVisibility();
         initMiniDrag();
         
         // Update countdown every second
