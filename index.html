@@ -3146,6 +3146,9 @@
             }
             
             // Check if we should auto-switch class based on period
+            // SKIP if user has manually overridden the period!
+            if (manualPeriodOverride) return;
+            
             if (lastAutoSwitchPeriod === currentPeriod) return; // Already switched
             
             const assignment = classAssignments[currentPeriod];
