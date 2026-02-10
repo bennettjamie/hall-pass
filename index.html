@@ -1330,6 +1330,7 @@
                 <option value="3">Period 3</option>
                 <option value="4">Period 4</option>
             </select>
+            <button id="autoModeBtn" onclick="clearPeriodOverride()" style="display:none;background:var(--warning);border:none;color:black;font-size:0.65rem;padding:2px 6px;border-radius:4px;cursor:pointer;" title="Click to resume auto-detect">MANUAL</button>
             <div class="class-name" id="className" onclick="openSchedule()"></div>
             <div class="countdown pre-class" id="countdown">--:--</div>
             <div class="class-status" id="classStatus">Loading...</div>
@@ -2858,6 +2859,12 @@
                 periodSelect.title = `${startFormatted} - ${endFormatted}`;
             }
             
+            // Show/hide manual mode indicator
+            const autoModeBtn = document.getElementById('autoModeBtn');
+            if (autoModeBtn) {
+                autoModeBtn.style.display = manualPeriodOverride ? 'inline-block' : 'none';
+            }
+            
             if (now < start) {
                 // Pre-class
                 const diff = start - now;
@@ -2893,6 +2900,9 @@
         
         // Track which period we've auto-marked absent for today
         let lastAutoAbsentKey = null;
+        
+        // Track manual period override (prevents auto-detect from reverting)
+        let manualPeriodOverride = false;
         
         function autoMarkAbsent() {
             const today = getToday();
@@ -2963,12 +2973,15 @@
             
             if (!currentPeriod) return;
             
-            // Update schedule times for current period
+            // Only auto-update period if user hasn't manually overridden
+            // (manualPeriodUntil is set when user manually changes period)
             const times = dayPreset[currentPeriod];
-            if (times && schedule.period !== currentPeriod) {
+            if (times && schedule.period !== currentPeriod && !manualPeriodOverride) {
                 schedule.period = currentPeriod;
                 schedule.startTime = times.start;
                 schedule.endTime = times.end;
+                const periodSelect = document.getElementById('periodSelect');
+                if (periodSelect) periodSelect.value = currentPeriod;
                 document.getElementById('schedPeriod').value = currentPeriod;
                 document.getElementById('schedStart').value = times.start;
                 document.getElementById('schedEnd').value = times.end;
@@ -2992,6 +3005,9 @@
         function manuallySetPeriod(period) {
             period = parseInt(period);
             if (period < 1 || period > 4) return;
+            
+            // Set manual override to prevent auto-detect from reverting
+            manualPeriodOverride = true;
             
             schedule.period = period;
             
@@ -3018,7 +3034,13 @@
             
             localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
             updateStatusBar();
-            showToast(`Switched to Period ${period}`);
+            showToast(`Switched to Period ${period} (manual)`);
+        }
+        
+        // Clear manual override (call when you want auto-detect to resume)
+        function clearPeriodOverride() {
+            manualPeriodOverride = false;
+            showToast('Auto-detect resumed');
         }
         
         function getTodayScheduleType() {
