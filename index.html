@@ -328,6 +328,45 @@
             text-align: center;
         }
         
+        /* Layout Selector */
+        .layout-selector {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            cursor: pointer;
+            min-width: 120px;
+        }
+        
+        .layout-selector:hover {
+            background: var(--bg-hover);
+        }
+        
+        .layout-manager-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .layout-manager-item.active {
+            border: 2px solid var(--accent);
+        }
+        
+        .layout-manager-item .layout-name {
+            font-weight: 500;
+        }
+        
+        .layout-manager-item .layout-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
         .day-sched {
             padding: 6px 10px;
             border-radius: 6px;
@@ -1285,6 +1324,14 @@
                         <button class="toolbar-btn" onclick="openStudentManager()">👤 Edit Students</button>
                         <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset Day</button>
                     </div>
+                    <div class="toolbar-group" style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:0.85rem;color:var(--text-secondary);">Layout:</span>
+                        <select id="layoutSelect" class="layout-selector" onchange="switchLayout(this.value)">
+                            <option value="default">Default</option>
+                        </select>
+                        <button class="toolbar-btn" onclick="saveCurrentLayout()" title="Save current positions to selected layout">💾</button>
+                        <button class="toolbar-btn" onclick="openLayoutManager()" title="Manage layouts">⚙️</button>
+                    </div>
                     <div class="toolbar-group">
                         <button class="toolbar-btn" id="miniModeBtn" onclick="toggleMiniOverlay()">📌 Mini Overlay</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(-0.1)">➖</button>
@@ -1913,6 +1960,40 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <!-- Layout Manager Modal -->
+    <div class="modal-overlay" id="layoutManagerModal" onclick="if(event.target===this)closeLayoutManager()">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>📐 Manage Layouts</h2>
+                <button class="close-btn" onclick="closeLayoutManager()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
+                    Create different seating arrangements for your class. Switch between them using the dropdown in the toolbar.
+                </p>
+                
+                <div id="layoutList">
+                    <!-- Populated by JS -->
+                </div>
+                
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                    <h4 style="margin-bottom:12px;">Create New Layout</h4>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="newLayoutName" placeholder="Layout name (e.g., Group Work)" 
+                            style="flex:1;padding:10px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
+                        <button class="btn btn-primary" onclick="createNewLayout()">+ Create</button>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;color:var(--text-secondary);">
+                            <input type="checkbox" id="copyCurrentPositions" checked>
+                            Copy current positions to new layout
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Mini Overlay -->
     <div class="mini-overlay" id="miniOverlay">
@@ -4155,6 +4236,13 @@
             if (classData && currentClassId) {
                 classData.students = students;
                 
+                // Save current layout positions
+                if (currentLayoutId && classLayouts[currentLayoutId]) {
+                    savePositionsToLayout(currentLayoutId);
+                    classData.layouts = classLayouts;
+                    classData.currentLayoutId = currentLayoutId;
+                }
+                
                 // Store in allClasses
                 allClasses[currentClassId] = {
                     classData: classData,
@@ -4194,6 +4282,10 @@
             students = classInfo.students || [];
             attendanceHistory = classInfo.attendanceHistory || {};
             streaks = classInfo.streaks || {};
+            
+            // Initialize layouts for this class
+            initializeLayouts();
+            applyLayoutPositions(currentLayoutId);
             
             // Update UI
             document.getElementById('classSelect').value = classId;
@@ -4283,6 +4375,230 @@
             renderCanvas();
         }
         
+        // ========== LAYOUT MANAGEMENT ==========
+        let currentLayoutId = 'default';
+        let classLayouts = {}; // { layoutId: { name, positions: { studentId: {x,y} } } }
+        
+        function initializeLayouts() {
+            // Load layouts from class data
+            if (classData?.layouts) {
+                classLayouts = classData.layouts;
+            } else {
+                // Create default layout
+                classLayouts = {
+                    'default': {
+                        name: 'Default',
+                        positions: {}
+                    }
+                };
+            }
+            
+            // Get current layout from class data
+            currentLayoutId = classData?.currentLayoutId || 'default';
+            
+            populateLayoutSelector();
+        }
+        
+        function populateLayoutSelector() {
+            const select = document.getElementById('layoutSelect');
+            if (!select) return;
+            
+            const layoutIds = Object.keys(classLayouts);
+            
+            select.innerHTML = layoutIds.map(id => {
+                const layout = classLayouts[id];
+                return `<option value="${id}" ${id === currentLayoutId ? 'selected' : ''}>${layout.name}</option>`;
+            }).join('');
+        }
+        
+        function switchLayout(layoutId) {
+            if (!classLayouts[layoutId]) return;
+            
+            // Save current positions first
+            savePositionsToLayout(currentLayoutId);
+            
+            // Switch to new layout
+            currentLayoutId = layoutId;
+            
+            // Apply positions from new layout
+            applyLayoutPositions(layoutId);
+            
+            // Update class data
+            if (classData) {
+                classData.currentLayoutId = layoutId;
+            }
+            
+            saveClass();
+            renderCanvas();
+            showToast(`Switched to ${classLayouts[layoutId].name}`);
+        }
+        
+        function savePositionsToLayout(layoutId) {
+            if (!classLayouts[layoutId]) return;
+            
+            const positions = {};
+            students.forEach(s => {
+                if (s.position) {
+                    positions[s.id] = { x: s.position.x, y: s.position.y };
+                }
+            });
+            
+            classLayouts[layoutId].positions = positions;
+            
+            // Save to class data
+            if (classData) {
+                classData.layouts = classLayouts;
+            }
+        }
+        
+        function applyLayoutPositions(layoutId) {
+            const layout = classLayouts[layoutId];
+            if (!layout || !layout.positions) return;
+            
+            students.forEach(s => {
+                if (layout.positions[s.id]) {
+                    s.position = { ...layout.positions[s.id] };
+                }
+            });
+        }
+        
+        function saveCurrentLayout() {
+            savePositionsToLayout(currentLayoutId);
+            saveClass();
+            showToast(`Saved ${classLayouts[currentLayoutId].name} layout`);
+        }
+        
+        function openLayoutManager() {
+            renderLayoutList();
+            document.getElementById('layoutManagerModal').classList.add('open');
+        }
+        
+        function closeLayoutManager() {
+            document.getElementById('layoutManagerModal').classList.remove('open');
+        }
+        
+        function renderLayoutList() {
+            const container = document.getElementById('layoutList');
+            const layoutIds = Object.keys(classLayouts);
+            
+            if (layoutIds.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-secondary);">No layouts yet.</p>';
+                return;
+            }
+            
+            container.innerHTML = layoutIds.map(id => {
+                const layout = classLayouts[id];
+                const isActive = id === currentLayoutId;
+                const isDefault = id === 'default';
+                
+                return `
+                    <div class="layout-manager-item ${isActive ? 'active' : ''}">
+                        <div>
+                            <span class="layout-name">${layout.name}</span>
+                            ${isActive ? '<span style="color:var(--accent);font-size:0.8rem;margin-left:8px;">Active</span>' : ''}
+                        </div>
+                        <div class="layout-actions">
+                            ${!isActive ? `<button class="btn btn-secondary" style="padding:6px 12px;font-size:0.85rem;" onclick="switchLayout('${id}');renderLayoutList();">Use</button>` : ''}
+                            ${!isDefault ? `<button class="btn btn-secondary" style="padding:6px 12px;font-size:0.85rem;" onclick="renameLayout('${id}')">✏️</button>` : ''}
+                            ${!isDefault ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:0.85rem;" onclick="deleteLayout('${id}')">🗑️</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function createNewLayout() {
+            const nameInput = document.getElementById('newLayoutName');
+            const copyPositions = document.getElementById('copyCurrentPositions').checked;
+            
+            let name = nameInput.value.trim();
+            if (!name) {
+                name = `Layout ${Object.keys(classLayouts).length + 1}`;
+            }
+            
+            // Generate unique ID
+            const id = 'layout-' + Date.now();
+            
+            // Create layout
+            const positions = {};
+            if (copyPositions) {
+                students.forEach(s => {
+                    if (s.position) {
+                        positions[s.id] = { x: s.position.x, y: s.position.y };
+                    }
+                });
+            }
+            
+            classLayouts[id] = { name, positions };
+            
+            // Save and update UI
+            if (classData) {
+                classData.layouts = classLayouts;
+            }
+            saveClass();
+            
+            // Switch to new layout
+            currentLayoutId = id;
+            if (classData) {
+                classData.currentLayoutId = id;
+            }
+            
+            populateLayoutSelector();
+            renderLayoutList();
+            nameInput.value = '';
+            
+            showToast(`Created "${name}" layout`);
+        }
+        
+        function renameLayout(layoutId) {
+            const layout = classLayouts[layoutId];
+            if (!layout) return;
+            
+            const newName = prompt('Enter new name:', layout.name);
+            if (newName && newName.trim()) {
+                layout.name = newName.trim();
+                if (classData) {
+                    classData.layouts = classLayouts;
+                }
+                saveClass();
+                populateLayoutSelector();
+                renderLayoutList();
+                showToast(`Renamed to "${newName}"`);
+            }
+        }
+        
+        function deleteLayout(layoutId) {
+            if (layoutId === 'default') {
+                showToast('Cannot delete default layout');
+                return;
+            }
+            
+            const layout = classLayouts[layoutId];
+            if (!confirm(`Delete "${layout.name}" layout?`)) return;
+            
+            delete classLayouts[layoutId];
+            
+            // If deleted active layout, switch to default
+            if (layoutId === currentLayoutId) {
+                currentLayoutId = 'default';
+                applyLayoutPositions('default');
+                if (classData) {
+                    classData.currentLayoutId = 'default';
+                }
+            }
+            
+            if (classData) {
+                classData.layouts = classLayouts;
+            }
+            saveClass();
+            
+            populateLayoutSelector();
+            renderLayoutList();
+            renderCanvas();
+            
+            showToast(`Deleted layout`);
+        }
+        
         function loadSavedData() {
             // Load app settings
             const savedSettings = localStorage.getItem('hallpass_settings');
@@ -4315,6 +4631,7 @@
                     }
                     
                     populateClassSelector();
+                    initializeLayouts();
                 } catch(e) {
                     console.error('Error loading classes:', e);
                 }
