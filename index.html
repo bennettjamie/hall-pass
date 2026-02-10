@@ -3158,19 +3158,36 @@
             if (!assignment || !assignment.classId) {
                 // Explicitly set to None/Prep - show prep state
                 showPrepPeriod(period);
+                showToast(`Switched to Period ${period} - Prep`);
             } else if (allClasses[assignment.classId]) {
                 // Period has an assigned class that exists - switch to it
                 if (assignment.classId !== currentClassId) {
                     switchClass(assignment.classId);
+                } else {
+                    // Same class, just re-render to clear any prep overlay
+                    renderCanvas();
                 }
                 showToast(`Switched to Period ${period} (manual)`);
             } else {
-                // Class assigned but not in allClasses - keep current class, show warning
-                // Don't clear the display, just notify user
-                showToast(`⚠️ Period ${period}: "${assignment.name}" not loaded. Keeping current view.`);
-                // Re-render current class if we have one
-                if (currentClassId && allClasses[currentClassId]) {
+                // Class assigned but classId not found in allClasses
+                // Try to find the class by name instead
+                const classIdByName = Object.keys(allClasses).find(id => {
+                    const cls = allClasses[id];
+                    return cls.classData?.settings?.className === assignment.name;
+                });
+                
+                if (classIdByName) {
+                    // Found by name - switch and fix the assignment
+                    switchClass(classIdByName);
+                    classAssignments[period].classId = classIdByName;
+                    localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+                    showToast(`Switched to Period ${period} (manual)`);
+                } else if (students.length > 0) {
+                    // We have students loaded, just render them
                     renderCanvas();
+                    showToast(`Switched to Period ${period} (manual)`);
+                } else {
+                    showToast(`⚠️ Period ${period}: "${assignment.name}" not loaded. Import class in Settings.`);
                 }
             }
             
