@@ -1324,7 +1324,12 @@
                 <span class="date-full" id="dateFull">Feb 10</span>
                 <span class="schedule-type" id="scheduleType">Regular</span>
             </div>
-            <div class="period-badge" onclick="openSchedule()" id="periodBadge">Period 1</div>
+            <select id="periodSelect" class="period-badge" onchange="manuallySetPeriod(this.value)" style="cursor:pointer;border:none;appearance:none;-webkit-appearance:none;text-align:center;">
+                <option value="1">Period 1</option>
+                <option value="2">Period 2</option>
+                <option value="3">Period 3</option>
+                <option value="4">Period 4</option>
+            </select>
             <div class="class-name" id="className" onclick="openSchedule()"></div>
             <div class="countdown pre-class" id="countdown">--:--</div>
             <div class="class-status" id="classStatus">Loading...</div>
@@ -2825,8 +2830,11 @@
             // Show period and time range
             const startFormatted = formatTime(start);
             const endFormatted = formatTime(end);
-            periodBadge.textContent = `Period ${schedule.period}`;
-            periodBadge.title = `${startFormatted} - ${endFormatted}`;
+            const periodSelect = document.getElementById('periodSelect');
+            if (periodSelect) {
+                periodSelect.value = schedule.period;
+                periodSelect.title = `${startFormatted} - ${endFormatted}`;
+            }
             
             if (now < start) {
                 // Pre-class
@@ -2898,21 +2906,47 @@
             if (lastAutoSwitchPeriod === currentPeriod) return; // Already switched
             
             const assignment = classAssignments[currentPeriod];
-            if (assignment && assignment.name) {
-                // Find matching class in allClasses
-                const matchingClassId = Object.keys(allClasses).find(id => {
-                    const cls = allClasses[id];
-                    const className = cls.classData?.settings?.className || '';
-                    return className.toLowerCase().includes(assignment.name.toLowerCase()) ||
-                           assignment.name.toLowerCase().includes(className.toLowerCase());
-                });
-                
-                if (matchingClassId && matchingClassId !== currentClassId) {
-                    switchClass(matchingClassId);
+            if (assignment && assignment.classId && allClasses[assignment.classId]) {
+                // Use the exact classId from assignment
+                if (assignment.classId !== currentClassId) {
+                    switchClass(assignment.classId);
                     lastAutoSwitchPeriod = currentPeriod;
-                    showToast(`Auto-switched to ${allClasses[matchingClassId].classData?.settings?.className || matchingClassId}`);
+                    showToast(`Auto-switched to ${allClasses[assignment.classId].classData?.settings?.className || assignment.classId}`);
                 }
             }
+        }
+        
+        // Manually set period from dropdown
+        function manuallySetPeriod(period) {
+            period = parseInt(period);
+            if (period < 1 || period > 4) return;
+            
+            schedule.period = period;
+            
+            // Get times from current schedule type
+            const schedType = getTodayScheduleType();
+            const preset = presets[schedType] || presets.regular;
+            const times = preset[period];
+            
+            if (times) {
+                schedule.startTime = times.start;
+                schedule.endTime = times.end;
+            }
+            
+            // Check if we should switch class
+            const assignment = classAssignments[period];
+            if (assignment && assignment.classId && allClasses[assignment.classId]) {
+                if (assignment.classId !== currentClassId) {
+                    switchClass(assignment.classId);
+                }
+            }
+            
+            // Reset auto-switch tracker so it doesn't fight us
+            lastAutoSwitchPeriod = period;
+            
+            localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+            updateStatusBar();
+            showToast(`Switched to Period ${period}`);
         }
         
         function getTodayScheduleType() {
