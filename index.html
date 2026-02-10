@@ -7025,6 +7025,47 @@
         // Load and start
         loadSavedData();
         
+        // Check if it's a new day and reset attendance statuses
+        checkNewDayReset();
+        
+        function checkNewDayReset() {
+            const today = getToday();
+            const lastActiveDay = localStorage.getItem('hallpass_lastActiveDay');
+            
+            if (lastActiveDay && lastActiveDay !== today) {
+                // It's a new day! Reset all student statuses to unchecked
+                console.log('New day detected, resetting attendance statuses');
+                
+                // Reset statuses for all classes
+                Object.values(allClasses).forEach(cls => {
+                    if (cls.students) {
+                        cls.students.forEach(s => {
+                            s.status = 'unchecked';
+                            s.checkInTime = null;
+                            s.lateBy = null;
+                            s.statusText = null;
+                        });
+                    }
+                });
+                
+                // Reset current class students too
+                students.forEach(s => {
+                    s.status = 'unchecked';
+                    s.checkInTime = null;
+                    s.lateBy = null;
+                    s.statusText = null;
+                });
+                
+                // Save the reset
+                localStorage.setItem('hallpass_allClasses', JSON.stringify(allClasses));
+                
+                showToast('📅 New day - attendance reset');
+            }
+            
+            // Update last active day
+            localStorage.setItem('hallpass_lastActiveDay', today);
+        }
+        
         // Check for data loss: assignments exist but no class data
         const hasAssignments = Object.values(classAssignments).some(a => a && a.classId);
         const hasClasses = Object.keys(allClasses).length > 0;
