@@ -2856,10 +2856,59 @@
                 countdown.textContent = 'Done';
                 countdown.className = 'countdown';
                 classStatus.textContent = 'Class ended';
+                
+                // Auto-mark absent 5 minutes after class ends
+                const minutesAfterEnd = Math.floor((now - end) / 60000);
+                if (minutesAfterEnd >= 5) {
+                    autoMarkAbsent();
+                }
             }
             
             // Update stats
             updateStats();
+        }
+        
+        // Track which period we've auto-marked absent for today
+        let lastAutoAbsentKey = null;
+        
+        function autoMarkAbsent() {
+            const today = getToday();
+            const key = `${today}-${schedule.period}`;
+            
+            // Only run once per period per day
+            if (lastAutoAbsentKey === key) return;
+            
+            let markedCount = 0;
+            students.forEach(s => {
+                // If not checked in (not ontime, late, or excused)
+                if (!s.status || s.status === 'unchecked') {
+                    s.status = 'absent';
+                    s.statusText = 'Absent';
+                    
+                    // Save to attendance history
+                    if (!attendanceHistory[today]) {
+                        attendanceHistory[today] = {};
+                    }
+                    attendanceHistory[today][s.id] = {
+                        status: 'absent',
+                        time: new Date().toISOString(),
+                        period: schedule.period,
+                        auto: true // Mark as auto-recorded
+                    };
+                    
+                    markedCount++;
+                }
+            });
+            
+            if (markedCount > 0) {
+                lastAutoAbsentKey = key;
+                localStorage.setItem('hallpass_attendance', JSON.stringify(attendanceHistory));
+                saveClass();
+                renderCanvas();
+                showToast(`Auto-marked ${markedCount} absent (class ended)`);
+            } else {
+                lastAutoAbsentKey = key; // Still mark as done even if no one absent
+            }
         }
         
         function autoDetectPeriodAndClass() {
