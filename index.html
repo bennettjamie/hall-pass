@@ -3154,15 +3154,24 @@
             // Check if we should switch class
             const assignment = classAssignments[period];
             
-            if (assignment && assignment.classId && allClasses[assignment.classId]) {
-                // Period has an assigned class - switch to it
+            // Only show prep if explicitly no class assigned (empty classId)
+            if (!assignment || !assignment.classId) {
+                // Explicitly set to None/Prep - show prep state
+                showPrepPeriod(period);
+            } else if (allClasses[assignment.classId]) {
+                // Period has an assigned class that exists - switch to it
                 if (assignment.classId !== currentClassId) {
                     switchClass(assignment.classId);
                 }
                 showToast(`Switched to Period ${period} (manual)`);
             } else {
-                // No class assigned to this period - show prep state
-                showPrepPeriod(period);
+                // Class assigned but not in allClasses - keep current class, show warning
+                // Don't clear the display, just notify user
+                showToast(`⚠️ Period ${period}: "${assignment.name}" not loaded. Keeping current view.`);
+                // Re-render current class if we have one
+                if (currentClassId && allClasses[currentClassId]) {
+                    renderCanvas();
+                }
             }
             
             // Reset auto-switch tracker so it doesn't fight us
@@ -3221,38 +3230,31 @@
                 return;
             }
             
-            // Clear the assignment
+            // Clear the assignment (but keep class data in allClasses for other periods)
             classAssignments[period] = { name: '', classId: null };
             localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
             
-            // Show prep period state
+            // Show prep period state (doesn't clear loaded class)
             showPrepPeriod(period);
+            updateRemoveButtonVisibility();
             showToast(`Period ${period} is now a prep period`);
         }
         
         // Show prep period (no class) state
+        // Note: This does NOT clear the loaded class data - just shows prep UI for this period
         function showPrepPeriod(period) {
-            // Clear student display
-            students = [];
-            currentClassId = null;
-            classData = null;
-            
-            // Update class name in header
+            // Update class name in header to show prep
             const classNameEl = document.getElementById('className');
             if (classNameEl) {
                 classNameEl.textContent = '— Prep —';
                 classNameEl.style.color = 'var(--text-secondary)';
             }
             
-            // Update class selector
-            const classSelect = document.getElementById('classSelect');
-            if (classSelect) classSelect.value = '';
-            
             // Hide remove button, since no class to remove
             const removeBtn = document.getElementById('removeClassBtn');
             if (removeBtn) removeBtn.style.display = 'none';
             
-            // Show prep message on canvas
+            // Show prep message on canvas (don't clear students array - just show overlay)
             const canvas = document.getElementById('seatingCanvas');
             if (canvas) {
                 canvas.innerHTML = `
