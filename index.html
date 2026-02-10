@@ -2760,11 +2760,12 @@
             let html = '';
             for (let p = 1; p <= 4; p++) {
                 const current = classAssignments[p]?.classId || '';
+                const hasClass = current && allClasses[current];
                 
                 html += `
-                    <div class="period-class-row">
-                        <label>Period ${p}</label>
-                        <select onchange="assignClassToPeriod(${p}, this.value)">
+                    <div class="period-class-row" style="display:flex;align-items:center;gap:8px;">
+                        <label style="min-width:70px;">Period ${p}</label>
+                        <select onchange="assignClassToPeriod(${p}, this.value)" style="flex:1;">
                             <option value="">-- None / Prep --</option>
                             ${classIds.map(id => {
                                 const cls = allClasses[id];
@@ -2772,11 +2773,20 @@
                                 return `<option value="${id}" ${id === current ? 'selected' : ''}>${name}</option>`;
                             }).join('')}
                         </select>
+                        ${hasClass ? `<button onclick="clearPeriodAssignment(${p})" style="background:var(--danger);border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;" title="Remove class from Period ${p}">✕</button>` : ''}
                     </div>
                 `;
             }
             
             container.innerHTML = html;
+        }
+        
+        function clearPeriodAssignment(period) {
+            classAssignments[period] = { name: '', classId: null };
+            localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+            renderClassAssignments();
+            renderCalendar();
+            showToast(`Period ${period} cleared`);
         }
         
         function assignClassToPeriod(period, classId) {
@@ -2873,16 +2883,12 @@
             if (weekSelect) weeklyPattern.currentWeek = parseInt(weekSelect.value);
             localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
             
-            // Save class assignments
-            document.querySelectorAll('.class-assignment').forEach(row => {
-                const period = row.dataset.period;
-                const input = row.querySelector('.class-name-input');
-                if (input) {
-                    if (!classAssignments[period]) classAssignments[period] = {};
-                    classAssignments[period].name = input.value;
-                }
-            });
+            // Class assignments are already saved live via assignClassToPeriod()
+            // Just ensure they're persisted
             localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+            
+            // Clear manual override so auto-detect can work with new assignments
+            manualPeriodOverride = false;
             
             updateDateDisplay();
             updateStatusBar();
