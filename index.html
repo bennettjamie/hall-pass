@@ -1114,9 +1114,10 @@
             </div>
         </div>
         <div class="nav-right">
-            <select id="classSelect" class="class-selector">
-                <option>No class loaded</option>
+            <select id="classSelect" class="class-selector" onchange="switchClass(this.value)">
+                <option value="">No class loaded</option>
             </select>
+            <button class="icon-btn" title="Add Class" onclick="openImportClass()" style="font-size:1rem;">➕</button>
             <button class="icon-btn" title="Schedule" onclick="openSchedule()">🕐</button>
             <button class="icon-btn" title="Settings" onclick="openSettings()">⚙️</button>
             <button class="icon-btn" title="Help" onclick="openHelp()">❓</button>
@@ -1600,11 +1601,38 @@
                 </div>
                 
                 <div class="setting-section">
-                    <h3>📤 Export All Data</h3>
+                    <h3>📚 Loaded Classes</h3>
+                    <div id="loadedClassesList" style="margin-bottom:12px;"></div>
+                    <script>
+                        function updateLoadedClassesList() {
+                            const container = document.getElementById('loadedClassesList');
+                            const classes = Object.entries(allClasses);
+                            if (classes.length === 0) {
+                                container.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">No classes loaded. Import a class to get started.</p>';
+                                return;
+                            }
+                            container.innerHTML = classes.map(([id, cls]) => {
+                                const name = cls.classData?.settings?.className || id;
+                                const studentCount = cls.students?.length || 0;
+                                const isCurrent = id === currentClassId;
+                                return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${isCurrent ? 'var(--accent)' : 'var(--bg-secondary)'};border-radius:8px;margin-bottom:6px;">
+                                    <span style="font-weight:${isCurrent ? '600' : '400'};">${name} (${studentCount} students)</span>
+                                    <button onclick="removeClassById('${id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1.1rem;" title="Remove class">✕</button>
+                                </div>`;
+                            }).join('');
+                        }
+                    </script>
+                </div>
+                
+                <div class="setting-section">
+                    <h3>📤 Export</h3>
                     <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
-                        Export everything for laptop migration. Includes class roster, attendance history, and settings.
+                        Export for syncing between computers. Full backup includes all classes.
                     </p>
-                    <button class="btn btn-secondary" onclick="exportAllData()">💾 Export Full Backup</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="exportAllData()">💾 Full Backup (All Classes)</button>
+                        <button class="btn btn-secondary" onclick="exportCurrentClass()">📋 Current Class Only</button>
+                    </div>
                 </div>
                 
                 <div class="setting-section">
@@ -1616,8 +1644,21 @@
                 </div>
                 
                 <div class="setting-section">
+                    <h3>⚙️ Settings</h3>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                        <label style="font-size:0.9rem;">Grace period (seconds after bell):</label>
+                        <input type="number" id="graceSecondsInput" value="45" min="0" max="300" 
+                            style="width:70px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);"
+                            onchange="appSettings.graceSeconds = parseInt(this.value) || 45; saveClass();">
+                    </div>
+                </div>
+                
+                <div class="setting-section">
                     <h3>🗑️ Clear Data</h3>
-                    <button class="btn btn-danger" onclick="clearAllData()">Clear Everything</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-warning" onclick="removeCurrentClass()">Remove Current Class</button>
+                        <button class="btn btn-danger" onclick="clearAllData()">Clear Everything</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1753,6 +1794,17 @@
         let editMode = false;
         let contextStudentId = null;
         let currentGroups = [];
+        
+        // Multi-class support
+        let allClasses = {}; // { classId: { classData, students, attendanceHistory, streaks } }
+        let currentClassId = null;
+        
+        // Settings
+        let appSettings = {
+            graceSeconds: 45, // Grace period after bell
+            autoBackup: true,
+            backupRetentionDays: 3
+        };
         
         // Schedule state
         let schedule = {
@@ -2206,8 +2258,12 @@
             const now = new Date();
             const start = parseTime(schedule.startTime);
             
-            // Determine on-time vs late
-            const isLate = now > start;
+            // Add grace period
+            const graceMs = (appSettings.graceSeconds || 45) * 1000;
+            const graceEnd = new Date(start.getTime() + graceMs);
+            
+            // Determine on-time vs late (grace period after bell)
+            const isLate = now > graceEnd;
             student.status = isLate ? 'late' : 'ontime';
             student.checkInTime = now.toISOString();
             
@@ -3402,10 +3458,20 @@
         // ========== SETTINGS & IMPORT/EXPORT ==========
         function openSettings() {
             document.getElementById('settingsModal').classList.add('open');
+            updateLoadedClassesList();
+            document.getElementById('graceSecondsInput').value = appSettings.graceSeconds || 45;
         }
         
         function closeSettings() {
             document.getElementById('settingsModal').classList.remove('open');
+        }
+        
+        function removeClassById(classId) {
+            const cls = allClasses[classId];
+            const name = cls?.classData?.settings?.className || classId;
+            if (!confirm(`Remove "${name}"?`)) return;
+            removeClass(classId);
+            updateLoadedClassesList();
         }
         
         function openHelp() {
@@ -3424,61 +3490,127 @@
                 const text = await file.text();
                 const data = JSON.parse(text);
                 
-                // Check if this is a full backup or just class data
-                if (data.hallpass_backup) {
-                    // Full backup import
+                // Check format version
+                if (data.hallpass_backup && data.version === 2) {
+                    // Multi-class backup (v2)
+                    if (data.allClasses && Object.keys(data.allClasses).length > 0) {
+                        // Ask user: merge or replace?
+                        const existingCount = Object.keys(allClasses).length;
+                        const importCount = Object.keys(data.allClasses).length;
+                        
+                        let shouldReplace = true;
+                        if (existingCount > 0) {
+                            shouldReplace = confirm(
+                                `You have ${existingCount} class(es). Import has ${importCount} class(es).\n\n` +
+                                `OK = Replace all (recommended for sync)\n` +
+                                `Cancel = Add to existing classes`
+                            );
+                        }
+                        
+                        if (shouldReplace) {
+                            // Replace all
+                            allClasses = data.allClasses;
+                            currentClassId = data.currentClassId || Object.keys(allClasses)[0];
+                        } else {
+                            // Merge: add imported classes
+                            Object.entries(data.allClasses).forEach(([id, classInfo]) => {
+                                let newId = id;
+                                let counter = 1;
+                                while (allClasses[newId]) {
+                                    newId = id + '-' + counter++;
+                                }
+                                allClasses[newId] = classInfo;
+                            });
+                            if (!currentClassId) {
+                                currentClassId = Object.keys(allClasses)[0];
+                            }
+                        }
+                        
+                        // Load current class
+                        if (currentClassId && allClasses[currentClassId]) {
+                            const classInfo = allClasses[currentClassId];
+                            classData = classInfo.classData;
+                            students = classInfo.students || [];
+                            attendanceHistory = classInfo.attendanceHistory || {};
+                            streaks = classInfo.streaks || {};
+                        }
+                        
+                        // Import shared settings
+                        if (data.schedule) schedule = data.schedule;
+                        if (data.weeklyPattern) weeklyPattern = data.weeklyPattern;
+                        if (data.classAssignments) classAssignments = data.classAssignments;
+                        if (data.appSettings) appSettings = { ...appSettings, ...data.appSettings };
+                        
+                        populateClassSelector();
+                        showToast(`Imported ${Object.keys(data.allClasses).length} classes!`);
+                    }
+                } else if (data.hallpass_backup) {
+                    // Single-class backup (v1) - add to collection
                     if (data.classData) {
-                        classData = data.classData;
-                        students = data.classData.students || [];
-                    }
-                    if (data.attendanceHistory) {
-                        attendanceHistory = data.attendanceHistory;
-                        localStorage.setItem('hallpass_attendance', JSON.stringify(attendanceHistory));
-                    }
-                    if (data.streaks) {
-                        streaks = data.streaks;
-                        localStorage.setItem('hallpass_streaks', JSON.stringify(streaks));
+                        addClass(
+                            data.classData,
+                            data.classData.students || data.students || [],
+                            data.attendanceHistory || {},
+                            data.streaks || {}
+                        );
+                        showToast(`Added class: ${data.classData?.settings?.className || 'New Class'}`);
                     }
                     if (data.schedule) {
                         schedule = data.schedule;
-                        localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
                     }
-                    showToast('Full backup restored!');
                 } else if (data.students) {
-                    // Just class data
-                    classData = data;
-                    students = data.students.map(s => ({
-                        ...s,
-                        status: 'unchecked'
-                    }));
-                    showToast(`Loaded ${students.length} students`);
-                }
-                
-                if (classData?.settings?.className) {
-                    document.getElementById('classSelect').innerHTML = `<option>${classData.settings.className}</option>`;
+                    // Just class data (original format) - add to collection
+                    const newClassData = {
+                        ...data,
+                        settings: data.settings || { className: file.name.replace('.json', '') }
+                    };
+                    addClass(
+                        newClassData,
+                        data.students.map(s => ({ ...s, status: 'unchecked' })),
+                        {},
+                        {}
+                    );
+                    showToast(`Added ${data.students.length} students`);
                 }
                 
                 saveClass();
                 renderCanvas();
                 updateStats();
                 closeSettings();
+                
+                // Reset file input
+                event.target.value = '';
             } catch (e) {
                 alert('Error importing: ' + e.message);
+                console.error(e);
             }
         }
         
+        // Open file picker for adding a class
+        function openImportClass() {
+            document.getElementById('importFile').click();
+        }
+        
         function exportAllData() {
+            // Save current class first
+            saveClass();
+            
             const backup = {
                 hallpass_backup: true,
+                version: 2, // Multi-class format
                 exportDate: new Date().toISOString(),
-                classData,
-                students,
-                attendanceHistory,
-                streaks,
-                schedule,
+                // Multi-class data
+                allClasses: allClasses,
+                currentClassId: currentClassId,
+                // Shared settings
+                schedule: schedule,
+                weeklyPattern: weeklyPattern,
+                classAssignments: classAssignments,
+                appSettings: appSettings,
                 corrections: JSON.parse(localStorage.getItem('hallpass_corrections') || '[]')
             };
             
+            const classCount = Object.keys(allClasses).length;
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -3486,7 +3618,35 @@
             a.download = `hallpass-backup-${getToday()}.json`;
             a.click();
             URL.revokeObjectURL(url);
-            showToast('Backup exported!');
+            showToast(`Exported ${classCount} class${classCount !== 1 ? 'es' : ''}!`);
+        }
+        
+        // Export single class (for sharing individual class files)
+        function exportCurrentClass() {
+            if (!classData) {
+                showToast('No class to export');
+                return;
+            }
+            
+            const backup = {
+                hallpass_backup: true,
+                version: 1, // Single-class format
+                exportDate: new Date().toISOString(),
+                classData: classData,
+                students: students,
+                attendanceHistory: attendanceHistory,
+                streaks: streaks
+            };
+            
+            const className = classData?.settings?.className || 'class';
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hallpass-${className.replace(/\s+/g, '-')}-${getToday()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`Exported ${className}!`);
         }
         
         function exportAttendance(format) {
@@ -3534,63 +3694,287 @@
         }
         
         function clearAllData() {
-            if (!confirm('This will delete ALL Hall Pass data. Are you sure?')) return;
+            const classCount = Object.keys(allClasses).length;
+            if (!confirm(`This will delete ALL Hall Pass data (${classCount} classes). Are you sure?`)) return;
             if (!confirm('Really? This cannot be undone!')) return;
             
+            // Clear all storage
+            localStorage.removeItem('hallpass_allClasses');
+            localStorage.removeItem('hallpass_currentClassId');
             localStorage.removeItem('hallpass_class');
             localStorage.removeItem('hallpass_attendance');
             localStorage.removeItem('hallpass_streaks');
             localStorage.removeItem('hallpass_schedule');
             localStorage.removeItem('hallpass_corrections');
+            localStorage.removeItem('hallpass_settings');
             
+            // Reset state
+            allClasses = {};
+            currentClassId = null;
             classData = null;
             students = [];
             attendanceHistory = {};
             streaks = {};
             
+            populateClassSelector();
             renderCanvas();
             updateStats();
             closeSettings();
             showToast('All data cleared');
         }
         
-        // ========== PERSISTENCE ==========
-        function saveClass() {
-            if (classData) {
-                classData.students = students;
-                localStorage.setItem('hallpass_class', JSON.stringify(classData));
+        // Remove just the current class
+        function removeCurrentClass() {
+            if (!currentClassId) {
+                showToast('No class selected');
+                return;
             }
+            
+            const className = classData?.settings?.className || currentClassId;
+            if (!confirm(`Delete "${className}"? This cannot be undone.`)) return;
+            
+            removeClass(currentClassId);
+            closeSettings();
+            showToast(`Deleted ${className}`);
         }
         
-        function loadSavedData() {
-            // Load class
-            const savedClass = localStorage.getItem('hallpass_class');
-            if (savedClass) {
-                classData = JSON.parse(savedClass);
-                students = classData.students || [];
-                if (classData.settings?.className) {
-                    document.getElementById('classSelect').innerHTML = `<option>${classData.settings.className}</option>`;
+        // ========== PERSISTENCE ==========
+        
+        // Generate a class ID from class name
+        function generateClassId(className) {
+            return className.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+        }
+        
+        // Save current class to allClasses and persist
+        function saveClass() {
+            if (classData && currentClassId) {
+                classData.students = students;
+                
+                // Store in allClasses
+                allClasses[currentClassId] = {
+                    classData: classData,
+                    students: students,
+                    attendanceHistory: attendanceHistory,
+                    streaks: streaks
+                };
+                
+                // Persist all classes
+                localStorage.setItem('hallpass_allClasses', JSON.stringify(allClasses));
+                localStorage.setItem('hallpass_currentClassId', currentClassId);
+            }
+            
+            // Also save schedule and settings (shared across classes)
+            localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+            localStorage.setItem('hallpass_settings', JSON.stringify(appSettings));
+        }
+        
+        // Switch to a different class
+        function switchClass(classId) {
+            if (!classId || !allClasses[classId]) return;
+            
+            // Save current class first
+            if (currentClassId && classData) {
+                allClasses[currentClassId] = {
+                    classData: classData,
+                    students: students,
+                    attendanceHistory: attendanceHistory,
+                    streaks: streaks
+                };
+            }
+            
+            // Load new class
+            currentClassId = classId;
+            const classInfo = allClasses[classId];
+            classData = classInfo.classData;
+            students = classInfo.students || [];
+            attendanceHistory = classInfo.attendanceHistory || {};
+            streaks = classInfo.streaks || {};
+            
+            // Update UI
+            document.getElementById('classSelect').value = classId;
+            renderCanvas();
+            updateStats();
+            updateStatusBar();
+            showToast(`Switched to ${classData?.settings?.className || classId}`);
+            
+            // Persist
+            localStorage.setItem('hallpass_currentClassId', currentClassId);
+            localStorage.setItem('hallpass_allClasses', JSON.stringify(allClasses));
+        }
+        
+        // Populate class dropdown
+        function populateClassSelector() {
+            const select = document.getElementById('classSelect');
+            const classIds = Object.keys(allClasses);
+            
+            if (classIds.length === 0) {
+                select.innerHTML = '<option value="">No class loaded</option>';
+                return;
+            }
+            
+            select.innerHTML = classIds.map(id => {
+                const cls = allClasses[id];
+                const name = cls.classData?.settings?.className || id;
+                return `<option value="${id}" ${id === currentClassId ? 'selected' : ''}>${name}</option>`;
+            }).join('');
+        }
+        
+        // Add a new class from import data
+        function addClass(importedClassData, importedStudents, importedAttendance = {}, importedStreaks = {}) {
+            const className = importedClassData?.settings?.className || 'New Class';
+            let classId = generateClassId(className);
+            
+            // Handle duplicate IDs
+            let counter = 1;
+            while (allClasses[classId]) {
+                classId = generateClassId(className) + '-' + counter++;
+            }
+            
+            allClasses[classId] = {
+                classData: importedClassData,
+                students: importedStudents,
+                attendanceHistory: importedAttendance,
+                streaks: importedStreaks
+            };
+            
+            // Switch to the new class
+            currentClassId = classId;
+            classData = importedClassData;
+            students = importedStudents;
+            attendanceHistory = importedAttendance;
+            streaks = importedStreaks;
+            
+            // Save and update UI
+            saveClass();
+            populateClassSelector();
+            renderCanvas();
+            updateStats();
+            
+            return classId;
+        }
+        
+        // Remove a class
+        function removeClass(classId) {
+            if (!allClasses[classId]) return;
+            
+            delete allClasses[classId];
+            
+            // If we deleted the current class, switch to another
+            if (classId === currentClassId) {
+                const remaining = Object.keys(allClasses);
+                if (remaining.length > 0) {
+                    switchClass(remaining[0]);
+                } else {
+                    currentClassId = null;
+                    classData = null;
+                    students = [];
+                    attendanceHistory = {};
+                    streaks = {};
                 }
             }
             
-            // Load attendance history
-            const savedAttendance = localStorage.getItem('hallpass_attendance');
-            if (savedAttendance) {
-                attendanceHistory = JSON.parse(savedAttendance);
+            saveClass();
+            populateClassSelector();
+            renderCanvas();
+        }
+        
+        function loadSavedData() {
+            // Load app settings
+            const savedSettings = localStorage.getItem('hallpass_settings');
+            if (savedSettings) {
+                try { appSettings = { ...appSettings, ...JSON.parse(savedSettings) }; } catch(e) {}
             }
             
-            // Load streaks
-            const savedStreaks = localStorage.getItem('hallpass_streaks');
-            if (savedStreaks) {
-                streaks = JSON.parse(savedStreaks);
+            // Load all classes (new multi-class format)
+            const savedAllClasses = localStorage.getItem('hallpass_allClasses');
+            if (savedAllClasses) {
+                try {
+                    allClasses = JSON.parse(savedAllClasses);
+                    currentClassId = localStorage.getItem('hallpass_currentClassId');
+                    
+                    // If we have a current class, load it
+                    if (currentClassId && allClasses[currentClassId]) {
+                        const classInfo = allClasses[currentClassId];
+                        classData = classInfo.classData;
+                        students = classInfo.students || [];
+                        attendanceHistory = classInfo.attendanceHistory || {};
+                        streaks = classInfo.streaks || {};
+                    } else if (Object.keys(allClasses).length > 0) {
+                        // Default to first class
+                        currentClassId = Object.keys(allClasses)[0];
+                        const classInfo = allClasses[currentClassId];
+                        classData = classInfo.classData;
+                        students = classInfo.students || [];
+                        attendanceHistory = classInfo.attendanceHistory || {};
+                        streaks = classInfo.streaks || {};
+                    }
+                    
+                    populateClassSelector();
+                } catch(e) {
+                    console.error('Error loading classes:', e);
+                }
+            } else {
+                // Migration: load old single-class format
+                const savedClass = localStorage.getItem('hallpass_class');
+                if (savedClass) {
+                    try {
+                        const oldClassData = JSON.parse(savedClass);
+                        const oldAttendance = JSON.parse(localStorage.getItem('hallpass_attendance') || '{}');
+                        const oldStreaks = JSON.parse(localStorage.getItem('hallpass_streaks') || '{}');
+                        
+                        // Migrate to new format
+                        addClass(oldClassData, oldClassData.students || [], oldAttendance, oldStreaks);
+                        
+                        // Clean up old keys
+                        localStorage.removeItem('hallpass_class');
+                        localStorage.removeItem('hallpass_attendance');
+                        localStorage.removeItem('hallpass_streaks');
+                        
+                        showToast('Migrated to multi-class format');
+                    } catch(e) {
+                        console.error('Migration error:', e);
+                    }
+                }
             }
             
-            // Load schedule
+            // Load schedule (shared)
             const savedSchedule = localStorage.getItem('hallpass_schedule');
             if (savedSchedule) {
-                schedule = JSON.parse(savedSchedule);
+                try { schedule = JSON.parse(savedSchedule); } catch(e) {}
             }
         }
+        
+        // Auto-backup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (appSettings.autoBackup) {
+                saveClass();
+                
+                // Store timestamped backup
+                const backupKey = `hallpass_backup_${new Date().toISOString().split('T')[0]}`;
+                const backup = {
+                    allClasses,
+                    schedule,
+                    weeklyPattern,
+                    classAssignments,
+                    appSettings,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem(backupKey, JSON.stringify(backup));
+                
+                // Prune old backups
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - appSettings.backupRetentionDays);
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key?.startsWith('hallpass_backup_')) {
+                        const dateStr = key.replace('hallpass_backup_', '');
+                        if (new Date(dateStr) < cutoff) {
+                            localStorage.removeItem(key);
+                        }
+                    }
+                }
+            }
+        });
         
         // ========== STUDENT MANAGEMENT ==========
         let addStudentPosition = null;
