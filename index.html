@@ -3509,6 +3509,12 @@
         function sortStudentsAlphabetically(direction) {
             const studentCount = students.length;
             
+            // Ask for sort field
+            const sortBy = prompt('Sort by:\n1 = First name\n2 = Last name\n\nEnter 1 or 2:', '1');
+            if (!sortBy) return;
+            
+            const byLastName = sortBy.trim() === '2';
+            
             // Ask for grid size
             let promptText, defaultVal;
             if (direction === 'horizontal') {
@@ -3528,10 +3534,16 @@
                 return;
             }
             
-            // Sort students by name
+            // Sort students by chosen field
             const sorted = [...students].sort((a, b) => {
-                const nameA = (a.firstName + ' ' + (a.lastInitial || '')).toLowerCase();
-                const nameB = (b.firstName + ' ' + (b.lastInitial || '')).toLowerCase();
+                let nameA, nameB;
+                if (byLastName) {
+                    nameA = ((a.lastInitial || a.lastName || '') + ' ' + a.firstName).toLowerCase();
+                    nameB = ((b.lastInitial || b.lastName || '') + ' ' + b.firstName).toLowerCase();
+                } else {
+                    nameA = (a.firstName + ' ' + (a.lastInitial || '')).toLowerCase();
+                    nameB = (b.firstName + ' ' + (b.lastInitial || '')).toLowerCase();
+                }
                 return nameA.localeCompare(nameB);
             });
             
@@ -3574,7 +3586,7 @@
             
             renderCanvas();
             saveClass();
-            showToast(`Sorted A-Z: ${cols} columns × ${rows} rows`);
+            showToast(`Sorted by ${byLastName ? 'last' : 'first'} name: ${cols}×${rows}`);
         }
         
         // ========== HALL PASS CANVAS ==========
