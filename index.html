@@ -1388,6 +1388,11 @@
                         <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset</button>
                         <button class="toolbar-btn" id="removeClassBtn" onclick="removeClassFromPeriod()" title="Remove class from this period" style="display:none;background:var(--error);">🚫 Prep</button>
                     </div>
+                    <div class="toolbar-group" style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:0.75rem;color:var(--text-secondary);">Bulk:</span>
+                        <button class="toolbar-btn" onclick="markAllPresent()" title="Mark all students present" style="background:var(--success);">✓ All Present</button>
+                        <button class="toolbar-btn" id="bulkActionBtn" onclick="showBulkActionMenu()" style="display:none;">📋 Selected (<span id="selectedCount">0</span>)</button>
+                    </div>
                     <div class="toolbar-group" style="display:flex;align-items:center;gap:6px;">
                         <span style="font-size:0.75rem;color:var(--text-secondary);">Layout:</span>
                         <select id="layoutSelect" class="layout-selector" onchange="switchLayout(this.value)" style="font-size:0.8rem;padding:4px 8px;">
@@ -3817,6 +3822,131 @@
             document.getElementById('summaryModal').classList.remove('open');
         }
         
+        // ========== BULK ACTIONS ==========
+        function markAllPresent() {
+            const count = students.filter(s => s.status !== 'ontime').length;
+            if (count === 0) {
+                showToast('All students already marked present');
+                return;
+            }
+            
+            if (!confirm(`Mark all ${students.length} students as present/on-time?`)) return;
+            
+            const now = new Date();
+            const today = getToday();
+            
+            students.forEach(s => {
+                s.status = 'ontime';
+                s.checkInTime = now.toISOString();
+                s.statusText = 'On time';
+                s.lateBy = null;
+                
+                // Save to attendance history
+                if (!attendanceHistory[today]) {
+                    attendanceHistory[today] = {};
+                }
+                attendanceHistory[today][s.id] = {
+                    status: 'ontime',
+                    time: now.toISOString(),
+                    period: schedule.period,
+                    bulk: true // Mark as bulk action
+                };
+            });
+            
+            renderCanvas();
+            updateStats();
+            saveClass();
+            showToast(`✓ Marked ${students.length} students present`);
+        }
+        
+        function markSelectedStatus(status) {
+            if (selectedStudents.size === 0) {
+                showToast('No students selected. Ctrl+click to select.');
+                return;
+            }
+            
+            const now = new Date();
+            const today = getToday();
+            const statusText = status === 'ontime' ? 'On time' : status === 'late' ? 'Late' : status === 'absent' ? 'Absent' : status === 'excused' ? 'Excused' : status;
+            
+            selectedStudents.forEach(studentId => {
+                const student = students.find(s => s.id === studentId);
+                if (student) {
+                    student.status = status;
+                    student.checkInTime = status !== 'absent' ? now.toISOString() : null;
+                    student.statusText = statusText;
+                    
+                    if (!attendanceHistory[today]) {
+                        attendanceHistory[today] = {};
+                    }
+                    attendanceHistory[today][student.id] = {
+                        status: status,
+                        time: now.toISOString(),
+                        period: schedule.period,
+                        bulk: true
+                    };
+                }
+            });
+            
+            const count = selectedStudents.size;
+            clearStudentSelection();
+            renderCanvas();
+            updateStats();
+            saveClass();
+            updateBulkActionButton();
+            showToast(`✓ Marked ${count} students as ${statusText}`);
+        }
+        
+        function showBulkActionMenu() {
+            // Create popup menu for bulk actions
+            const btn = document.getElementById('bulkActionBtn');
+            const rect = btn.getBoundingClientRect();
+            
+            // Remove existing menu
+            const existing = document.getElementById('bulkActionMenu');
+            if (existing) existing.remove();
+            
+            const menu = document.createElement('div');
+            menu.id = 'bulkActionMenu';
+            menu.className = 'context-menu';
+            menu.style.cssText = `position:fixed;top:${rect.bottom + 5}px;left:${rect.left}px;z-index:1000;`;
+            menu.innerHTML = `
+                <div class="context-menu-item" onclick="markSelectedStatus('ontime');closeBulkMenu();">✓ Mark Present</div>
+                <div class="context-menu-item" onclick="markSelectedStatus('late');closeBulkMenu();">⏰ Mark Late</div>
+                <div class="context-menu-item" onclick="markSelectedStatus('excused');closeBulkMenu();">📝 Mark Excused</div>
+                <div class="context-menu-item" onclick="markSelectedStatus('absent');closeBulkMenu();">✕ Mark Absent</div>
+                <div class="context-menu-divider"></div>
+                <div class="context-menu-item" onclick="clearStudentSelection();updateBulkActionButton();closeBulkMenu();">Clear Selection</div>
+            `;
+            document.body.appendChild(menu);
+            
+            // Close on click outside
+            setTimeout(() => {
+                document.addEventListener('click', closeBulkMenuOnClick);
+            }, 10);
+        }
+        
+        function closeBulkMenu() {
+            const menu = document.getElementById('bulkActionMenu');
+            if (menu) menu.remove();
+            document.removeEventListener('click', closeBulkMenuOnClick);
+        }
+        
+        function closeBulkMenuOnClick(e) {
+            if (!e.target.closest('#bulkActionMenu') && !e.target.closest('#bulkActionBtn')) {
+                closeBulkMenu();
+            }
+        }
+        
+        function updateBulkActionButton() {
+            const btn = document.getElementById('bulkActionBtn');
+            const countEl = document.getElementById('selectedCount');
+            if (btn && countEl) {
+                countEl.textContent = selectedStudents.size;
+                btn.style.display = selectedStudents.size > 0 ? 'inline-flex' : 'none';
+            }
+        }
+        
         // ========== RESET DAY ==========
         function resetAttendance() {
             if (!confirm('Reset attendance for all students today?')) return;
@@ -4135,10 +4265,8 @@
             }
         }
         
-        // Toggle student selection (Ctrl+click)
+        // Toggle student selection (Ctrl+click) - works in edit mode AND normal mode
         function toggleStudentSelection(studentId, event) {
-            if (!editMode) return;
-            
             const canvas = document.getElementById('seatingCanvas');
             const studentEl = canvas.querySelector(`[data-id="${studentId}"]`);
             
@@ -4150,9 +4278,16 @@
                 studentEl?.classList.add('selected');
             }
             
-            // Show count
-            if (selectedStudents.size > 1) {
-                showToast(`${selectedStudents.size} students selected - drag to move together`);
+            // Update bulk action button
+            updateBulkActionButton();
+            
+            // Show appropriate message
+            if (selectedStudents.size > 0) {
+                if (editMode) {
+                    showToast(`${selectedStudents.size} selected - drag to move together`);
+                } else {
+                    showToast(`${selectedStudents.size} selected - click "Selected" button for bulk actions`);
+                }
             }
         }
         
@@ -4167,18 +4302,20 @@
         }
         
         function startDrag(event, studentId) {
+            // Handle Ctrl+click for selection (works in ALL modes)
+            if (event.ctrlKey || event.metaKey) {
+                event.preventDefault();
+                toggleStudentSelection(studentId, event);
+                return;
+            }
+            
+            // For dragging, must be in edit mode
             if (!editMode) return;
             event.preventDefault();
             
             const canvas = document.getElementById('seatingCanvas');
             const studentEl = canvas.querySelector(`[data-id="${studentId}"]`);
             if (!studentEl) return;
-            
-            // Handle Ctrl+click for selection
-            if (event.ctrlKey || event.metaKey) {
-                toggleStudentSelection(studentId, event);
-                return;
-            }
             
             const touch = event.touches ? event.touches[0] : event;
             
