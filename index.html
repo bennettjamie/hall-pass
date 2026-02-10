@@ -6501,7 +6501,34 @@
         
         // Load and start
         loadSavedData();
-        renderCanvas();
+        
+        // Check for data loss: assignments exist but no class data
+        const hasAssignments = Object.values(classAssignments).some(a => a && a.classId);
+        const hasClasses = Object.keys(allClasses).length > 0;
+        
+        if (hasAssignments && !hasClasses) {
+            console.warn('Class assignments exist but no class data - data may have been lost');
+            // Show a helpful message instead of broken prep screen
+            const canvas = document.getElementById('seatingCanvas');
+            if (canvas) {
+                canvas.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);gap:16px;">
+                        <div style="font-size:4rem;">⚠️</div>
+                        <div style="font-size:1.5rem;font-weight:600;color:var(--warning);">Class Data Lost</div>
+                        <div style="font-size:0.9rem;max-width:400px;text-align:center;">
+                            Your schedule settings are saved, but the class roster data was cleared.<br><br>
+                            Please re-import your classes in Settings.
+                        </div>
+                        <button class="btn btn-primary" onclick="openSettings()" style="margin-top:16px;">
+                            ⚙️ Open Settings
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            renderCanvas();
+        }
+        
         updateStatusBar();
         updateRemoveButtonVisibility();
         initMiniDrag();
