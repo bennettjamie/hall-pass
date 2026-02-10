@@ -1522,10 +1522,12 @@
     <!-- Canvas Context Menu (for adding students) -->
     <!-- Calendar Context Menu -->
     <div class="calendar-context-menu" id="calendarContextMenu">
-        <div class="calendar-context-item" onclick="addBlockFromContext('period')">📚 Add Period</div>
+        <div class="calendar-context-item" onclick="applyScheduleToDay('regular')">📗 Apply Regular Schedule</div>
+        <div class="calendar-context-item" onclick="applyScheduleToDay('amfit')">🌅 Apply AM FIT Schedule</div>
+        <div class="calendar-context-item" onclick="applyScheduleToDay('pmfit')">🌆 Apply PM FIT Schedule</div>
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
         <div class="calendar-context-item" onclick="addBlockFromContext('break')">☕ Add Break</div>
         <div class="calendar-context-item" onclick="addBlockFromContext('lunch')">🍽️ Add Lunch</div>
-        <div class="calendar-context-item" onclick="addBlockFromContext('fit')">🏃 Add FIT</div>
         <div class="calendar-context-item" onclick="addBlockFromContext('custom')">✨ Add Custom Block</div>
         <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
         <div class="calendar-context-item" onclick="editBlockFromContext()">✏️ Edit Block</div>
@@ -2597,6 +2599,121 @@
             saveScheduleBlocks();
             renderCalendar();
             showToast('Reset to default schedule');
+        }
+        
+        // Apply a schedule type (regular, amfit, pmfit) to a specific day
+        function applyScheduleToDay(schedType) {
+            closeCalendarContext();
+            
+            if (!calendarContextDay) return;
+            
+            const day = calendarContextDay;
+            const preset = presets[schedType] || presets.regular;
+            
+            // Build blocks for this day based on preset
+            const blocks = [];
+            
+            // AM FIT goes first
+            if (schedType === 'amfit') {
+                blocks.push({ 
+                    id: `${day}-fit`, 
+                    type: 'fit', 
+                    start: '08:40', 
+                    end: '09:20', 
+                    title: 'FIT' 
+                });
+            }
+            
+            // Period 1
+            blocks.push({ 
+                id: `${day}-p1`, 
+                type: 'period', 
+                period: 1, 
+                start: preset[1].start, 
+                end: preset[1].end, 
+                title: 'Period 1' 
+            });
+            
+            // Break 1
+            blocks.push({ 
+                id: `${day}-break1`, 
+                type: 'break', 
+                start: preset[1].end, 
+                end: preset[2].start, 
+                title: 'Break' 
+            });
+            
+            // Period 2
+            blocks.push({ 
+                id: `${day}-p2`, 
+                type: 'period', 
+                period: 2, 
+                start: preset[2].start, 
+                end: preset[2].end, 
+                title: 'Period 2' 
+            });
+            
+            // Lunch
+            blocks.push({ 
+                id: `${day}-lunch`, 
+                type: 'lunch', 
+                start: '11:30', 
+                end: '12:15', 
+                title: 'Lunch' 
+            });
+            
+            // Period 3
+            blocks.push({ 
+                id: `${day}-p3`, 
+                type: 'period', 
+                period: 3, 
+                start: preset[3].start, 
+                end: preset[3].end, 
+                title: 'Period 3' 
+            });
+            
+            // Break 2
+            blocks.push({ 
+                id: `${day}-break2`, 
+                type: 'break', 
+                start: preset[3].end, 
+                end: preset[4].start, 
+                title: 'Break' 
+            });
+            
+            // Period 4
+            blocks.push({ 
+                id: `${day}-p4`, 
+                type: 'period', 
+                period: 4, 
+                start: preset[4].start, 
+                end: preset[4].end, 
+                title: 'Period 4' 
+            });
+            
+            // PM FIT goes last
+            if (schedType === 'pmfit') {
+                blocks.push({ 
+                    id: `${day}-fit`, 
+                    type: 'fit', 
+                    start: '14:25', 
+                    end: '15:05', 
+                    title: 'FIT' 
+                });
+            }
+            
+            // Update the weekly pattern for compatibility
+            weeklyPattern.simple[day] = schedType;
+            
+            // Replace day's blocks
+            scheduleBlocks[day] = blocks;
+            saveScheduleBlocks();
+            saveScheduleConfig();
+            renderCalendar();
+            
+            const dayNames = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday' };
+            const schedNames = { regular: 'Regular', amfit: 'AM FIT', pmfit: 'PM FIT' };
+            showToast(`${dayNames[day]}: ${schedNames[schedType]} schedule applied`);
         }
         
         function saveScheduleBlocks() {
