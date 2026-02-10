@@ -1881,6 +1881,18 @@
                 </div>
                 
                 <div class="setting-section">
+                    <h3>📅 Schedule Template</h3>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
+                        Share your school's bell schedule with other teachers. No student data included.
+                    </p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="exportScheduleTemplate()">📤 Export Schedule</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('scheduleTemplateFile').click()">📥 Import Schedule</button>
+                        <input type="file" id="scheduleTemplateFile" accept=".json" style="display:none" onchange="importScheduleTemplate(event)">
+                    </div>
+                </div>
+                
+                <div class="setting-section">
                     <h3>📤 Export</h3>
                     <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
                         Export individual classes or attendance records.
@@ -5199,6 +5211,96 @@
             a.click();
             URL.revokeObjectURL(url);
             showToast(`Exported ${className}!`);
+        }
+        
+        // Export schedule template (for sharing with other teachers)
+        function exportScheduleTemplate() {
+            const template = {
+                hallpass_schedule_template: true,
+                version: 1,
+                exportDate: new Date().toISOString(),
+                schoolName: prompt('Enter school name (for the template):', 'My School') || 'School',
+                // Schedule data - NO student/class info
+                schedule: {
+                    startTime: schedule.startTime,
+                    endTime: schedule.endTime
+                },
+                weeklyPattern: weeklyPattern,
+                presets: presets,
+                appSettings: {
+                    graceSeconds: appSettings.graceSeconds,
+                    bellOffsetSeconds: appSettings.bellOffsetSeconds,
+                    autoAbsentMinutes: appSettings.autoAbsentMinutes
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const schoolSlug = template.schoolName.toLowerCase().replace(/\s+/g, '-');
+            a.download = `hallpass-schedule-${schoolSlug}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`📅 Schedule template exported! Share with colleagues.`);
+        }
+        
+        // Import schedule template
+        function importScheduleTemplate(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const template = JSON.parse(e.target.result);
+                    
+                    if (!template.hallpass_schedule_template) {
+                        showToast('Invalid schedule template file', 'error');
+                        return;
+                    }
+                    
+                    const schoolName = template.schoolName || 'Unknown School';
+                    if (!confirm(`Import schedule from "${schoolName}"?\n\nThis will replace your current bell schedule settings.\nYour classes and student data will NOT be affected.`)) {
+                        return;
+                    }
+                    
+                    // Import schedule settings
+                    if (template.schedule) {
+                        schedule.startTime = template.schedule.startTime || schedule.startTime;
+                        schedule.endTime = template.schedule.endTime || schedule.endTime;
+                    }
+                    
+                    if (template.weeklyPattern) {
+                        weeklyPattern = template.weeklyPattern;
+                    }
+                    
+                    if (template.presets) {
+                        // Merge presets (keep custom ones, update standard ones)
+                        Object.assign(presets, template.presets);
+                    }
+                    
+                    if (template.appSettings) {
+                        appSettings.graceSeconds = template.appSettings.graceSeconds ?? appSettings.graceSeconds;
+                        appSettings.bellOffsetSeconds = template.appSettings.bellOffsetSeconds ?? appSettings.bellOffsetSeconds;
+                        appSettings.autoAbsentMinutes = template.appSettings.autoAbsentMinutes ?? appSettings.autoAbsentMinutes;
+                    }
+                    
+                    // Save to localStorage
+                    localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+                    localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
+                    localStorage.setItem('hallpass_presets', JSON.stringify(presets));
+                    localStorage.setItem('hallpass_settings', JSON.stringify(appSettings));
+                    
+                    updateStatusBar();
+                    showToast(`✅ Imported schedule from "${schoolName}"`);
+                } catch(err) {
+                    console.error('Import error:', err);
+                    showToast('Failed to import: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
         }
         
         function exportAttendance(format) {
