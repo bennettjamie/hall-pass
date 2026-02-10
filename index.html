@@ -3507,6 +3507,27 @@
         
         // ========== ALPHABETICAL SORTING ==========
         function sortStudentsAlphabetically(direction) {
+            const studentCount = students.length;
+            
+            // Ask for grid size
+            let promptText, defaultVal;
+            if (direction === 'horizontal') {
+                promptText = `How many students per row?\n(${studentCount} students total)`;
+                defaultVal = Math.min(8, Math.ceil(Math.sqrt(studentCount * 1.5)));
+            } else {
+                promptText = `How many students per column?\n(${studentCount} students total)`;
+                defaultVal = Math.min(6, Math.ceil(Math.sqrt(studentCount)));
+            }
+            
+            const input = prompt(promptText, defaultVal);
+            if (!input) return;
+            
+            const perLine = parseInt(input);
+            if (isNaN(perLine) || perLine < 1) {
+                showToast('Invalid number');
+                return;
+            }
+            
             // Sort students by name
             const sorted = [...students].sort((a, b) => {
                 const nameA = (a.firstName + ' ' + (a.lastInitial || '')).toLowerCase();
@@ -3520,9 +3541,14 @@
             const gap = 15;
             
             // Calculate grid dimensions
-            const studentCount = sorted.length;
-            const cols = Math.min(10, Math.max(4, Math.ceil(Math.sqrt(studentCount * 1.5))));
-            const rows = Math.ceil(studentCount / cols);
+            let cols, rows;
+            if (direction === 'horizontal') {
+                cols = perLine;
+                rows = Math.ceil(studentCount / cols);
+            } else {
+                rows = perLine;
+                cols = Math.ceil(studentCount / rows);
+            }
             
             // Assign positions based on direction
             sorted.forEach((s, idx) => {
@@ -3548,7 +3574,7 @@
             
             renderCanvas();
             saveClass();
-            showToast(`Sorted A-Z ${direction === 'horizontal' ? '→' : '↓'}`);
+            showToast(`Sorted A-Z: ${cols} columns × ${rows} rows`);
         }
         
         // ========== HALL PASS CANVAS ==========
