@@ -2780,16 +2780,12 @@
         }
         
         function assignClassToPeriod(period, classId) {
-            console.log('assignClassToPeriod called:', 'period=', period, 'classId=', classId);
-            console.log('allClasses:', Object.keys(allClasses));
-            
             if (!classAssignments[period]) {
                 classAssignments[period] = {};
             }
             
             if (classId) {
                 const cls = allClasses[classId];
-                console.log('Found class:', cls?.classData?.settings?.className);
                 classAssignments[period] = {
                     classId: classId,
                     name: cls?.classData?.settings?.className || classId
@@ -2798,10 +2794,9 @@
                 classAssignments[period] = { name: '', classId: null };
             }
             
-            console.log('classAssignments after update:', JSON.stringify(classAssignments));
             localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
-            renderCalendar(); // Update class names in calendar
-            showToast(`Period ${period}: ${classAssignments[period]?.name || 'None'}`);
+            renderCalendar();
+            renderClassAssignments(); // Refresh the dropdowns
         }
         
         function loadClassAssignmentsUI() {
@@ -3145,22 +3140,15 @@
             
             // Check if we should switch class
             const assignment = classAssignments[period];
-            console.log('manuallySetPeriod:', period, 'assignment:', assignment, 'allClasses keys:', Object.keys(allClasses));
             
-            if (assignment && assignment.classId) {
-                console.log('Found classId:', assignment.classId, 'exists in allClasses:', !!allClasses[assignment.classId]);
-                if (allClasses[assignment.classId]) {
-                    if (assignment.classId !== currentClassId) {
-                        console.log('Switching from', currentClassId, 'to', assignment.classId);
-                        switchClass(assignment.classId);
-                    } else {
-                        console.log('Already on this class');
-                    }
-                } else {
-                    console.log('Class not found in allClasses!');
+            if (assignment && assignment.classId && allClasses[assignment.classId]) {
+                // Period has an assigned class - switch to it
+                if (assignment.classId !== currentClassId) {
+                    switchClass(assignment.classId);
                 }
             } else {
-                console.log('No classId in assignment');
+                // No class assigned to this period - show warning
+                showPeriodWarning(period);
             }
             
             // Reset auto-switch tracker so it doesn't fight us
@@ -3175,6 +3163,38 @@
         function clearPeriodOverride() {
             manualPeriodOverride = false;
             showToast('Auto-detect resumed');
+        }
+        
+        // Show warning when period has no class assigned
+        function showPeriodWarning(period) {
+            // Check if we have a current class loaded
+            if (currentClassId && allClasses[currentClassId]) {
+                const className = allClasses[currentClassId].classData?.settings?.className || currentClassId;
+                const assign = confirm(
+                    `Period ${period} has no class assigned.\n\n` +
+                    `Currently showing: ${className}\n\n` +
+                    `Would you like to assign ${className} to Period ${period}?`
+                );
+                
+                if (assign) {
+                    assignClassToPeriod(period, currentClassId);
+                    showToast(`${className} assigned to Period ${period}`);
+                }
+            } else {
+                showToast(`Period ${period}: No class assigned (Prep period)`);
+            }
+        }
+        
+        // Quick assign current class to current period
+        function assignCurrentClassToPeriod() {
+            if (!currentClassId || !allClasses[currentClassId]) {
+                showToast('No class loaded to assign');
+                return;
+            }
+            
+            const className = allClasses[currentClassId].classData?.settings?.className || currentClassId;
+            assignClassToPeriod(schedule.period, currentClassId);
+            showToast(`${className} → Period ${schedule.period}`);
         }
         
         function getTodayScheduleType() {
