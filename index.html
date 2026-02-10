@@ -2162,10 +2162,10 @@
         };
         
         let classAssignments = {
-            1: { name: '', rosterId: null },
-            2: { name: '', rosterId: null },
-            3: { name: '', rosterId: null },
-            4: { name: '', rosterId: null }
+            1: { name: '', classId: null },
+            2: { name: '', classId: null },
+            3: { name: '', classId: null },
+            4: { name: '', classId: null }
         };
         
         // Load saved patterns
@@ -2780,12 +2780,16 @@
         }
         
         function assignClassToPeriod(period, classId) {
+            console.log('assignClassToPeriod called:', 'period=', period, 'classId=', classId);
+            console.log('allClasses:', Object.keys(allClasses));
+            
             if (!classAssignments[period]) {
                 classAssignments[period] = {};
             }
             
             if (classId) {
                 const cls = allClasses[classId];
+                console.log('Found class:', cls?.classData?.settings?.className);
                 classAssignments[period] = {
                     classId: classId,
                     name: cls?.classData?.settings?.className || classId
@@ -2794,9 +2798,10 @@
                 classAssignments[period] = { name: '', classId: null };
             }
             
+            console.log('classAssignments after update:', JSON.stringify(classAssignments));
             localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
             renderCalendar(); // Update class names in calendar
-            showToast(`Period ${period} updated`);
+            showToast(`Period ${period}: ${classAssignments[period]?.name || 'None'}`);
         }
         
         function loadClassAssignmentsUI() {
@@ -3140,10 +3145,22 @@
             
             // Check if we should switch class
             const assignment = classAssignments[period];
-            if (assignment && assignment.classId && allClasses[assignment.classId]) {
-                if (assignment.classId !== currentClassId) {
-                    switchClass(assignment.classId);
+            console.log('manuallySetPeriod:', period, 'assignment:', assignment, 'allClasses keys:', Object.keys(allClasses));
+            
+            if (assignment && assignment.classId) {
+                console.log('Found classId:', assignment.classId, 'exists in allClasses:', !!allClasses[assignment.classId]);
+                if (allClasses[assignment.classId]) {
+                    if (assignment.classId !== currentClassId) {
+                        console.log('Switching from', currentClassId, 'to', assignment.classId);
+                        switchClass(assignment.classId);
+                    } else {
+                        console.log('Already on this class');
+                    }
+                } else {
+                    console.log('Class not found in allClasses!');
                 }
+            } else {
+                console.log('No classId in assignment');
             }
             
             // Reset auto-switch tracker so it doesn't fight us
