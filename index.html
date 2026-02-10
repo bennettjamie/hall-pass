@@ -210,6 +210,124 @@
             display: block;
         }
         
+        /* Visual Schedule Grid */
+        .schedule-visual-grid {
+            display: grid;
+            grid-template-columns: 80px repeat(5, 1fr);
+            gap: 4px;
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 12px;
+        }
+        
+        .grid-header {
+            text-align: center;
+            font-weight: 600;
+            padding: 8px;
+            background: var(--bg-card);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .grid-header-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: right;
+            padding-right: 8px;
+        }
+        
+        .grid-period-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: right;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        
+        .grid-period-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+        
+        .grid-cell {
+            padding: 10px 6px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .grid-cell:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .grid-cell.regular { background: var(--bg-card); }
+        .grid-cell.amfit { background: #f59e0b33; border: 1px solid #f59e0b; }
+        .grid-cell.pmfit { background: #8b5cf633; border: 1px solid #8b5cf6; }
+        .grid-cell.noschool { background: var(--bg-primary); color: var(--text-secondary); }
+        
+        .grid-cell .cell-label {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .grid-cell .cell-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+        
+        .grid-break {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            background: var(--bg-primary);
+            border-radius: 4px;
+        }
+        
+        .week-toggle-btn.active, .current-week-btn.active, .preset-edit-btn.active {
+            background: var(--accent) !important;
+            color: white !important;
+        }
+        
+        .preset-time-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr 100px;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .preset-time-row label {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .preset-time-row input[type="time"] {
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: white;
+            border: 1px solid var(--border);
+        }
+        
+        .preset-time-row .duration {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        
         .day-sched {
             padding: 6px 10px;
             border-radius: 6px;
@@ -1452,49 +1570,81 @@
                 <!-- Weekly Pattern Tab -->
                 <div class="sched-panel" id="schedPanelWeekly">
                     <div class="setting-section">
-                        <h3>Weekly Pattern</h3>
-                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
-                            Set what schedule type applies to each day. The app will auto-detect based on this pattern.
-                        </p>
-                        <div style="margin-bottom:16px;">
-                            <label style="display:block;margin-bottom:8px;">Pattern Type:</label>
-                            <select id="weekPatternType" onchange="onWeekPatternTypeChange()" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
-                                <option value="simple">Same every week</option>
-                                <option value="biweekly">Week 1 / Week 2 (alternating)</option>
-                                <option value="cycle">Day cycle (1-2-3-4...)</option>
-                            </select>
+                        <h3>Weekly Schedule Grid</h3>
+                        
+                        <!-- Week Toggle -->
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                            <label style="font-size:0.9rem;">Schedule Type:</label>
+                            <div style="display:flex;gap:4px;">
+                                <button class="btn btn-secondary week-toggle-btn active" data-type="simple" onclick="setWeekType('simple')">Same Every Week</button>
+                                <button class="btn btn-secondary week-toggle-btn" data-type="biweekly" onclick="setWeekType('biweekly')">Week 1 / Week 2</button>
+                            </div>
                         </div>
-                        <div id="weekPatternSimple">
-                            <table style="width:100%;border-collapse:collapse;">
-                                <tr style="background:var(--bg-secondary);">
-                                    <th style="padding:10px;text-align:left;">Day</th>
-                                    <th style="padding:10px;text-align:left;">Schedule</th>
-                                </tr>
-                                <tr><td style="padding:8px;">Monday</td><td><select class="day-sched" data-day="mon"><option value="regular">Regular</option><option value="amfit">AM FIT</option><option value="pmfit">PM FIT</option><option value="noschool">No School</option></select></td></tr>
-                                <tr><td style="padding:8px;">Tuesday</td><td><select class="day-sched" data-day="tue"><option value="regular">Regular</option><option value="amfit">AM FIT</option><option value="pmfit" selected>PM FIT</option><option value="noschool">No School</option></select></td></tr>
-                                <tr><td style="padding:8px;">Wednesday</td><td><select class="day-sched" data-day="wed"><option value="regular">Regular</option><option value="amfit" selected>AM FIT</option><option value="pmfit">PM FIT</option><option value="noschool">No School</option></select></td></tr>
-                                <tr><td style="padding:8px;">Thursday</td><td><select class="day-sched" data-day="thu"><option value="regular">Regular</option><option value="amfit">AM FIT</option><option value="pmfit" selected>PM FIT</option><option value="noschool">No School</option></select></td></tr>
-                                <tr><td style="padding:8px;">Friday</td><td><select class="day-sched" data-day="fri"><option value="regular">Regular</option><option value="amfit" selected>AM FIT</option><option value="pmfit">PM FIT</option><option value="noschool">No School</option></select></td></tr>
-                            </table>
-                        </div>
-                        <div id="weekPatternBiweekly" style="display:none;">
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                                <div>
-                                    <h4 style="margin-bottom:8px;">Week 1</h4>
-                                    <div id="week1Pattern"></div>
-                                </div>
-                                <div>
-                                    <h4 style="margin-bottom:8px;">Week 2</h4>
-                                    <div id="week2Pattern"></div>
+                        
+                        <!-- Current Week Selector (for biweekly) -->
+                        <div id="currentWeekToggle" style="display:none;margin-bottom:16px;padding:12px;background:var(--accent);border-radius:10px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-weight:600;">This is currently:</span>
+                                <div style="display:flex;gap:4px;">
+                                    <button class="btn current-week-btn active" data-week="1" onclick="setCurrentWeek(1)" style="padding:8px 20px;">Week 1</button>
+                                    <button class="btn current-week-btn" data-week="2" onclick="setCurrentWeek(2)" style="padding:8px 20px;">Week 2</button>
                                 </div>
                             </div>
-                            <div style="margin-top:12px;padding:10px;background:var(--bg-secondary);border-radius:8px;font-size:0.85rem;">
-                                <label>Current week: </label>
-                                <select id="currentWeekNum" style="padding:4px;border-radius:4px;background:var(--bg-card);color:white;border:none;">
-                                    <option value="1">Week 1</option>
-                                    <option value="2">Week 2</option>
-                                </select>
+                        </div>
+                        
+                        <!-- Visual Schedule Grid -->
+                        <div id="scheduleGridContainer">
+                            <!-- Week 1 (or Simple) Grid -->
+                            <div id="scheduleGridWeek1" class="schedule-visual-grid">
+                                <div class="grid-header-label"></div>
+                                <div class="grid-header">Mon</div>
+                                <div class="grid-header">Tue</div>
+                                <div class="grid-header">Wed</div>
+                                <div class="grid-header">Thu</div>
+                                <div class="grid-header">Fri</div>
+                                <!-- Grid body populated by JS -->
                             </div>
+                            
+                            <!-- Week 2 Grid (biweekly only) -->
+                            <div id="scheduleGridWeek2" class="schedule-visual-grid" style="display:none;margin-top:20px;">
+                                <div style="grid-column:1/-1;font-weight:600;margin-bottom:8px;color:var(--accent-light);">Week 2</div>
+                                <div class="grid-header-label"></div>
+                                <div class="grid-header">Mon</div>
+                                <div class="grid-header">Tue</div>
+                                <div class="grid-header">Wed</div>
+                                <div class="grid-header">Thu</div>
+                                <div class="grid-header">Fri</div>
+                                <!-- Grid body populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Period Time Editor -->
+                        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                            <h4 style="margin-bottom:12px;">⏰ Period Times</h4>
+                            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
+                                Edit the times for each schedule type. Click a cell above to assign a schedule.
+                            </p>
+                            
+                            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                                <button class="btn btn-secondary preset-edit-btn active" data-preset="regular" onclick="editPreset('regular')">Regular</button>
+                                <button class="btn btn-secondary preset-edit-btn" data-preset="amfit" onclick="editPreset('amfit')">AM FIT</button>
+                                <button class="btn btn-secondary preset-edit-btn" data-preset="pmfit" onclick="editPreset('pmfit')">PM FIT</button>
+                            </div>
+                            
+                            <div id="presetTimesEditor">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden old inputs for compatibility -->
+                        <div style="display:none;">
+                            <select id="weekPatternType"><option value="simple">simple</option><option value="biweekly">biweekly</option></select>
+                            <select class="day-sched" data-day="mon"></select>
+                            <select class="day-sched" data-day="tue"></select>
+                            <select class="day-sched" data-day="wed"></select>
+                            <select class="day-sched" data-day="thu"></select>
+                            <select class="day-sched" data-day="fri"></select>
+                            <select id="currentWeekNum"><option value="1">1</option><option value="2">2</option></select>
                         </div>
                     </div>
                 </div>
@@ -1906,6 +2056,13 @@
         if (savedClasses) {
             try { classAssignments = JSON.parse(savedClasses); } catch(e) {}
         }
+        const savedPresets = localStorage.getItem('hallpass_presets');
+        if (savedPresets) {
+            try { 
+                const loaded = JSON.parse(savedPresets);
+                Object.assign(presets, loaded);
+            } catch(e) {}
+        }
         
         function openSchedule() {
             // Update today's date display
@@ -1998,9 +2155,22 @@
         function loadWeeklyPatternUI() {
             // Set pattern type
             document.getElementById('weekPatternType').value = weeklyPattern.type;
-            onWeekPatternTypeChange();
             
-            // Load simple pattern
+            // Update toggle buttons
+            document.querySelectorAll('.week-toggle-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === weeklyPattern.type);
+            });
+            
+            // Show/hide week 2 grid and current week toggle
+            document.getElementById('scheduleGridWeek2').style.display = weeklyPattern.type === 'biweekly' ? 'grid' : 'none';
+            document.getElementById('currentWeekToggle').style.display = weeklyPattern.type === 'biweekly' ? 'block' : 'none';
+            
+            // Update current week buttons
+            document.querySelectorAll('.current-week-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.week) === (weeklyPattern.currentWeek || 1));
+            });
+            
+            // Load hidden selects for compatibility
             document.querySelectorAll('.day-sched').forEach(sel => {
                 const day = sel.dataset.day;
                 sel.value = weeklyPattern.simple[day] || 'regular';
@@ -2009,12 +2179,168 @@
             // Set current week
             const weekSelect = document.getElementById('currentWeekNum');
             if (weekSelect) weekSelect.value = weeklyPattern.currentWeek || 1;
+            
+            // Render the visual grids
+            renderScheduleGrid('scheduleGridWeek1', weeklyPattern.simple);
+            if (weeklyPattern.type === 'biweekly') {
+                renderScheduleGrid('scheduleGridWeek2', weeklyPattern.week2 || weeklyPattern.simple);
+            }
+            
+            // Load preset editor
+            editPreset('regular');
         }
         
         function onWeekPatternTypeChange() {
             const type = document.getElementById('weekPatternType').value;
-            document.getElementById('weekPatternSimple').style.display = type === 'simple' ? 'block' : 'none';
-            document.getElementById('weekPatternBiweekly').style.display = type === 'biweekly' ? 'block' : 'none';
+            weeklyPattern.type = type;
+            loadWeeklyPatternUI();
+            saveScheduleConfig();
+        }
+        
+        function setWeekType(type) {
+            weeklyPattern.type = type;
+            document.getElementById('weekPatternType').value = type;
+            loadWeeklyPatternUI();
+            saveScheduleConfig();
+        }
+        
+        function setCurrentWeek(weekNum) {
+            weeklyPattern.currentWeek = weekNum;
+            document.getElementById('currentWeekNum').value = weekNum;
+            document.querySelectorAll('.current-week-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.week) === weekNum);
+            });
+            saveScheduleConfig();
+            updateStatusBar();
+        }
+        
+        function renderScheduleGrid(containerId, pattern) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+            const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            const scheduleTypes = { regular: 'Regular', amfit: 'AM FIT', pmfit: 'PM FIT', noschool: 'No School' };
+            
+            // Clear and re-add headers
+            container.innerHTML = `
+                <div class="grid-header-label"></div>
+                ${dayLabels.map(d => `<div class="grid-header">${d}</div>`).join('')}
+            `;
+            
+            // Add period rows
+            for (let p = 1; p <= 4; p++) {
+                // Period label
+                const times = presets.regular[p];
+                container.innerHTML += `
+                    <div class="grid-period-label">
+                        <span>P${p}</span>
+                        <span class="grid-period-time">${times.start}</span>
+                    </div>
+                `;
+                
+                // Day cells
+                days.forEach(day => {
+                    const sched = pattern[day] || 'regular';
+                    const periodTimes = presets[sched] ? presets[sched][p] : presets.regular[p];
+                    const label = scheduleTypes[sched] || sched;
+                    const weekId = containerId === 'scheduleGridWeek2' ? 'week2' : 'week1';
+                    
+                    container.innerHTML += `
+                        <div class="grid-cell ${sched}" onclick="cycleGridCell('${weekId}', '${day}')" title="Click to change">
+                            <span class="cell-label">${label}</span>
+                            <span class="cell-time">${periodTimes.start}-${periodTimes.end}</span>
+                        </div>
+                    `;
+                });
+                
+                // Add break after P2
+                if (p === 2) {
+                    container.innerHTML += `<div class="grid-break">🍽️ Lunch Break (11:30 - 12:15)</div>`;
+                }
+            }
+        }
+        
+        function cycleGridCell(weekId, day) {
+            const schedTypes = ['regular', 'amfit', 'pmfit', 'noschool'];
+            const pattern = weekId === 'week2' ? (weeklyPattern.week2 || {...weeklyPattern.simple}) : weeklyPattern.simple;
+            const current = pattern[day] || 'regular';
+            const nextIndex = (schedTypes.indexOf(current) + 1) % schedTypes.length;
+            pattern[day] = schedTypes[nextIndex];
+            
+            if (weekId === 'week2') {
+                weeklyPattern.week2 = pattern;
+            } else {
+                weeklyPattern.simple = pattern;
+            }
+            
+            // Update hidden select for compatibility
+            const sel = document.querySelector(`.day-sched[data-day="${day}"]`);
+            if (sel) sel.value = pattern[day];
+            
+            // Re-render grid
+            renderScheduleGrid(weekId === 'week2' ? 'scheduleGridWeek2' : 'scheduleGridWeek1', pattern);
+            saveScheduleConfig();
+        }
+        
+        // Preset times editor
+        let currentEditPreset = 'regular';
+        
+        function editPreset(preset) {
+            currentEditPreset = preset;
+            document.querySelectorAll('.preset-edit-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.preset === preset);
+            });
+            
+            const container = document.getElementById('presetTimesEditor');
+            const times = presets[preset];
+            
+            let html = '';
+            for (let p = 1; p <= 4; p++) {
+                const t = times[p];
+                const start = parseTime(t.start);
+                const end = parseTime(t.end);
+                const duration = Math.round((end - start) / 60000);
+                
+                html += `
+                    <div class="preset-time-row">
+                        <label>Period ${p}</label>
+                        <input type="time" value="${t.start}" onchange="updatePresetTime('${preset}', ${p}, 'start', this.value)">
+                        <input type="time" value="${t.end}" onchange="updatePresetTime('${preset}', ${p}, 'end', this.value)">
+                        <span class="duration">${duration} min</span>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function updatePresetTime(preset, period, field, value) {
+            presets[preset][period][field] = value;
+            
+            // Recalculate duration display
+            const t = presets[preset][period];
+            const start = parseTime(t.start);
+            const end = parseTime(t.end);
+            const duration = Math.round((end - start) / 60000);
+            
+            // Update the grid to show new times
+            renderScheduleGrid('scheduleGridWeek1', weeklyPattern.simple);
+            if (weeklyPattern.type === 'biweekly') {
+                renderScheduleGrid('scheduleGridWeek2', weeklyPattern.week2 || weeklyPattern.simple);
+            }
+            
+            // Re-render preset editor to update duration
+            editPreset(preset);
+            
+            // Save custom presets
+            localStorage.setItem('hallpass_presets', JSON.stringify(presets));
+            saveScheduleConfig();
+        }
+        
+        function saveScheduleConfig() {
+            localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
+            localStorage.setItem('hallpass_presets', JSON.stringify(presets));
         }
         
         function loadClassAssignmentsUI() {
@@ -2173,9 +2499,14 @@
         }
         
         // ========== COUNTDOWN & STATUS ==========
+        let lastAutoSwitchPeriod = null;
+        
         function updateStatusBar() {
             // Update date display
             updateDateDisplay();
+            
+            // Auto-detect period and switch class
+            autoDetectPeriodAndClass();
             
             const now = new Date();
             const start = parseTime(schedule.startTime);
@@ -2215,6 +2546,80 @@
             
             // Update stats
             updateStats();
+        }
+        
+        function autoDetectPeriodAndClass() {
+            const now = new Date();
+            const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
+            
+            // Skip weekends
+            if (dayKey === 'sun' || dayKey === 'sat') return;
+            
+            // Get today's schedule type
+            const schedType = getTodayScheduleType();
+            const dayPreset = presets[schedType] || presets.regular;
+            
+            // Find which period we're in or approaching
+            let currentPeriod = null;
+            for (let p = 1; p <= 4; p++) {
+                const periodTimes = dayPreset[p];
+                const periodStart = parseTime(periodTimes.start);
+                const periodEnd = parseTime(periodTimes.end);
+                
+                // Include 15 min before class starts
+                const prePeriodStart = new Date(periodStart.getTime() - 15 * 60000);
+                
+                if (now >= prePeriodStart && now <= periodEnd) {
+                    currentPeriod = p;
+                    break;
+                }
+            }
+            
+            if (!currentPeriod) return;
+            
+            // Update schedule times for current period
+            const times = dayPreset[currentPeriod];
+            if (times && schedule.period !== currentPeriod) {
+                schedule.period = currentPeriod;
+                schedule.startTime = times.start;
+                schedule.endTime = times.end;
+                document.getElementById('schedPeriod').value = currentPeriod;
+                document.getElementById('schedStart').value = times.start;
+                document.getElementById('schedEnd').value = times.end;
+            }
+            
+            // Check if we should auto-switch class based on period
+            if (lastAutoSwitchPeriod === currentPeriod) return; // Already switched
+            
+            const assignment = classAssignments[currentPeriod];
+            if (assignment && assignment.name) {
+                // Find matching class in allClasses
+                const matchingClassId = Object.keys(allClasses).find(id => {
+                    const cls = allClasses[id];
+                    const className = cls.classData?.settings?.className || '';
+                    return className.toLowerCase().includes(assignment.name.toLowerCase()) ||
+                           assignment.name.toLowerCase().includes(className.toLowerCase());
+                });
+                
+                if (matchingClassId && matchingClassId !== currentClassId) {
+                    switchClass(matchingClassId);
+                    lastAutoSwitchPeriod = currentPeriod;
+                    showToast(`Auto-switched to ${allClasses[matchingClassId].classData?.settings?.className || matchingClassId}`);
+                }
+            }
+        }
+        
+        function getTodayScheduleType() {
+            const now = new Date();
+            const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
+            
+            if (weeklyPattern.type === 'simple') {
+                return weeklyPattern.simple[dayKey] || 'regular';
+            } else if (weeklyPattern.type === 'biweekly') {
+                const pattern = weeklyPattern.currentWeek === 1 ? weeklyPattern.simple : (weeklyPattern.week2 || weeklyPattern.simple);
+                return pattern[dayKey] || 'regular';
+            }
+            return 'regular';
         }
         
         function updateStats() {
