@@ -3187,21 +3187,19 @@
             
             // Check if we should switch class
             const assignment = classAssignments[period];
+            let switched = false;
             
             // Only show prep if explicitly no class assigned (empty classId)
             if (!assignment || !assignment.classId) {
                 // Explicitly set to None/Prep - show prep state
                 showPrepPeriod(period);
                 showToast(`Switched to Period ${period} - Prep`);
+                switched = true;
             } else if (allClasses[assignment.classId]) {
                 // Period has an assigned class that exists - switch to it
-                if (assignment.classId !== currentClassId) {
-                    switchClass(assignment.classId);
-                } else {
-                    // Same class, just re-render to clear any prep overlay
-                    renderCanvas();
-                }
+                switchClass(assignment.classId);
                 showToast(`Switched to Period ${period} (manual)`);
+                switched = true;
             } else {
                 // Class assigned but classId not found in allClasses
                 // Try to find the class by name instead
@@ -3216,13 +3214,16 @@
                     classAssignments[period].classId = classIdByName;
                     localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
                     showToast(`Switched to Period ${period} (manual)`);
-                } else if (students.length > 0) {
-                    // We have students loaded, just render them
-                    renderCanvas();
-                    showToast(`Switched to Period ${period} (manual)`);
+                    switched = true;
                 } else {
                     showToast(`⚠️ Period ${period}: "${assignment.name}" not loaded. Import class in Settings.`);
                 }
+            }
+            
+            // If we didn't switch to anything (class not found), render current state
+            // But DON'T render if we showed prep (that would overwrite it)
+            if (!switched && students.length > 0) {
+                renderCanvas();
             }
             
             // Reset auto-switch tracker so it doesn't fight us
@@ -4959,10 +4960,35 @@
                     showToast(`Added ${data.students.length} students`);
                 }
                 
+                // FORCE SAVE everything to localStorage
                 saveClass();
+                localStorage.setItem('hallpass_allClasses', JSON.stringify(allClasses));
+                localStorage.setItem('hallpass_currentClassId', currentClassId);
+                localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+                localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
+                localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+                localStorage.setItem('hallpass_settings', JSON.stringify(appSettings));
+                
+                // Verify save
+                const verify = localStorage.getItem('hallpass_allClasses');
+                if (!verify) {
+                    alert('⚠️ WARNING: Save verification failed! Download a backup immediately.');
+                }
+                
+                initializeLayouts();
                 renderCanvas();
                 updateStats();
+                updateStatusBar();
                 closeSettings();
+                
+                // Prompt backup for multi-class imports
+                if (data.hallpass_backup && data.version === 2) {
+                    setTimeout(() => {
+                        if (confirm('Import complete! Download a backup now to be safe?')) {
+                            downloadFullBackup();
+                        }
+                    }, 500);
+                }
                 
                 // Reset file input
                 event.target.value = '';
@@ -5697,6 +5723,25 @@
             if (savedSchedule) {
                 try { schedule = JSON.parse(savedSchedule); } catch(e) {}
             }
+            
+            // Load weekly pattern
+            const savedWeeklyPattern = localStorage.getItem('hallpass_weeklyPattern');
+            if (savedWeeklyPattern) {
+                try { weeklyPattern = JSON.parse(savedWeeklyPattern); } catch(e) {}
+            }
+            
+            // Load class assignments (period -> class mapping)
+            const savedAssignments = localStorage.getItem('hallpass_classAssignments');
+            if (savedAssignments) {
+                try { classAssignments = JSON.parse(savedAssignments); } catch(e) {}
+            }
+            
+            console.log('Data loaded:', {
+                classCount: Object.keys(allClasses).length,
+                currentClassId,
+                studentCount: students.length,
+                assignmentsSet: Object.values(classAssignments).filter(a => a?.classId).length
+            });
         }
         
         // Auto-backup on page unload
