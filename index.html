@@ -3973,6 +3973,31 @@
                 return;
             }
             
+            // Calculate bounding box of all students to scale to fit
+            const CARD_WIDTH = 100;
+            const CARD_HEIGHT = 120;
+            const PADDING = 20;
+            
+            let maxX = 0, maxY = 0;
+            students.forEach(s => {
+                const pos = s.position || { x: 0, y: 0 };
+                maxX = Math.max(maxX, pos.x + CARD_WIDTH);
+                maxY = Math.max(maxY, pos.y + CARD_HEIGHT);
+            });
+            
+            // Get container size and calculate scale factor
+            const containerWidth = canvas.parentElement?.clientWidth || 800;
+            const containerHeight = canvas.parentElement?.clientHeight - 40 || 500; // Account for header
+            
+            // Calculate scale to fit all students (with some padding)
+            const scaleX = (containerWidth - PADDING * 2) / (maxX || 1);
+            const scaleY = (containerHeight - PADDING * 2) / (maxY || 1);
+            const fitScale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+            
+            // Base scale for hall pass (smaller cards) * fit scale
+            const baseScale = 0.85;
+            const totalScale = baseScale * fitScale;
+            
             let html = '';
             students.forEach(s => {
                 const imgSrc = getStudentImage(s);
@@ -3992,13 +4017,15 @@
                     statusText = '⏳ Queued';
                 }
                 
-                // Use same position as attendance view
+                // Use same position as attendance view, scaled to fit
                 const pos = s.position || { x: 0, y: 0 };
+                const scaledX = pos.x * fitScale + PADDING;
+                const scaledY = pos.y * fitScale + PADDING;
                 
                 html += `
                     <div class="canvas-student ${statusClass}" 
                          data-id="${s.id}"
-                         style="left:${pos.x}px; top:${pos.y}px; transform:scale(0.85);"
+                         style="left:${scaledX}px; top:${scaledY}px; transform:scale(${totalScale}); transform-origin:top left;"
                          onclick="openHallPassModal(${s.id})">
                         <img class="student-avatar" src="${imgSrc}" alt="${name}">
                         <div class="student-name">${name}</div>
