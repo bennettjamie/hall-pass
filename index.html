@@ -44,11 +44,11 @@
         .nav {
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border);
-            padding: 0 24px;
+            padding: 0 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            height: 64px;
+            height: 48px;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -57,28 +57,28 @@
         .nav-left {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 16px;
         }
         
         .logo {
-            font-size: 1.4rem;
+            font-size: 1.1rem;
             font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
         
         .nav-tabs {
             display: flex;
-            gap: 4px;
+            gap: 2px;
         }
         
         .nav-tab {
-            padding: 20px 16px;
+            padding: 14px 12px;
             color: var(--text-secondary);
             font-weight: 500;
-            font-size: 0.95rem;
-            border-bottom: 3px solid transparent;
+            font-size: 0.85rem;
+            border-bottom: 2px solid transparent;
             transition: all 0.2s;
             cursor: pointer;
         }
@@ -95,29 +95,29 @@
         .nav-right {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
         }
         
         .class-selector select {
             background: var(--bg-card);
             border: none;
             color: var(--text-primary);
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             font-weight: 500;
             cursor: pointer;
-            padding: 10px 16px;
-            border-radius: 10px;
+            padding: 6px 12px;
+            border-radius: 8px;
         }
         
         .icon-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
             border: none;
             background: var(--bg-card);
             color: var(--text-primary);
             cursor: pointer;
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -128,10 +128,10 @@
             background: var(--bg-hover);
         }
 
-        /* Status Bar */
+        /* Status Bar - Compact */
         .status-bar {
             background: var(--bg-secondary);
-            padding: 16px 24px;
+            padding: 8px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -141,16 +141,16 @@
         .period-info {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 12px;
         }
         
         .date-display {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 8px 16px;
+            gap: 8px;
+            padding: 4px 10px;
             background: var(--bg-card);
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: background 0.2s;
         }
@@ -160,20 +160,20 @@
         }
         
         .date-day {
-            font-weight: 700;
-            font-size: 1.1rem;
+            font-weight: 600;
+            font-size: 0.85rem;
         }
         
         .date-full {
             color: var(--text-secondary);
-            font-size: 0.95rem;
+            font-size: 0.8rem;
         }
         
         .schedule-type {
             background: var(--accent);
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 0.7rem;
             font-weight: 600;
         }
         
@@ -191,9 +191,9 @@
         }
         
         .class-name {
-            font-weight: 600;
+            font-weight: 500;
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
         
         /* Schedule Tabs */
@@ -412,10 +412,10 @@
         
         .period-badge {
             background: var(--accent);
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 4px 12px;
+            border-radius: 12px;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             cursor: pointer;
         }
         
@@ -424,7 +424,7 @@
         }
         
         .countdown {
-            font-size: 2rem;
+            font-size: 1.3rem;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
         }
@@ -443,7 +443,7 @@
         
         .class-status {
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.75rem;
         }
         
         .stats {
@@ -615,6 +615,16 @@
         
         .canvas-student.excused {
             border-color: var(--excused);
+            opacity: 0.7;
+        }
+        
+        .canvas-student.hp-out {
+            border-color: var(--warning);
+            box-shadow: 0 0 15px var(--warning-glow);
+        }
+        
+        .canvas-student.hp-queued {
+            border-color: #06b6d4;
             opacity: 0.7;
         }
         
@@ -1345,20 +1355,25 @@
             <div class="seating-container">
                 <div class="seating-toolbar">
                     <div class="toolbar-group">
-                        <button class="toolbar-btn" id="editModeBtn" onclick="toggleEditMode()">✏️ Edit Layout</button>
-                        <button class="toolbar-btn" onclick="openStudentManager()">👤 Edit Students</button>
-                        <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset Day</button>
+                        <button class="toolbar-btn" id="editModeBtn" onclick="toggleEditMode()">✏️ Edit</button>
+                        <button class="toolbar-btn" onclick="openStudentManager()">👤 Students</button>
+                        <button class="toolbar-btn" onclick="resetAttendance()">🔄 Reset</button>
                     </div>
-                    <div class="toolbar-group" style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:0.85rem;color:var(--text-secondary);">Layout:</span>
-                        <select id="layoutSelect" class="layout-selector" onchange="switchLayout(this.value)">
+                    <div class="toolbar-group" style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:0.75rem;color:var(--text-secondary);">Layout:</span>
+                        <select id="layoutSelect" class="layout-selector" onchange="switchLayout(this.value)" style="font-size:0.8rem;padding:4px 8px;">
                             <option value="default">Default</option>
                         </select>
-                        <button class="toolbar-btn" onclick="saveCurrentLayout()" title="Save current positions to selected layout">💾</button>
+                        <button class="toolbar-btn" onclick="saveCurrentLayout()" title="Save positions">💾</button>
                         <button class="toolbar-btn" onclick="openLayoutManager()" title="Manage layouts">⚙️</button>
                     </div>
+                    <div class="toolbar-group" style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:0.75rem;color:var(--text-secondary);">Sort:</span>
+                        <button class="toolbar-btn" onclick="sortStudentsAlphabetically('horizontal')" title="Sort A-Z horizontally (rows)">A→Z</button>
+                        <button class="toolbar-btn" onclick="sortStudentsAlphabetically('vertical')" title="Sort A-Z vertically (columns)">A↓Z</button>
+                    </div>
                     <div class="toolbar-group">
-                        <button class="toolbar-btn" id="miniModeBtn" onclick="toggleMiniOverlay()">📌 Mini Overlay</button>
+                        <button class="toolbar-btn" id="miniModeBtn" onclick="toggleMiniOverlay()">📌 Mini</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(-0.1)">➖</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(0)">Fit</button>
                         <button class="toolbar-btn" onclick="zoomCanvas(0.1)">➕</button>
@@ -1372,16 +1387,22 @@
 
         <!-- Hall Pass View -->
         <div class="view" id="hallpassView">
-            <div style="display:flex;gap:24px;padding:20px;height:calc(100vh - 84px);">
-                <!-- Left: Student Grid -->
-                <div style="flex:1;overflow-y:auto;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <h2>🚪 Hall Pass</h2>
-                        <div style="font-size:14px;color:var(--text-secondary);">
-                            Tap a student to start a hall pass
+            <div style="display:flex;gap:16px;padding:12px;height:calc(100vh - 72px);">
+                <!-- Left: Student Canvas (same layout as Attendance) -->
+                <div style="flex:1;overflow:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <h3 style="font-size:1rem;">🚪 Hall Pass</h3>
+                            <span style="font-size:0.8rem;color:var(--text-secondary);">Tap student to start</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:0.8rem;color:var(--text-secondary);">Layout:</span>
+                            <select id="hallpassLayoutSelect" class="layout-selector" onchange="switchLayout(this.value); renderHallPassCanvas();" style="font-size:0.8rem;padding:4px 8px;">
+                                <option value="default">Default</option>
+                            </select>
                         </div>
                     </div>
-                    <div id="hallpassGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:12px;"></div>
+                    <div id="hallpassCanvas" class="seating-canvas" style="min-height:400px;position:relative;"></div>
                 </div>
                 <!-- Right: Queue -->
                 <div style="width:280px;background:var(--bg-card);border-radius:16px;padding:16px;display:flex;flex-direction:column;">
@@ -3484,6 +3505,109 @@
             return `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.firstName}`;
         }
         
+        // ========== ALPHABETICAL SORTING ==========
+        function sortStudentsAlphabetically(direction) {
+            // Sort students by name
+            const sorted = [...students].sort((a, b) => {
+                const nameA = (a.firstName + ' ' + (a.lastInitial || '')).toLowerCase();
+                const nameB = (b.firstName + ' ' + (b.lastInitial || '')).toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            const cardWidth = 100;
+            const cardHeight = 130;
+            const padding = 20;
+            const gap = 15;
+            
+            // Calculate grid dimensions
+            const studentCount = sorted.length;
+            const cols = Math.min(10, Math.max(4, Math.ceil(Math.sqrt(studentCount * 1.5))));
+            const rows = Math.ceil(studentCount / cols);
+            
+            // Assign positions based on direction
+            sorted.forEach((s, idx) => {
+                const student = students.find(st => st.id === s.id);
+                if (!student) return;
+                
+                let row, col;
+                if (direction === 'horizontal') {
+                    // A-Z across rows (left to right, then next row)
+                    row = Math.floor(idx / cols);
+                    col = idx % cols;
+                } else {
+                    // A-Z down columns (top to bottom, then next column)
+                    col = Math.floor(idx / rows);
+                    row = idx % rows;
+                }
+                
+                student.position = {
+                    x: padding + col * (cardWidth + gap),
+                    y: padding + row * (cardHeight + gap)
+                };
+            });
+            
+            renderCanvas();
+            saveClass();
+            showToast(`Sorted A-Z ${direction === 'horizontal' ? '→' : '↓'}`);
+        }
+        
+        // ========== HALL PASS CANVAS ==========
+        function renderHallPassCanvas() {
+            const canvas = document.getElementById('hallpassCanvas');
+            if (!canvas) return;
+            
+            if (students.length === 0) {
+                canvas.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">No students loaded</div>';
+                return;
+            }
+            
+            let html = '';
+            students.forEach(s => {
+                const imgSrc = getStudentImage(s);
+                const name = s.displayName || `${s.firstName} ${s.lastInitial || ''}.`;
+                
+                // Check hall pass status
+                const isOut = hallPassQueue.some(hp => hp.studentId === s.id && hp.status === 'out');
+                const isQueued = hallPassQueue.some(hp => hp.studentId === s.id && hp.status === 'queued');
+                
+                let statusClass = '';
+                let statusText = '';
+                if (isOut) {
+                    statusClass = 'hp-out';
+                    statusText = '🚶 Out';
+                } else if (isQueued) {
+                    statusClass = 'hp-queued';
+                    statusText = '⏳ Queued';
+                }
+                
+                // Use same position as attendance view
+                const pos = s.position || { x: 0, y: 0 };
+                
+                html += `
+                    <div class="canvas-student ${statusClass}" 
+                         data-id="${s.id}"
+                         style="left:${pos.x}px; top:${pos.y}px; transform:scale(0.85);"
+                         onclick="openHallPassModal(${s.id})">
+                        <img class="student-avatar" src="${imgSrc}" alt="${name}">
+                        <div class="student-name">${name}</div>
+                        ${statusText ? `<div class="student-status">${statusText}</div>` : '<div class="student-status" style="font-size:0.7rem;">Tap for pass</div>'}
+                    </div>
+                `;
+            });
+            
+            canvas.innerHTML = html;
+            
+            // Update hall pass layout selector
+            const hpSelect = document.getElementById('hallpassLayoutSelect');
+            if (hpSelect) {
+                const layoutIds = Object.keys(classLayouts);
+                hpSelect.innerHTML = layoutIds.map(id => {
+                    const layout = classLayouts[id];
+                    return `<option value="${id}" ${id === currentLayoutId ? 'selected' : ''}>${layout.name}</option>`;
+                }).join('');
+            }
+        }
+        
         // ========== EDIT MODE ==========
         let dragState = null;
         
@@ -3495,11 +3619,11 @@
             if (editMode) {
                 canvas.classList.add('edit-mode');
                 btn.classList.add('active');
-                btn.textContent = '✓ Done Editing';
+                btn.textContent = '✓ Done';
             } else {
                 canvas.classList.remove('edit-mode');
                 btn.classList.remove('active');
-                btn.textContent = '✏️ Edit Layout';
+                btn.textContent = '✏️ Edit';
                 saveClass();
             }
         }
@@ -3753,7 +3877,10 @@
             
             if (viewName === 'groups') renderGroups();
             if (viewName === 'history') renderHistoryView();
-            if (viewName === 'hallpass') renderHallPassView();
+            if (viewName === 'hallpass') {
+                renderHallPassView();
+                renderHallPassCanvas();
+            }
         }
         
         // ========== HALL PASS SYSTEM ==========
