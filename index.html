@@ -591,6 +591,28 @@
             transform: scale(1.1);
         }
         
+        .canvas-student.selected {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent), 0 0 15px rgba(139, 92, 246, 0.5) !important;
+        }
+        
+        .edit-mode .canvas-student:hover::after {
+            content: 'Ctrl+click to multi-select';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.6rem;
+            white-space: nowrap;
+            color: var(--text-secondary);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .edit-mode .canvas-student:hover::after {
+            opacity: 1;
+        }
+        
         /* Attendance States */
         .canvas-student.unchecked {
             border-color: var(--border);
@@ -1840,13 +1862,25 @@
                     </script>
                 </div>
                 
+                <div class="setting-section" style="background:var(--bg-secondary);padding:16px;border-radius:12px;border:2px solid var(--accent);">
+                    <h3>💾 Backup & Restore</h3>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
+                        <strong>⚠️ Important:</strong> Browser storage can be lost. Download backups regularly!
+                    </p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button class="btn btn-primary" onclick="downloadFullBackup()">📥 Download Full Backup</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('restoreFile').click()">📤 Restore from Backup</button>
+                        <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="handleRestore(event)">
+                    </div>
+                    <div id="lastBackupInfo" style="font-size:0.8rem;color:var(--text-secondary);"></div>
+                </div>
+                
                 <div class="setting-section">
                     <h3>📤 Export</h3>
                     <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
-                        Export for syncing between computers. Full backup includes all classes.
+                        Export individual classes or attendance records.
                     </p>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-primary" onclick="exportAllData()">💾 Full Backup (All Classes)</button>
                         <button class="btn btn-secondary" onclick="exportCurrentClass()">📋 Current Class Only</button>
                     </div>
                 </div>
@@ -3822,18 +3856,10 @@
             const padding = 20;
             const gap = 15;
             
-            // Calculate optimal grid: prefer wider layouts (more columns)
-            // For 30 students: 6x5, for 35: 7x5, for 40: 8x5, etc.
+            // Calculate optimal grid for students without positions
             const studentCount = students.length;
             let cols = Math.min(10, Math.max(4, Math.ceil(Math.sqrt(studentCount * 1.5))));
             let rows = Math.ceil(studentCount / cols);
-            
-            // Adjust canvas size to fit all students
-            const seatingEl = document.getElementById('seatingCanvas');
-            const neededWidth = padding * 2 + cols * (cardWidth + gap);
-            const neededHeight = padding * 2 + rows * (cardHeight + gap);
-            seatingEl.style.minWidth = neededWidth + 'px';
-            seatingEl.style.minHeight = neededHeight + 'px';
             
             // Migrate positions for students without positions
             students.forEach((s, idx) => {
@@ -3844,6 +3870,22 @@
                     };
                 }
             });
+            
+            // Calculate canvas size based on ACTUAL student positions (not just grid)
+            let maxX = 0, maxY = 0;
+            students.forEach(s => {
+                if (s.position) {
+                    maxX = Math.max(maxX, s.position.x + cardWidth);
+                    maxY = Math.max(maxY, s.position.y + cardHeight);
+                }
+            });
+            
+            // Ensure minimum size and add padding
+            const seatingEl = document.getElementById('seatingCanvas');
+            const neededWidth = Math.max(maxX + padding, padding * 2 + cols * (cardWidth + gap));
+            const neededHeight = Math.max(maxY + padding, padding * 2 + rows * (cardHeight + gap));
+            seatingEl.style.minWidth = neededWidth + 'px';
+            seatingEl.style.minHeight = neededHeight + 'px';
             
             let html = '';
             students.forEach(s => {
@@ -4068,6 +4110,7 @@
         
         // ========== EDIT MODE ==========
         let dragState = null;
+        let selectedStudents = new Set(); // For multi-select
         
         function toggleEditMode() {
             editMode = !editMode;
@@ -4082,8 +4125,41 @@
                 canvas.classList.remove('edit-mode');
                 btn.classList.remove('active');
                 btn.textContent = '✏️ Edit';
+                selectedStudents.clear();
                 saveClass();
+                renderCanvas(); // Clear selection highlights
             }
+        }
+        
+        // Toggle student selection (Ctrl+click)
+        function toggleStudentSelection(studentId, event) {
+            if (!editMode) return;
+            
+            const canvas = document.getElementById('seatingCanvas');
+            const studentEl = canvas.querySelector(`[data-id="${studentId}"]`);
+            
+            if (selectedStudents.has(studentId)) {
+                selectedStudents.delete(studentId);
+                studentEl?.classList.remove('selected');
+            } else {
+                selectedStudents.add(studentId);
+                studentEl?.classList.add('selected');
+            }
+            
+            // Show count
+            if (selectedStudents.size > 1) {
+                showToast(`${selectedStudents.size} students selected - drag to move together`);
+            }
+        }
+        
+        // Clear all selections
+        function clearStudentSelection() {
+            const canvas = document.getElementById('seatingCanvas');
+            selectedStudents.forEach(id => {
+                const el = canvas.querySelector(`[data-id="${id}"]`);
+                el?.classList.remove('selected');
+            });
+            selectedStudents.clear();
         }
         
         function startDrag(event, studentId) {
@@ -4094,18 +4170,45 @@
             const studentEl = canvas.querySelector(`[data-id="${studentId}"]`);
             if (!studentEl) return;
             
+            // Handle Ctrl+click for selection
+            if (event.ctrlKey || event.metaKey) {
+                toggleStudentSelection(studentId, event);
+                return;
+            }
+            
             const touch = event.touches ? event.touches[0] : event;
             
+            // If clicking on a non-selected student, clear selection and drag just that one
+            // If clicking on a selected student, drag all selected
+            let studentsToDrag = [];
+            if (selectedStudents.has(studentId) && selectedStudents.size > 1) {
+                // Drag all selected students
+                studentsToDrag = Array.from(selectedStudents);
+            } else {
+                // Clear selection and drag just this one
+                clearStudentSelection();
+                studentsToDrag = [studentId];
+            }
+            
+            // Build drag state for all students being dragged
+            const elements = studentsToDrag.map(id => {
+                const el = canvas.querySelector(`[data-id="${id}"]`);
+                return {
+                    studentId: id,
+                    element: el,
+                    origLeft: parseInt(el?.style.left || 0),
+                    origTop: parseInt(el?.style.top || 0)
+                };
+            }).filter(e => e.element);
+            
             dragState = {
-                studentId,
-                element: studentEl,
+                studentId, // Primary student
+                elements,  // All students being dragged
                 startX: touch.clientX,
-                startY: touch.clientY,
-                origLeft: parseInt(studentEl.style.left),
-                origTop: parseInt(studentEl.style.top)
+                startY: touch.clientY
             };
             
-            studentEl.classList.add('dragging');
+            elements.forEach(e => e.element.classList.add('dragging'));
             document.addEventListener('mousemove', onDrag);
             document.addEventListener('mouseup', endDrag);
             document.addEventListener('touchmove', onDrag, { passive: false });
@@ -4120,22 +4223,28 @@
             const dx = touch.clientX - dragState.startX;
             const dy = touch.clientY - dragState.startY;
             
-            dragState.element.style.left = (dragState.origLeft + dx) + 'px';
-            dragState.element.style.top = (dragState.origTop + dy) + 'px';
+            // Move all elements being dragged
+            dragState.elements.forEach(e => {
+                e.element.style.left = (e.origLeft + dx) + 'px';
+                e.element.style.top = (e.origTop + dy) + 'px';
+            });
         }
         
         function endDrag() {
             if (!dragState) return;
             
-            const student = students.find(s => s.id === dragState.studentId);
-            if (student) {
-                student.position = {
-                    x: parseInt(dragState.element.style.left),
-                    y: parseInt(dragState.element.style.top)
-                };
-            }
+            // Update positions for all dragged students
+            dragState.elements.forEach(e => {
+                const student = students.find(s => s.id === e.studentId);
+                if (student) {
+                    student.position = {
+                        x: parseInt(e.element.style.left),
+                        y: parseInt(e.element.style.top)
+                    };
+                }
+                e.element.classList.remove('dragging');
+            });
             
-            dragState.element.classList.remove('dragging');
             dragState = null;
             
             document.removeEventListener('mousemove', onDrag);
@@ -4970,6 +5079,108 @@
             showToast(`Exported as ${format.toUpperCase()}`);
         }
         
+        // Full backup download (same as exportAllData but clearer name)
+        function downloadFullBackup() {
+            saveClass(); // Ensure current data is saved
+            
+            const backup = {
+                hallpass_backup: true,
+                version: 2,
+                exportDate: new Date().toISOString(),
+                allClasses: allClasses,
+                currentClassId: currentClassId,
+                schedule: schedule,
+                weeklyPattern: weeklyPattern,
+                classAssignments: classAssignments,
+                appSettings: appSettings,
+                hallPassHistory: JSON.parse(localStorage.getItem('hallpass_hallPassHistory') || '[]'),
+                corrections: JSON.parse(localStorage.getItem('hallpass_corrections') || '[]')
+            };
+            
+            const classCount = Object.keys(allClasses).length;
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hallpass-backup-${getToday()}-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            // Remember last backup
+            localStorage.setItem('hallpass_lastBackup', new Date().toISOString());
+            showToast(`✅ Backup downloaded (${classCount} classes)`);
+        }
+        
+        // Restore from backup file
+        function handleRestore(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    if (!backup.hallpass_backup) {
+                        showToast('Invalid backup file', 'error');
+                        return;
+                    }
+                    
+                    const classCount = backup.allClasses ? Object.keys(backup.allClasses).length : 0;
+                    if (!confirm(`Restore from backup?\n\nThis will replace current data with:\n- ${classCount} classes\n- Schedule settings\n\nBackup date: ${backup.exportDate || 'Unknown'}`)) {
+                        return;
+                    }
+                    
+                    // Restore all data
+                    if (backup.version >= 2 && backup.allClasses) {
+                        // Multi-class format
+                        allClasses = backup.allClasses;
+                        currentClassId = backup.currentClassId || Object.keys(allClasses)[0];
+                        
+                        if (currentClassId && allClasses[currentClassId]) {
+                            const cls = allClasses[currentClassId];
+                            classData = cls.classData;
+                            students = cls.students || [];
+                            attendanceHistory = cls.attendanceHistory || {};
+                            streaks = cls.streaks || {};
+                        }
+                    } else if (backup.classData) {
+                        // Single class format - add it
+                        addClass(backup.classData, backup.students || [], backup.attendanceHistory || {}, backup.streaks || {});
+                    }
+                    
+                    // Restore settings
+                    if (backup.schedule) schedule = backup.schedule;
+                    if (backup.weeklyPattern) weeklyPattern = backup.weeklyPattern;
+                    if (backup.classAssignments) classAssignments = backup.classAssignments;
+                    if (backup.appSettings) appSettings = { ...appSettings, ...backup.appSettings };
+                    
+                    // Save everything
+                    localStorage.setItem('hallpass_allClasses', JSON.stringify(allClasses));
+                    localStorage.setItem('hallpass_currentClassId', currentClassId);
+                    localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+                    localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
+                    localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+                    localStorage.setItem('hallpass_settings', JSON.stringify(appSettings));
+                    
+                    // Update UI
+                    populateClassSelector();
+                    initializeLayouts();
+                    renderCanvas();
+                    updateStats();
+                    updateStatusBar();
+                    
+                    showToast(`✅ Restored ${classCount} classes from backup!`);
+                    closeSettings();
+                } catch(err) {
+                    console.error('Restore error:', err);
+                    showToast('Failed to restore: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset file input
+        }
+        
         function clearAllData() {
             const classCount = Object.keys(allClasses).length;
             if (!confirm(`This will delete ALL Hall Pass data (${classCount} classes). Are you sure?`)) return;
@@ -5138,11 +5349,36 @@
             attendanceHistory = importedAttendance;
             streaks = importedStreaks;
             
-            // Save and update UI
+            // Save IMMEDIATELY and verify
             saveClass();
+            
+            // Force save to localStorage directly as backup
+            try {
+                localStorage.setItem('hallpass_allClasses', JSON.stringify(allClasses));
+                localStorage.setItem('hallpass_currentClassId', currentClassId);
+                console.log('Class saved:', classId, 'Total classes:', Object.keys(allClasses).length);
+                
+                // Verify save worked
+                const verify = localStorage.getItem('hallpass_allClasses');
+                if (!verify || !JSON.parse(verify)[classId]) {
+                    console.error('SAVE VERIFICATION FAILED!');
+                    showToast('⚠️ Save may have failed - download backup!', 'warning');
+                }
+            } catch(e) {
+                console.error('localStorage save error:', e);
+                showToast('⚠️ Storage error - download backup NOW!', 'error');
+            }
+            
             populateClassSelector();
             renderCanvas();
             updateStats();
+            
+            // Prompt for backup after import
+            setTimeout(() => {
+                if (confirm(`${className} imported successfully!\n\nDownload a backup now to prevent data loss?`)) {
+                    downloadFullBackup();
+                }
+            }, 500);
             
             return classId;
         }
