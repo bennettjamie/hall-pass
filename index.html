@@ -210,89 +210,118 @@
             display: block;
         }
         
-        /* Visual Schedule Grid */
-        .schedule-visual-grid {
+        /* Visual Schedule Calendar */
+        .calendar-container {
             display: grid;
-            grid-template-columns: 80px repeat(5, 1fr);
-            gap: 4px;
+            grid-template-columns: 60px repeat(5, 1fr);
+            gap: 2px;
             background: var(--bg-secondary);
             padding: 12px;
             border-radius: 12px;
+            min-height: 500px;
         }
         
-        .grid-header {
+        .calendar-header {
             text-align: center;
             font-weight: 600;
-            padding: 8px;
+            padding: 10px 4px;
             background: var(--bg-card);
             border-radius: 6px;
             font-size: 0.9rem;
         }
         
-        .grid-header-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-align: right;
-            padding-right: 8px;
-        }
-        
-        .grid-period-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-align: right;
-            padding: 8px;
+        .calendar-times {
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: flex-end;
+            position: relative;
         }
         
-        .grid-period-time {
+        .calendar-time-label {
+            position: absolute;
+            right: 4px;
             font-size: 0.7rem;
-            opacity: 0.7;
-        }
-        
-        .grid-cell {
-            padding: 10px 6px;
-            border-radius: 8px;
-            text-align: center;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-height: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        
-        .grid-cell:hover {
-            transform: scale(1.02);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        
-        .grid-cell.regular { background: var(--bg-card); }
-        .grid-cell.amfit { background: #f59e0b33; border: 1px solid #f59e0b; }
-        .grid-cell.pmfit { background: #8b5cf633; border: 1px solid #8b5cf6; }
-        .grid-cell.noschool { background: var(--bg-primary); color: var(--text-secondary); }
-        
-        .grid-cell .cell-label {
-            font-weight: 500;
-            margin-bottom: 2px;
-        }
-        
-        .grid-cell .cell-time {
-            font-size: 0.7rem;
-            opacity: 0.7;
-        }
-        
-        .grid-break {
-            grid-column: 1 / -1;
-            text-align: center;
-            padding: 4px;
-            font-size: 0.75rem;
             color: var(--text-secondary);
+            transform: translateY(-50%);
+        }
+        
+        .calendar-day {
+            position: relative;
             background: var(--bg-primary);
-            border-radius: 4px;
+            border-radius: 6px;
+            min-height: 400px;
+        }
+        
+        .calendar-block {
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .calendar-block:hover {
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            transform: scale(1.02);
+        }
+        
+        .calendar-block.period { background: var(--accent); color: white; }
+        .calendar-block.break { background: var(--bg-card); color: var(--text-secondary); }
+        .calendar-block.lunch { background: #22c55e44; border: 1px solid var(--success); color: var(--success); }
+        .calendar-block.fit { background: #f59e0b44; border: 1px solid #f59e0b; color: #f59e0b; }
+        .calendar-block.custom { background: #8b5cf644; border: 1px solid #8b5cf6; color: #8b5cf6; }
+        
+        .calendar-block .block-title {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .calendar-block .block-time {
+            font-size: 0.65rem;
+            opacity: 0.8;
+        }
+        
+        .calendar-block .block-class {
+            font-size: 0.65rem;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+        
+        /* Calendar Context Menu */
+        .calendar-context-menu {
+            position: fixed;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 0;
+            min-width: 180px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .calendar-context-menu.open { display: block; }
+        
+        .calendar-context-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .calendar-context-item:hover {
+            background: var(--bg-hover);
         }
         
         .week-toggle-btn.active, .current-week-btn.active, .preset-edit-btn.active {
@@ -300,32 +329,28 @@
             color: white !important;
         }
         
-        .preset-time-row {
+        .period-class-row {
             display: grid;
-            grid-template-columns: 80px 1fr 1fr 100px;
-            gap: 8px;
+            grid-template-columns: 100px 1fr;
+            gap: 12px;
             align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border);
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 8px;
         }
         
-        .preset-time-row label {
-            font-size: 0.9rem;
+        .period-class-row label {
             font-weight: 500;
         }
         
-        .preset-time-row input[type="time"] {
-            padding: 6px 10px;
-            border-radius: 6px;
+        .period-class-row select {
+            padding: 10px;
+            border-radius: 8px;
             background: var(--bg-card);
             color: white;
             border: 1px solid var(--border);
-        }
-        
-        .preset-time-row .duration {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-align: center;
+            font-size: 0.95rem;
         }
         
         /* Layout Selector */
@@ -1468,6 +1493,18 @@
     </div>
 
     <!-- Canvas Context Menu (for adding students) -->
+    <!-- Calendar Context Menu -->
+    <div class="calendar-context-menu" id="calendarContextMenu">
+        <div class="calendar-context-item" onclick="addBlockFromContext('period')">📚 Add Period</div>
+        <div class="calendar-context-item" onclick="addBlockFromContext('break')">☕ Add Break</div>
+        <div class="calendar-context-item" onclick="addBlockFromContext('lunch')">🍽️ Add Lunch</div>
+        <div class="calendar-context-item" onclick="addBlockFromContext('fit')">🏃 Add FIT</div>
+        <div class="calendar-context-item" onclick="addBlockFromContext('custom')">✨ Add Custom Block</div>
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+        <div class="calendar-context-item" onclick="editBlockFromContext()">✏️ Edit Block</div>
+        <div class="calendar-context-item" onclick="deleteBlockFromContext()">🗑️ Delete Block</div>
+    </div>
+    
     <div class="context-menu" id="canvasContextMenu">
         <div class="context-menu-header">Canvas Options</div>
         <div class="context-menu-item" onclick="addStudentAtPosition()">➕ Add Student Here</div>
@@ -1617,70 +1654,47 @@
                 <!-- Weekly Pattern Tab -->
                 <div class="sched-panel" id="schedPanelWeekly">
                     <div class="setting-section">
-                        <h3>Weekly Schedule Grid</h3>
+                        <h3>Weekly Schedule</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
+                            Visual calendar of your week. Right-click to add breaks, edit blocks, or customize times.
+                        </p>
                         
                         <!-- Week Toggle -->
                         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                            <label style="font-size:0.9rem;">Schedule Type:</label>
                             <div style="display:flex;gap:4px;">
                                 <button class="btn btn-secondary week-toggle-btn active" data-type="simple" onclick="setWeekType('simple')">Same Every Week</button>
                                 <button class="btn btn-secondary week-toggle-btn" data-type="biweekly" onclick="setWeekType('biweekly')">Week 1 / Week 2</button>
                             </div>
-                        </div>
-                        
-                        <!-- Current Week Selector (for biweekly) -->
-                        <div id="currentWeekToggle" style="display:none;margin-bottom:16px;padding:12px;background:var(--accent);border-radius:10px;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;">
-                                <span style="font-weight:600;">This is currently:</span>
-                                <div style="display:flex;gap:4px;">
-                                    <button class="btn current-week-btn active" data-week="1" onclick="setCurrentWeek(1)" style="padding:8px 20px;">Week 1</button>
-                                    <button class="btn current-week-btn" data-week="2" onclick="setCurrentWeek(2)" style="padding:8px 20px;">Week 2</button>
-                                </div>
+                            <div id="currentWeekToggle" style="display:none;">
+                                <span style="margin-right:8px;font-size:0.9rem;">Current:</span>
+                                <button class="btn current-week-btn active" data-week="1" onclick="setCurrentWeek(1)" style="padding:6px 16px;">Wk 1</button>
+                                <button class="btn current-week-btn" data-week="2" onclick="setCurrentWeek(2)" style="padding:6px 16px;">Wk 2</button>
                             </div>
                         </div>
                         
-                        <!-- Visual Schedule Grid -->
-                        <div id="scheduleGridContainer">
-                            <!-- Week 1 (or Simple) Grid -->
-                            <div id="scheduleGridWeek1" class="schedule-visual-grid">
-                                <div class="grid-header-label"></div>
-                                <div class="grid-header">Mon</div>
-                                <div class="grid-header">Tue</div>
-                                <div class="grid-header">Wed</div>
-                                <div class="grid-header">Thu</div>
-                                <div class="grid-header">Fri</div>
-                                <!-- Grid body populated by JS -->
+                        <!-- Visual Calendar -->
+                        <div id="calendarView" class="calendar-container">
+                            <div class="calendar-times" id="calendarTimes">
+                                <!-- Time labels populated by JS -->
                             </div>
-                            
-                            <!-- Week 2 Grid (biweekly only) -->
-                            <div id="scheduleGridWeek2" class="schedule-visual-grid" style="display:none;margin-top:20px;">
-                                <div style="grid-column:1/-1;font-weight:600;margin-bottom:8px;color:var(--accent-light);">Week 2</div>
-                                <div class="grid-header-label"></div>
-                                <div class="grid-header">Mon</div>
-                                <div class="grid-header">Tue</div>
-                                <div class="grid-header">Wed</div>
-                                <div class="grid-header">Thu</div>
-                                <div class="grid-header">Fri</div>
-                                <!-- Grid body populated by JS -->
-                            </div>
+                            <div class="calendar-header">Mon</div>
+                            <div class="calendar-header">Tue</div>
+                            <div class="calendar-header">Wed</div>
+                            <div class="calendar-header">Thu</div>
+                            <div class="calendar-header">Fri</div>
+                            <div></div><!-- spacer for time column -->
+                            <div class="calendar-day" id="calDay-mon" oncontextmenu="openCalendarContext(event, 'mon'); return false;"></div>
+                            <div class="calendar-day" id="calDay-tue" oncontextmenu="openCalendarContext(event, 'tue'); return false;"></div>
+                            <div class="calendar-day" id="calDay-wed" oncontextmenu="openCalendarContext(event, 'wed'); return false;"></div>
+                            <div class="calendar-day" id="calDay-thu" oncontextmenu="openCalendarContext(event, 'thu'); return false;"></div>
+                            <div class="calendar-day" id="calDay-fri" oncontextmenu="openCalendarContext(event, 'fri'); return false;"></div>
                         </div>
                         
-                        <!-- Period Time Editor -->
-                        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-                            <h4 style="margin-bottom:12px;">⏰ Period Times</h4>
-                            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
-                                Edit the times for each schedule type. Click a cell above to assign a schedule.
-                            </p>
-                            
-                            <div style="display:flex;gap:8px;margin-bottom:12px;">
-                                <button class="btn btn-secondary preset-edit-btn active" data-preset="regular" onclick="editPreset('regular')">Regular</button>
-                                <button class="btn btn-secondary preset-edit-btn" data-preset="amfit" onclick="editPreset('amfit')">AM FIT</button>
-                                <button class="btn btn-secondary preset-edit-btn" data-preset="pmfit" onclick="editPreset('pmfit')">PM FIT</button>
-                            </div>
-                            
-                            <div id="presetTimesEditor">
-                                <!-- Populated by JS -->
-                            </div>
+                        <!-- Quick Actions -->
+                        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary" onclick="addBlockToDay(null, 'break')">+ Add Break</button>
+                            <button class="btn btn-secondary" onclick="addBlockToDay(null, 'fit')">+ Add FIT</button>
+                            <button class="btn btn-secondary" onclick="resetToDefaultSchedule()">↺ Reset to Britannia Default</button>
                         </div>
                         
                         <!-- Hidden old inputs for compatibility -->
@@ -1699,41 +1713,16 @@
                 <!-- My Classes Tab -->
                 <div class="sched-panel" id="schedPanelClasses">
                     <div class="setting-section">
-                        <h3>My Classes</h3>
+                        <h3>My Teaching Schedule</h3>
                         <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
-                            Set up which class you teach at each period. The app will auto-load the right roster.
+                            Assign your loaded classes to each period. The app will auto-switch when the period changes.
                         </p>
-                        <div id="classAssignments">
-                            <div style="display:grid;grid-template-columns:100px 1fr 100px;gap:8px;align-items:center;margin-bottom:8px;">
-                                <strong>Period</strong>
-                                <strong>Class Name</strong>
-                                <strong>Roster</strong>
-                            </div>
-                            <div class="class-assignment" data-period="1">
-                                <span style="padding:8px;">Period 1</span>
-                                <input type="text" placeholder="e.g., CLE 10-003" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
-                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(1)">Load</button>
-                            </div>
-                            <div class="class-assignment" data-period="2">
-                                <span style="padding:8px;">Period 2</span>
-                                <input type="text" placeholder="e.g., CLE 10-004" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
-                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(2)">Load</button>
-                            </div>
-                            <div class="class-assignment" data-period="3">
-                                <span style="padding:8px;">Period 3</span>
-                                <input type="text" placeholder="e.g., Planning" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
-                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(3)">Load</button>
-                            </div>
-                            <div class="class-assignment" data-period="4">
-                                <span style="padding:8px;">Period 4</span>
-                                <input type="text" placeholder="e.g., CLE 10-005" class="class-name-input" style="padding:8px;border-radius:8px;background:var(--bg-secondary);color:white;border:1px solid var(--border);">
-                                <button class="btn btn-secondary" style="font-size:12px;" onclick="loadRosterForPeriod(4)">Load</button>
-                            </div>
+                        <div id="classAssignmentsContainer">
+                            <!-- Populated by JS -->
                         </div>
                         <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;">
                             <p style="font-size:0.85rem;color:var(--text-secondary);">
-                                💡 Tip: Import each class roster from MyEd using the <strong>Settings → Create from MyEd</strong> tool, 
-                                then save each as a separate JSON file. Load them here by period.
+                                💡 Classes shown here are from your imported rosters. Import more classes in Settings.
                             </p>
                         </div>
                     </div>
@@ -2233,6 +2222,45 @@
             }
         }
         
+        // Calendar configuration
+        const CALENDAR_START = '08:00';
+        const CALENDAR_END = '16:00';
+        const CALENDAR_HEIGHT = 400; // pixels
+        
+        // Schedule blocks per day: { day: [ {id, type, start, end, title, classId?}, ... ] }
+        let scheduleBlocks = {
+            mon: [], tue: [], wed: [], thu: [], fri: []
+        };
+        
+        // Initialize default blocks if not loaded
+        function initDefaultScheduleBlocks() {
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+            days.forEach(day => {
+                if (!scheduleBlocks[day] || scheduleBlocks[day].length === 0) {
+                    // Create default blocks based on preset
+                    const schedType = weeklyPattern.simple[day] || 'regular';
+                    const preset = presets[schedType] || presets.regular;
+                    
+                    scheduleBlocks[day] = [
+                        { id: `${day}-p1`, type: 'period', period: 1, start: preset[1].start, end: preset[1].end, title: 'Period 1' },
+                        { id: `${day}-break1`, type: 'break', start: preset[1].end, end: preset[2].start, title: 'Break' },
+                        { id: `${day}-p2`, type: 'period', period: 2, start: preset[2].start, end: preset[2].end, title: 'Period 2' },
+                        { id: `${day}-lunch`, type: 'lunch', start: '11:30', end: '12:15', title: 'Lunch' },
+                        { id: `${day}-p3`, type: 'period', period: 3, start: preset[3].start, end: preset[3].end, title: 'Period 3' },
+                        { id: `${day}-break2`, type: 'break', start: preset[3].end, end: preset[4].start, title: 'Break' },
+                        { id: `${day}-p4`, type: 'period', period: 4, start: preset[4].start, end: preset[4].end, title: 'Period 4' }
+                    ];
+                    
+                    // Add FIT if applicable
+                    if (schedType === 'amfit') {
+                        scheduleBlocks[day].unshift({ id: `${day}-fit`, type: 'fit', start: '08:40', end: '09:20', title: 'FIT' });
+                    } else if (schedType === 'pmfit') {
+                        scheduleBlocks[day].push({ id: `${day}-fit`, type: 'fit', start: '14:25', end: '15:05', title: 'FIT' });
+                    }
+                }
+            });
+        }
+        
         function loadWeeklyPatternUI() {
             // Set pattern type
             document.getElementById('weekPatternType').value = weeklyPattern.type;
@@ -2242,9 +2270,8 @@
                 btn.classList.toggle('active', btn.dataset.type === weeklyPattern.type);
             });
             
-            // Show/hide week 2 grid and current week toggle
-            document.getElementById('scheduleGridWeek2').style.display = weeklyPattern.type === 'biweekly' ? 'grid' : 'none';
-            document.getElementById('currentWeekToggle').style.display = weeklyPattern.type === 'biweekly' ? 'block' : 'none';
+            // Show/hide current week toggle
+            document.getElementById('currentWeekToggle').style.display = weeklyPattern.type === 'biweekly' ? 'flex' : 'none';
             
             // Update current week buttons
             document.querySelectorAll('.current-week-btn').forEach(btn => {
@@ -2261,14 +2288,270 @@
             const weekSelect = document.getElementById('currentWeekNum');
             if (weekSelect) weekSelect.value = weeklyPattern.currentWeek || 1;
             
-            // Render the visual grids
-            renderScheduleGrid('scheduleGridWeek1', weeklyPattern.simple);
-            if (weeklyPattern.type === 'biweekly') {
-                renderScheduleGrid('scheduleGridWeek2', weeklyPattern.week2 || weeklyPattern.simple);
+            // Load schedule blocks from storage or init defaults
+            const savedBlocks = localStorage.getItem('hallpass_scheduleBlocks');
+            if (savedBlocks) {
+                try { scheduleBlocks = JSON.parse(savedBlocks); } catch(e) {}
+            } else {
+                initDefaultScheduleBlocks();
             }
             
-            // Load preset editor
-            editPreset('regular');
+            // Render the calendar
+            renderCalendar();
+            
+            // Render class assignments
+            renderClassAssignments();
+        }
+        
+        function timeToPixels(timeStr) {
+            const [hours, mins] = timeStr.split(':').map(Number);
+            const [startHours, startMins] = CALENDAR_START.split(':').map(Number);
+            const [endHours, endMins] = CALENDAR_END.split(':').map(Number);
+            
+            const startMinutes = startHours * 60 + startMins;
+            const endMinutes = endHours * 60 + endMins;
+            const currentMinutes = hours * 60 + mins;
+            
+            const totalMinutes = endMinutes - startMinutes;
+            const offsetMinutes = currentMinutes - startMinutes;
+            
+            return (offsetMinutes / totalMinutes) * CALENDAR_HEIGHT;
+        }
+        
+        function renderCalendar() {
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+            
+            // Render time labels
+            const timesCol = document.getElementById('calendarTimes');
+            if (timesCol) {
+                let timesHtml = '';
+                for (let h = 8; h <= 16; h++) {
+                    const timeStr = `${h.toString().padStart(2, '0')}:00`;
+                    const top = timeToPixels(timeStr);
+                    const label = h > 12 ? `${h-12}pm` : (h === 12 ? '12pm' : `${h}am`);
+                    timesHtml += `<span class="calendar-time-label" style="top:${top + 40}px;">${label}</span>`;
+                }
+                timesCol.innerHTML = timesHtml;
+            }
+            
+            // Render each day
+            days.forEach(day => {
+                const dayEl = document.getElementById(`calDay-${day}`);
+                if (!dayEl) return;
+                
+                const blocks = scheduleBlocks[day] || [];
+                let html = '';
+                
+                blocks.forEach(block => {
+                    const top = timeToPixels(block.start);
+                    const bottom = timeToPixels(block.end);
+                    const height = Math.max(20, bottom - top);
+                    
+                    // Get class name if it's a period
+                    let className = '';
+                    if (block.type === 'period' && block.period) {
+                        const assignment = classAssignments[block.period];
+                        if (assignment?.name) {
+                            className = assignment.name;
+                        }
+                    }
+                    
+                    html += `
+                        <div class="calendar-block ${block.type}" 
+                             data-id="${block.id}"
+                             style="top:${top}px;height:${height}px;"
+                             onclick="editBlock('${day}', '${block.id}')"
+                             oncontextmenu="openBlockContext(event, '${day}', '${block.id}'); return false;">
+                            <span class="block-title">${block.title}</span>
+                            <span class="block-time">${block.start} - ${block.end}</span>
+                            ${className ? `<span class="block-class">${className}</span>` : ''}
+                        </div>
+                    `;
+                });
+                
+                dayEl.innerHTML = html;
+            });
+        }
+        
+        // Calendar context menu
+        let calendarContextDay = null;
+        let calendarContextBlockId = null;
+        let calendarContextY = 0;
+        
+        function openCalendarContext(event, day) {
+            event.preventDefault();
+            calendarContextDay = day;
+            calendarContextBlockId = null;
+            calendarContextY = event.clientY;
+            
+            const menu = document.getElementById('calendarContextMenu');
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('open');
+            
+            // Hide edit/delete options when clicking empty area
+            menu.querySelectorAll('.calendar-context-item').forEach((item, i) => {
+                if (i >= 5) item.style.display = 'none';
+            });
+        }
+        
+        function openBlockContext(event, day, blockId) {
+            event.preventDefault();
+            event.stopPropagation();
+            calendarContextDay = day;
+            calendarContextBlockId = blockId;
+            
+            const menu = document.getElementById('calendarContextMenu');
+            menu.style.left = event.clientX + 'px';
+            menu.style.top = event.clientY + 'px';
+            menu.classList.add('open');
+            
+            // Show edit/delete options
+            menu.querySelectorAll('.calendar-context-item').forEach((item, i) => {
+                item.style.display = 'block';
+            });
+        }
+        
+        function closeCalendarContext() {
+            document.getElementById('calendarContextMenu').classList.remove('open');
+        }
+        
+        document.addEventListener('click', () => closeCalendarContext());
+        
+        function addBlockFromContext(type) {
+            closeCalendarContext();
+            
+            if (!calendarContextDay) return;
+            
+            // Calculate approximate time from click position
+            const dayEl = document.getElementById(`calDay-${calendarContextDay}`);
+            if (!dayEl) return;
+            
+            const rect = dayEl.getBoundingClientRect();
+            const relativeY = calendarContextY - rect.top;
+            const percentage = relativeY / CALENDAR_HEIGHT;
+            
+            const [startH, startM] = CALENDAR_START.split(':').map(Number);
+            const [endH, endM] = CALENDAR_END.split(':').map(Number);
+            const totalMins = (endH * 60 + endM) - (startH * 60 + startM);
+            const clickMins = startH * 60 + startM + (percentage * totalMins);
+            
+            const startHour = Math.floor(clickMins / 60);
+            const startMin = Math.round((clickMins % 60) / 5) * 5;
+            const start = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
+            
+            // Default duration by type
+            let duration = 60;
+            if (type === 'break') duration = 10;
+            else if (type === 'lunch') duration = 45;
+            else if (type === 'fit') duration = 40;
+            
+            const endMins = clickMins + duration;
+            const endHour = Math.floor(endMins / 60);
+            const endMin = Math.round((endMins % 60) / 5) * 5;
+            const end = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+            
+            const title = prompt(`Enter ${type} name:`, type.charAt(0).toUpperCase() + type.slice(1));
+            if (!title) return;
+            
+            const block = {
+                id: `${calendarContextDay}-${Date.now()}`,
+                type,
+                start,
+                end,
+                title
+            };
+            
+            scheduleBlocks[calendarContextDay].push(block);
+            saveScheduleBlocks();
+            renderCalendar();
+        }
+        
+        function editBlock(day, blockId) {
+            const blocks = scheduleBlocks[day];
+            const block = blocks.find(b => b.id === blockId);
+            if (!block) return;
+            
+            const newStart = prompt('Start time (HH:MM):', block.start);
+            if (!newStart) return;
+            
+            const newEnd = prompt('End time (HH:MM):', block.end);
+            if (!newEnd) return;
+            
+            const newTitle = prompt('Title:', block.title);
+            if (!newTitle) return;
+            
+            block.start = newStart;
+            block.end = newEnd;
+            block.title = newTitle;
+            
+            saveScheduleBlocks();
+            renderCalendar();
+        }
+        
+        function editBlockFromContext() {
+            closeCalendarContext();
+            if (calendarContextDay && calendarContextBlockId) {
+                editBlock(calendarContextDay, calendarContextBlockId);
+            }
+        }
+        
+        function deleteBlockFromContext() {
+            closeCalendarContext();
+            if (!calendarContextDay || !calendarContextBlockId) return;
+            
+            const blocks = scheduleBlocks[calendarContextDay];
+            const idx = blocks.findIndex(b => b.id === calendarContextBlockId);
+            if (idx === -1) return;
+            
+            if (!confirm(`Delete "${blocks[idx].title}"?`)) return;
+            
+            blocks.splice(idx, 1);
+            saveScheduleBlocks();
+            renderCalendar();
+        }
+        
+        function addBlockToDay(day, type) {
+            // If no day specified, ask
+            if (!day) {
+                day = prompt('Which day? (mon, tue, wed, thu, fri):', 'mon');
+                if (!day || !['mon', 'tue', 'wed', 'thu', 'fri'].includes(day.toLowerCase())) return;
+                day = day.toLowerCase();
+            }
+            
+            const start = prompt('Start time (HH:MM):', '10:00');
+            if (!start) return;
+            
+            const end = prompt('End time (HH:MM):', '10:10');
+            if (!end) return;
+            
+            const title = prompt('Title:', type.charAt(0).toUpperCase() + type.slice(1));
+            if (!title) return;
+            
+            scheduleBlocks[day].push({
+                id: `${day}-${Date.now()}`,
+                type,
+                start,
+                end,
+                title
+            });
+            
+            saveScheduleBlocks();
+            renderCalendar();
+        }
+        
+        function resetToDefaultSchedule() {
+            if (!confirm('Reset to Britannia default schedule? This will overwrite your current blocks.')) return;
+            
+            scheduleBlocks = { mon: [], tue: [], wed: [], thu: [], fri: [] };
+            initDefaultScheduleBlocks();
+            saveScheduleBlocks();
+            renderCalendar();
+            showToast('Reset to default schedule');
+        }
+        
+        function saveScheduleBlocks() {
+            localStorage.setItem('hallpass_scheduleBlocks', JSON.stringify(scheduleBlocks));
         }
         
         function onWeekPatternTypeChange() {
@@ -2295,100 +2578,34 @@
             updateStatusBar();
         }
         
-        function renderScheduleGrid(containerId, pattern) {
-            const container = document.getElementById(containerId);
+        function saveScheduleConfig() {
+            localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
+            localStorage.setItem('hallpass_presets', JSON.stringify(presets));
+        }
+        
+        // Class assignments UI
+        function renderClassAssignments() {
+            const container = document.getElementById('classAssignmentsContainer');
             if (!container) return;
             
-            const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
-            const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-            const scheduleTypes = { regular: 'Regular', amfit: 'AM FIT', pmfit: 'PM FIT', noschool: 'No School' };
-            
-            // Clear and re-add headers
-            container.innerHTML = `
-                <div class="grid-header-label"></div>
-                ${dayLabels.map(d => `<div class="grid-header">${d}</div>`).join('')}
-            `;
-            
-            // Add period rows
-            for (let p = 1; p <= 4; p++) {
-                // Period label
-                const times = presets.regular[p];
-                container.innerHTML += `
-                    <div class="grid-period-label">
-                        <span>P${p}</span>
-                        <span class="grid-period-time">${times.start}</span>
-                    </div>
-                `;
-                
-                // Day cells
-                days.forEach(day => {
-                    const sched = pattern[day] || 'regular';
-                    const periodTimes = presets[sched] ? presets[sched][p] : presets.regular[p];
-                    const label = scheduleTypes[sched] || sched;
-                    const weekId = containerId === 'scheduleGridWeek2' ? 'week2' : 'week1';
-                    
-                    container.innerHTML += `
-                        <div class="grid-cell ${sched}" onclick="cycleGridCell('${weekId}', '${day}')" title="Click to change">
-                            <span class="cell-label">${label}</span>
-                            <span class="cell-time">${periodTimes.start}-${periodTimes.end}</span>
-                        </div>
-                    `;
-                });
-                
-                // Add break after P2
-                if (p === 2) {
-                    container.innerHTML += `<div class="grid-break">🍽️ Lunch Break (11:30 - 12:15)</div>`;
-                }
-            }
-        }
-        
-        function cycleGridCell(weekId, day) {
-            const schedTypes = ['regular', 'amfit', 'pmfit', 'noschool'];
-            const pattern = weekId === 'week2' ? (weeklyPattern.week2 || {...weeklyPattern.simple}) : weeklyPattern.simple;
-            const current = pattern[day] || 'regular';
-            const nextIndex = (schedTypes.indexOf(current) + 1) % schedTypes.length;
-            pattern[day] = schedTypes[nextIndex];
-            
-            if (weekId === 'week2') {
-                weeklyPattern.week2 = pattern;
-            } else {
-                weeklyPattern.simple = pattern;
-            }
-            
-            // Update hidden select for compatibility
-            const sel = document.querySelector(`.day-sched[data-day="${day}"]`);
-            if (sel) sel.value = pattern[day];
-            
-            // Re-render grid
-            renderScheduleGrid(weekId === 'week2' ? 'scheduleGridWeek2' : 'scheduleGridWeek1', pattern);
-            saveScheduleConfig();
-        }
-        
-        // Preset times editor
-        let currentEditPreset = 'regular';
-        
-        function editPreset(preset) {
-            currentEditPreset = preset;
-            document.querySelectorAll('.preset-edit-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.preset === preset);
-            });
-            
-            const container = document.getElementById('presetTimesEditor');
-            const times = presets[preset];
+            // Get list of loaded classes
+            const classIds = Object.keys(allClasses);
             
             let html = '';
             for (let p = 1; p <= 4; p++) {
-                const t = times[p];
-                const start = parseTime(t.start);
-                const end = parseTime(t.end);
-                const duration = Math.round((end - start) / 60000);
+                const current = classAssignments[p]?.classId || '';
                 
                 html += `
-                    <div class="preset-time-row">
+                    <div class="period-class-row">
                         <label>Period ${p}</label>
-                        <input type="time" value="${t.start}" onchange="updatePresetTime('${preset}', ${p}, 'start', this.value)">
-                        <input type="time" value="${t.end}" onchange="updatePresetTime('${preset}', ${p}, 'end', this.value)">
-                        <span class="duration">${duration} min</span>
+                        <select onchange="assignClassToPeriod(${p}, this.value)">
+                            <option value="">-- None / Prep --</option>
+                            ${classIds.map(id => {
+                                const cls = allClasses[id];
+                                const name = cls.classData?.settings?.className || id;
+                                return `<option value="${id}" ${id === current ? 'selected' : ''}>${name}</option>`;
+                            }).join('')}
+                        </select>
                     </div>
                 `;
             }
@@ -2396,42 +2613,29 @@
             container.innerHTML = html;
         }
         
-        function updatePresetTime(preset, period, field, value) {
-            presets[preset][period][field] = value;
-            
-            // Recalculate duration display
-            const t = presets[preset][period];
-            const start = parseTime(t.start);
-            const end = parseTime(t.end);
-            const duration = Math.round((end - start) / 60000);
-            
-            // Update the grid to show new times
-            renderScheduleGrid('scheduleGridWeek1', weeklyPattern.simple);
-            if (weeklyPattern.type === 'biweekly') {
-                renderScheduleGrid('scheduleGridWeek2', weeklyPattern.week2 || weeklyPattern.simple);
+        function assignClassToPeriod(period, classId) {
+            if (!classAssignments[period]) {
+                classAssignments[period] = {};
             }
             
-            // Re-render preset editor to update duration
-            editPreset(preset);
+            if (classId) {
+                const cls = allClasses[classId];
+                classAssignments[period] = {
+                    classId: classId,
+                    name: cls?.classData?.settings?.className || classId
+                };
+            } else {
+                classAssignments[period] = { name: '', classId: null };
+            }
             
-            // Save custom presets
-            localStorage.setItem('hallpass_presets', JSON.stringify(presets));
-            saveScheduleConfig();
-        }
-        
-        function saveScheduleConfig() {
-            localStorage.setItem('hallpass_weeklyPattern', JSON.stringify(weeklyPattern));
-            localStorage.setItem('hallpass_presets', JSON.stringify(presets));
+            localStorage.setItem('hallpass_classAssignments', JSON.stringify(classAssignments));
+            renderCalendar(); // Update class names in calendar
+            showToast(`Period ${period} updated`);
         }
         
         function loadClassAssignmentsUI() {
-            document.querySelectorAll('.class-assignment').forEach(row => {
-                const period = row.dataset.period;
-                const input = row.querySelector('.class-name-input');
-                if (input && classAssignments[period]) {
-                    input.value = classAssignments[period].name || '';
-                }
-            });
+            // Legacy function - now handled by renderClassAssignments
+            renderClassAssignments();
         }
         
         function loadRosterForPeriod(period) {
