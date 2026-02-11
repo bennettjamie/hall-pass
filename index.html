@@ -6200,11 +6200,11 @@
             event.preventDefault();
             
             const touch = event.touches ? event.touches[0] : event;
-            const dx = touch.clientX - calendarDragState.startX;
-            const dy = touch.clientY - calendarDragState.startY;
+            const dx = touch.clientX - dragState.startX;
+            const dy = touch.clientY - dragState.startY;
             
             // Move all elements being dragged
-            calendarDragState.elements.forEach(e => {
+            dragState.elements.forEach(e => {
                 e.element.style.left = (e.origLeft + dx) + 'px';
                 e.element.style.top = (e.origTop + dy) + 'px';
             });
@@ -6214,7 +6214,7 @@
             if (!dragState) return;
             
             // Update positions for all dragged students
-            calendarDragState.elements.forEach(e => {
+            dragState.elements.forEach(e => {
                 const student = students.find(s => s.id === e.studentId);
                 if (student) {
                     student.position = {
@@ -6224,6 +6224,9 @@
                 }
                 e.element.classList.remove('dragging');
             });
+            
+            // Save the class after moving students
+            saveClass();
             
             dragState = null;
             
