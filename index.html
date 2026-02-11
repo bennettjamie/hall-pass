@@ -301,6 +301,39 @@
             opacity: 0.9;
         }
         
+        .calendar-block.dragging {
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            opacity: 0.85;
+            cursor: grabbing;
+            transform: scale(1.02);
+        }
+        
+        .calendar-block.drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.7;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        
+        .calendar-day.drop-target {
+            background: rgba(99, 102, 241, 0.1);
+            box-shadow: inset 0 0 0 2px var(--accent);
+        }
+        
+        .drop-preview {
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            background: var(--accent);
+            opacity: 0.3;
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 50;
+            border: 2px dashed var(--accent);
+        }
+        
         /* Resize preview line */
         .resize-preview-line {
             position: absolute;
@@ -3059,6 +3092,7 @@
                              data-day="${day}"
                              style="top:${top}px;height:${height}px;"
                              onclick="handleBlockClick('${day}', '${block.id}', event)"
+                             onmousedown="startBlockDrag(event, '${day}', '${block.id}')"
                              oncontextmenu="openBlockContext(event, '${day}', '${block.id}'); return false;">
                             <div class="resize-handle top" 
                                  onmousedown="startResize(event, '${day}', '${block.id}', 'top')"></div>
@@ -3275,13 +3309,258 @@
             }
         }
         
-        // Handle block click - only open editor if not resizing
+        // Handle block click - only open editor if not resizing or dragging
         function handleBlockClick(day, blockId, event) {
-            // Don't open editor if we just finished resizing
+            // Don't open editor if clicking resize handle
             if (event.target.classList.contains('resize-handle')) {
                 return;
             }
+            // Don't open if we just finished dragging
+            if (calendarDragState.justDropped) {
+                calendarDragState.justDropped = false;
+                return;
+            }
             editBlock(day, blockId, event);
+        }
+        
+        // ========== BLOCK DRAG TO MOVE ==========
+        let calendarDragState = {
+            active: false,
+            day: null,
+            blockId: null,
+            blockEl: null,
+            ghostEl: null,
+            startX: 0,
+            startY: 0,
+            offsetX: 0,
+            offsetY: 0,
+            currentDropDay: null,
+            dropPreview: null,
+            justDropped: false,
+            dragStarted: false
+        };
+        
+        function startBlockDrag(e, day, blockId) {
+            // Only start on left mouse button, not on resize handles
+            if (e.button !== 0 || e.target.classList.contains('resize-handle')) {
+                return;
+            }
+            
+            e.preventDefault();
+            
+            const blockEl = e.target.closest('.calendar-block');
+            if (!blockEl) return;
+            
+            const rect = blockEl.getBoundingClientRect();
+            
+            dragState = {
+                active: true,
+                day,
+                blockId,
+                blockEl,
+                ghostEl: null,
+                startX: e.clientX,
+                startY: e.clientY,
+                offsetX: e.clientX - rect.left,
+                offsetY: e.clientY - rect.top,
+                blockWidth: rect.width,
+                blockHeight: rect.height,
+                currentDropDay: null,
+                dropPreview: null,
+                justDropped: false,
+                dragStarted: false
+            };
+            
+            document.addEventListener('mousemove', onBlockDragMove);
+            document.addEventListener('mouseup', onBlockDragEnd);
+        }
+        
+        function onBlockDragMove(e) {
+            if (!calendarDragState.active) return;
+            
+            const dx = e.clientX - calendarDragState.startX;
+            const dy = e.clientY - calendarDragState.startY;
+            
+            // Only start actual drag after moving 5px (to allow clicks)
+            if (!calendarDragState.dragStarted && Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+                return;
+            }
+            
+            if (!calendarDragState.dragStarted) {
+                calendarDragState.dragStarted = true;
+                calendarDragState.blockEl.classList.add('dragging');
+                createDragGhost();
+            }
+            
+            // Move ghost
+            if (calendarDragState.ghostEl) {
+                calendarDragState.ghostEl.style.left = (e.clientX - calendarDragState.offsetX) + 'px';
+                calendarDragState.ghostEl.style.top = (e.clientY - calendarDragState.offsetY) + 'px';
+            }
+            
+            // Find which day column we're over
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+            let targetDay = null;
+            let targetDayEl = null;
+            
+            for (const day of days) {
+                const dayEl = document.getElementById(`calDay-${day}`);
+                if (dayEl) {
+                    const rect = dayEl.getBoundingClientRect();
+                    if (e.clientX >= rect.left && e.clientX <= rect.right) {
+                        targetDay = day;
+                        targetDayEl = dayEl;
+                        break;
+                    }
+                }
+            }
+            
+            // Update drop target highlighting
+            days.forEach(d => {
+                const el = document.getElementById(`calDay-${d}`);
+                if (el) el.classList.remove('drop-target');
+            });
+            
+            if (targetDayEl) {
+                targetDayEl.classList.add('drop-target');
+                calendarDragState.currentDropDay = targetDay;
+                
+                // Calculate drop position
+                const dayRect = targetDayEl.getBoundingClientRect();
+                const relativeY = e.clientY - dayRect.top;
+                const snappedY = snapToGrid(Math.max(0, Math.min(relativeY, CALENDAR_HEIGHT - calendarDragState.blockHeight)));
+                
+                // Show/update drop preview
+                updateDropPreview(targetDayEl, snappedY, calendarDragState.blockHeight);
+            } else {
+                calendarDragState.currentDropDay = null;
+                removeDropPreview();
+            }
+        }
+        
+        function onBlockDragEnd(e) {
+            document.removeEventListener('mousemove', onBlockDragMove);
+            document.removeEventListener('mouseup', onBlockDragEnd);
+            
+            if (!calendarDragState.active) return;
+            
+            const wasDragging = calendarDragState.dragStarted;
+            
+            // Clean up visual elements
+            if (calendarDragState.ghostEl) {
+                calendarDragState.ghostEl.remove();
+            }
+            calendarDragState.blockEl?.classList.remove('dragging');
+            
+            document.querySelectorAll('.calendar-day').forEach(el => {
+                el.classList.remove('drop-target');
+            });
+            removeDropPreview();
+            
+            // If we actually dragged (not just clicked)
+            if (wasDragging && calendarDragState.currentDropDay) {
+                const targetDayEl = document.getElementById(`calDay-${calendarDragState.currentDropDay}`);
+                if (targetDayEl) {
+                    const dayRect = targetDayEl.getBoundingClientRect();
+                    const relativeY = e.clientY - dayRect.top;
+                    const snappedY = snapToGrid(Math.max(0, relativeY));
+                    
+                    // Calculate new times
+                    const newStart = pixelsToTime(snappedY);
+                    const duration = parseTimeToMinutes(getBlockDuration(calendarDragState.day, calendarDragState.blockId));
+                    const newEndMinutes = parseTimeToMinutes(newStart) + duration;
+                    const newEnd = minutesToTime(newEndMinutes);
+                    
+                    // Move the block
+                    moveBlock(calendarDragState.day, calendarDragState.blockId, calendarDragState.currentDropDay, newStart, newEnd);
+                    
+                    calendarDragState.justDropped = true;
+                }
+            }
+            
+            dragState = { active: false, justDropped: calendarDragState.justDropped };
+        }
+        
+        function createDragGhost() {
+            const ghost = calendarDragState.blockEl.cloneNode(true);
+            ghost.classList.add('drag-ghost');
+            ghost.classList.remove('dragging');
+            ghost.style.width = calendarDragState.blockWidth + 'px';
+            ghost.style.height = calendarDragState.blockHeight + 'px';
+            ghost.style.top = (calendarDragState.startY - calendarDragState.offsetY) + 'px';
+            ghost.style.left = (calendarDragState.startX - calendarDragState.offsetX) + 'px';
+            
+            // Remove resize handles from ghost
+            ghost.querySelectorAll('.resize-handle').forEach(h => h.remove());
+            
+            document.body.appendChild(ghost);
+            calendarDragState.ghostEl = ghost;
+        }
+        
+        function updateDropPreview(dayEl, top, height) {
+            if (!calendarDragState.dropPreview) {
+                calendarDragState.dropPreview = document.createElement('div');
+                calendarDragState.dropPreview.className = 'drop-preview';
+            }
+            
+            calendarDragState.dropPreview.style.top = top + 'px';
+            calendarDragState.dropPreview.style.height = height + 'px';
+            
+            if (calendarDragState.dropPreview.parentNode !== dayEl) {
+                dayEl.appendChild(calendarDragState.dropPreview);
+            }
+        }
+        
+        function removeDropPreview() {
+            if (calendarDragState.dropPreview) {
+                calendarDragState.dropPreview.remove();
+                calendarDragState.dropPreview = null;
+            }
+        }
+        
+        function getBlockDuration(day, blockId) {
+            const block = scheduleBlocks[day]?.find(b => b.id === blockId);
+            if (!block) return '01:00';
+            
+            const startMins = parseTimeToMinutes(block.start);
+            const endMins = parseTimeToMinutes(block.end);
+            return minutesToTime(endMins - startMins);
+        }
+        
+        function minutesToTime(totalMinutes) {
+            const hours = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        }
+        
+        function moveBlock(fromDay, blockId, toDay, newStart, newEnd) {
+            // Find the block
+            const fromBlocks = scheduleBlocks[fromDay];
+            const blockIdx = fromBlocks.findIndex(b => b.id === blockId);
+            if (blockIdx === -1) return;
+            
+            const block = fromBlocks[blockIdx];
+            
+            // Update times
+            block.start = newStart;
+            block.end = newEnd;
+            
+            // If moving to different day
+            if (fromDay !== toDay) {
+                // Remove from old day
+                fromBlocks.splice(blockIdx, 1);
+                
+                // Add to new day with new ID
+                block.id = `${toDay}-${Date.now()}`;
+                scheduleBlocks[toDay].push(block);
+                
+                showToast(`Moved to ${toDay.charAt(0).toUpperCase() + toDay.slice(1)} ${newStart} - ${newEnd}`);
+            } else {
+                showToast(`Moved to ${newStart} - ${newEnd}`);
+            }
+            
+            saveScheduleBlocks();
+            renderCalendar();
         }
         
         // Calendar context menu
@@ -5551,11 +5830,11 @@
             event.preventDefault();
             
             const touch = event.touches ? event.touches[0] : event;
-            const dx = touch.clientX - dragState.startX;
-            const dy = touch.clientY - dragState.startY;
+            const dx = touch.clientX - calendarDragState.startX;
+            const dy = touch.clientY - calendarDragState.startY;
             
             // Move all elements being dragged
-            dragState.elements.forEach(e => {
+            calendarDragState.elements.forEach(e => {
                 e.element.style.left = (e.origLeft + dx) + 'px';
                 e.element.style.top = (e.origTop + dy) + 'px';
             });
@@ -5565,7 +5844,7 @@
             if (!dragState) return;
             
             // Update positions for all dragged students
-            dragState.elements.forEach(e => {
+            calendarDragState.elements.forEach(e => {
                 const student = students.find(s => s.id === e.studentId);
                 if (student) {
                     student.position = {
