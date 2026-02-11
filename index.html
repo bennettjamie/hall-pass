@@ -2354,10 +2354,31 @@
         }
         
         function parseTime(timeStr) {
-            const [hours, minutes] = timeStr.split(':').map(Number);
+            let [hours, minutes] = timeStr.split(':').map(Number);
+            
+            // Smart PM detection for school hours:
+            // If hours are 1-6, assume PM (13:00-18:00)
+            // School runs ~7am-5pm, so 1:00 means 1 PM, not 1 AM
+            if (hours >= 1 && hours <= 6) {
+                hours += 12;
+            }
+            
             const d = new Date();
             d.setHours(hours, minutes, 0, 0);
             return d;
+        }
+        
+        // Normalize time string to 24-hour format (for storage)
+        function normalizeTimeStr(timeStr) {
+            if (!timeStr) return timeStr;
+            let [hours, minutes] = timeStr.split(':').map(Number);
+            
+            // Smart PM detection: 1-6 → 13-18
+            if (hours >= 1 && hours <= 6) {
+                hours += 12;
+            }
+            
+            return `${hours.toString().padStart(2, '0')}:${(minutes || 0).toString().padStart(2, '0')}`;
         }
         
         // ========== SCHEDULE ==========
@@ -2854,17 +2875,18 @@
             const block = blocks.find(b => b.id === blockId);
             if (!block) return;
             
-            const newStart = prompt('Start time (HH:MM):', block.start);
+            const newStart = prompt('Start time (HH:MM, e.g. 1:30 = 1:30 PM):', block.start);
             if (!newStart) return;
             
-            const newEnd = prompt('End time (HH:MM):', block.end);
+            const newEnd = prompt('End time (HH:MM, e.g. 2:45 = 2:45 PM):', block.end);
             if (!newEnd) return;
             
             const newTitle = prompt('Title:', block.title);
             if (!newTitle) return;
             
-            block.start = newStart;
-            block.end = newEnd;
+            // Normalize times (1:00 → 13:00, etc.)
+            block.start = normalizeTimeStr(newStart);
+            block.end = normalizeTimeStr(newEnd);
             block.title = newTitle;
             
             saveScheduleBlocks();
@@ -2901,10 +2923,10 @@
                 day = day.toLowerCase();
             }
             
-            const start = prompt('Start time (HH:MM):', '10:00');
+            const start = prompt('Start time (HH:MM, e.g. 1:30 = 1:30 PM):', '10:00');
             if (!start) return;
             
-            const end = prompt('End time (HH:MM):', '10:10');
+            const end = prompt('End time (HH:MM, e.g. 2:45 = 2:45 PM):', '10:10');
             if (!end) return;
             
             const title = prompt('Title:', type.charAt(0).toUpperCase() + type.slice(1));
@@ -2913,8 +2935,8 @@
             scheduleBlocks[day].push({
                 id: `${day}-${Date.now()}`,
                 type,
-                start,
-                end,
+                start: normalizeTimeStr(start),
+                end: normalizeTimeStr(end),
                 title
             });
             
