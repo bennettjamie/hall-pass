@@ -260,16 +260,75 @@
             font-size: 0.75rem;
             cursor: pointer;
             overflow: hidden;
-            transition: all 0.2s;
+            transition: box-shadow 0.2s, transform 0.2s;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
         
-        .calendar-block:hover {
+        .calendar-block:hover:not(.resizing) {
             z-index: 10;
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            transform: scale(1.02);
+        }
+        
+        /* Resize handles */
+        .calendar-block .resize-handle {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 8px;
+            cursor: ns-resize;
+            z-index: 5;
+        }
+        
+        .calendar-block .resize-handle.top {
+            top: 0;
+            border-radius: 6px 6px 0 0;
+        }
+        
+        .calendar-block .resize-handle.bottom {
+            bottom: 0;
+            border-radius: 0 0 6px 6px;
+        }
+        
+        .calendar-block .resize-handle:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .calendar-block.resizing {
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            opacity: 0.9;
+        }
+        
+        /* Resize preview line */
+        .resize-preview-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent);
+            z-index: 99;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .resize-preview-line.active {
+            display: block;
+        }
+        
+        .resize-time-tooltip {
+            position: absolute;
+            right: 100%;
+            margin-right: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transform: translateY(-50%);
         }
         
         .calendar-block.period { background: var(--accent); color: white; }
@@ -2997,18 +3056,232 @@
                     html += `
                         <div class="calendar-block ${block.type}" 
                              data-id="${block.id}"
+                             data-day="${day}"
                              style="top:${top}px;height:${height}px;"
-                             onclick="editBlock('${day}', '${block.id}', event)"
+                             onclick="handleBlockClick('${day}', '${block.id}', event)"
                              oncontextmenu="openBlockContext(event, '${day}', '${block.id}'); return false;">
+                            <div class="resize-handle top" 
+                                 onmousedown="startResize(event, '${day}', '${block.id}', 'top')"></div>
                             <span class="block-title">${displayTitle}</span>
-                            <span class="block-time">${block.start} - ${block.end}</span>
+                            <span class="block-time" data-block-time="${block.id}">${block.start} - ${block.end}</span>
                             ${className ? `<span class="block-class">${className}</span>` : ''}
+                            <div class="resize-handle bottom" 
+                                 onmousedown="startResize(event, '${day}', '${block.id}', 'bottom')"></div>
                         </div>
                     `;
                 });
                 
+                // Add resize preview line
+                html += `<div class="resize-preview-line" data-preview-day="${day}">
+                    <span class="resize-time-tooltip"></span>
+                </div>`;
+                
                 dayEl.innerHTML = html;
             });
+        }
+        
+        // ========== BLOCK RESIZE ==========
+        let resizeState = {
+            active: false,
+            day: null,
+            blockId: null,
+            edge: null, // 'top' or 'bottom'
+            startY: 0,
+            startTop: 0,
+            startHeight: 0,
+            blockEl: null,
+            dayEl: null,
+            previewLine: null
+        };
+        
+        function startResize(e, day, blockId, edge) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const blockEl = e.target.closest('.calendar-block');
+            const dayEl = document.getElementById(`calDay-${day}`);
+            if (!blockEl || !dayEl) return;
+            
+            // Get current position
+            const rect = blockEl.getBoundingClientRect();
+            const dayRect = dayEl.getBoundingClientRect();
+            
+            resizeState = {
+                active: true,
+                day,
+                blockId,
+                edge,
+                startY: e.clientY,
+                startTop: parseFloat(blockEl.style.top),
+                startHeight: parseFloat(blockEl.style.height),
+                blockEl,
+                dayEl,
+                dayRect,
+                previewLine: dayEl.querySelector('.resize-preview-line')
+            };
+            
+            blockEl.classList.add('resizing');
+            document.body.style.cursor = 'ns-resize';
+            document.body.style.userSelect = 'none';
+            
+            // Show preview line
+            if (resizeState.previewLine) {
+                resizeState.previewLine.classList.add('active');
+            }
+            
+            document.addEventListener('mousemove', onResizeMove);
+            document.addEventListener('mouseup', onResizeEnd);
+        }
+        
+        function onResizeMove(e) {
+            if (!resizeState.active) return;
+            
+            const deltaY = e.clientY - resizeState.startY;
+            const { edge, startTop, startHeight, blockEl, dayRect, previewLine } = resizeState;
+            
+            let newTop = startTop;
+            let newHeight = startHeight;
+            
+            if (edge === 'top') {
+                // Moving top edge
+                newTop = startTop + deltaY;
+                newHeight = startHeight - deltaY;
+            } else {
+                // Moving bottom edge
+                newHeight = startHeight + deltaY;
+            }
+            
+            // Constrain to calendar bounds
+            const minHeight = 20;
+            if (newHeight < minHeight) newHeight = minHeight;
+            if (newTop < 0) {
+                newHeight += newTop;
+                newTop = 0;
+            }
+            if (newTop + newHeight > CALENDAR_HEIGHT) {
+                newHeight = CALENDAR_HEIGHT - newTop;
+            }
+            
+            // Snap to 5-minute grid
+            const snappedTop = snapToGrid(newTop);
+            const snappedHeight = snapToGrid(newHeight);
+            
+            // Update block position
+            if (edge === 'top') {
+                blockEl.style.top = snappedTop + 'px';
+                blockEl.style.height = (startTop + startHeight - snappedTop) + 'px';
+            } else {
+                blockEl.style.height = snappedHeight + 'px';
+            }
+            
+            // Update preview line position and time tooltip
+            if (previewLine) {
+                const lineY = edge === 'top' ? snappedTop : (parseFloat(blockEl.style.top) + parseFloat(blockEl.style.height));
+                previewLine.style.top = lineY + 'px';
+                
+                // Calculate time for tooltip
+                const time = pixelsToTime(lineY);
+                const tooltip = previewLine.querySelector('.resize-time-tooltip');
+                if (tooltip) {
+                    tooltip.textContent = time;
+                }
+            }
+            
+            // Update time display on block
+            updateBlockTimeDisplay();
+        }
+        
+        function onResizeEnd(e) {
+            if (!resizeState.active) return;
+            
+            document.removeEventListener('mousemove', onResizeMove);
+            document.removeEventListener('mouseup', onResizeEnd);
+            
+            const { day, blockId, blockEl, previewLine } = resizeState;
+            
+            // Hide preview line
+            if (previewLine) {
+                previewLine.classList.remove('active');
+            }
+            
+            // Get final position
+            const finalTop = parseFloat(blockEl.style.top);
+            const finalHeight = parseFloat(blockEl.style.height);
+            
+            // Convert to times
+            const newStart = pixelsToTime(finalTop);
+            const newEnd = pixelsToTime(finalTop + finalHeight);
+            
+            // Update the block data
+            const blocks = scheduleBlocks[day];
+            const block = blocks.find(b => b.id === blockId);
+            if (block) {
+                block.start = newStart;
+                block.end = newEnd;
+                saveScheduleBlocks();
+            }
+            
+            // Reset state
+            blockEl.classList.remove('resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            resizeState = { active: false };
+            
+            // Re-render to ensure clean state
+            renderCalendar();
+            
+            showToast(`Resized to ${newStart} - ${newEnd}`);
+        }
+        
+        function snapToGrid(pixels) {
+            // Snap to 5-minute increments
+            const minutesPerPixel = (parseTimeToMinutes(CALENDAR_END) - parseTimeToMinutes(CALENDAR_START)) / CALENDAR_HEIGHT;
+            const minutes = pixels * minutesPerPixel;
+            const snappedMinutes = Math.round(minutes / 5) * 5;
+            return snappedMinutes / minutesPerPixel;
+        }
+        
+        function parseTimeToMinutes(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+        
+        function pixelsToTime(pixels) {
+            const startMinutes = parseTimeToMinutes(CALENDAR_START);
+            const endMinutes = parseTimeToMinutes(CALENDAR_END);
+            const totalMinutes = endMinutes - startMinutes;
+            
+            const minutes = startMinutes + (pixels / CALENDAR_HEIGHT) * totalMinutes;
+            const snappedMinutes = Math.round(minutes / 5) * 5;
+            
+            const hours = Math.floor(snappedMinutes / 60);
+            const mins = snappedMinutes % 60;
+            
+            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        }
+        
+        function updateBlockTimeDisplay() {
+            if (!resizeState.active || !resizeState.blockEl) return;
+            
+            const top = parseFloat(resizeState.blockEl.style.top);
+            const height = parseFloat(resizeState.blockEl.style.height);
+            const startTime = pixelsToTime(top);
+            const endTime = pixelsToTime(top + height);
+            
+            const timeSpan = resizeState.blockEl.querySelector('.block-time');
+            if (timeSpan) {
+                timeSpan.textContent = `${startTime} - ${endTime}`;
+            }
+        }
+        
+        // Handle block click - only open editor if not resizing
+        function handleBlockClick(day, blockId, event) {
+            // Don't open editor if we just finished resizing
+            if (event.target.classList.contains('resize-handle')) {
+                return;
+            }
+            editBlock(day, blockId, event);
         }
         
         // Calendar context menu
