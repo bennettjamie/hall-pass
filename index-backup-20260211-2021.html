@@ -416,146 +416,6 @@
             background: var(--bg-hover);
         }
         
-        /* Block Editor Popover */
-        .block-editor-popover {
-            position: fixed;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            min-width: 280px;
-            max-width: 320px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            z-index: 2000;
-            display: none;
-        }
-        
-        .block-editor-popover.open {
-            display: block;
-            animation: popoverIn 0.15s ease-out;
-        }
-        
-        @keyframes popoverIn {
-            from { opacity: 0; transform: scale(0.95) translateY(-5px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        
-        .block-editor-popover h4 {
-            margin: 0 0 12px 0;
-            font-size: 0.95rem;
-            color: var(--text-primary);
-        }
-        
-        .block-editor-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        
-        .block-editor-row label {
-            min-width: 50px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-        
-        .block-editor-row input,
-        .block-editor-row select {
-            flex: 1;
-            padding: 8px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-size: 0.9rem;
-        }
-        
-        .block-editor-row input:focus,
-        .block-editor-row select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        
-        .block-editor-time-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        
-        .block-editor-time-row select {
-            padding: 8px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-size: 0.85rem;
-            min-width: 80px;
-        }
-        
-        .block-editor-time-row span {
-            color: var(--text-secondary);
-        }
-        
-        .block-editor-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
-            padding-top: 12px;
-            border-top: 1px solid var(--border);
-        }
-        
-        .block-editor-actions button {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        
-        .block-editor-actions .btn-save {
-            background: var(--accent);
-            color: white;
-        }
-        
-        .block-editor-actions .btn-save:hover {
-            background: var(--accent-light);
-        }
-        
-        .block-editor-actions .btn-cancel {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-        }
-        
-        .block-editor-actions .btn-cancel:hover {
-            background: var(--bg-hover);
-        }
-        
-        .block-editor-actions .btn-delete {
-            background: var(--danger);
-            color: white;
-            flex: 0 0 auto;
-            padding: 8px;
-        }
-        
-        .block-editor-actions .btn-delete:hover {
-            opacity: 0.9;
-        }
-        
-        .block-editor-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.3);
-            z-index: 1999;
-            display: none;
-        }
-        
-        .block-editor-overlay.open {
-            display: block;
-        }
-        
         .week-toggle-btn.active, .current-week-btn.active, .preset-edit-btn.active {
             background: var(--accent) !important;
             color: white !important;
@@ -1794,55 +1654,6 @@
         <div class="calendar-context-item" onclick="deleteBlockFromContext()">🗑️ Delete Block</div>
     </div>
     
-    <!-- Block Editor Popover -->
-    <div class="block-editor-overlay" id="blockEditorOverlay" onclick="closeBlockEditor()"></div>
-    <div class="block-editor-popover" id="blockEditorPopover">
-        <h4 id="blockEditorTitle">Edit Block</h4>
-        
-        <div class="block-editor-row">
-            <label>Title</label>
-            <input type="text" id="blockEditorName" placeholder="Block name">
-        </div>
-        
-        <div class="block-editor-row">
-            <label>Type</label>
-            <select id="blockEditorType">
-                <option value="period">📚 Period</option>
-                <option value="break">☕ Break</option>
-                <option value="lunch">🍽️ Lunch</option>
-                <option value="fit">🏃 FIT</option>
-                <option value="custom">✨ Custom</option>
-            </select>
-        </div>
-        
-        <div class="block-editor-time-row">
-            <label style="min-width:50px;font-size:0.85rem;color:var(--text-secondary);">Time</label>
-            <select id="blockEditorStartHour"></select>
-            <span>:</span>
-            <select id="blockEditorStartMin"></select>
-            <span style="margin:0 4px;">→</span>
-            <select id="blockEditorEndHour"></select>
-            <span>:</span>
-            <select id="blockEditorEndMin"></select>
-        </div>
-        
-        <div class="block-editor-row" id="blockEditorPeriodRow" style="display:none;">
-            <label>Period</label>
-            <select id="blockEditorPeriodNum">
-                <option value="1">Period 1</option>
-                <option value="2">Period 2</option>
-                <option value="3">Period 3</option>
-                <option value="4">Period 4</option>
-            </select>
-        </div>
-        
-        <div class="block-editor-actions">
-            <button class="btn-delete" onclick="deleteBlockFromEditor()" title="Delete">🗑️</button>
-            <button class="btn-cancel" onclick="closeBlockEditor()">Cancel</button>
-            <button class="btn-save" onclick="saveBlockFromEditor()">Save</button>
-        </div>
-    </div>
-    
     <div class="context-menu" id="canvasContextMenu">
         <div class="context-menu-header">Canvas Options</div>
         <div class="context-menu-item" onclick="addStudentAtPosition()">➕ Add Student Here</div>
@@ -2753,30 +2564,13 @@
             showToast(`⏱️ Period ${schedule.period}: ${newStart} - ${newEnd}`);
         }
         
-        // Allow Enter key to apply, Escape to close
+        // Allow Enter key to apply
         document.addEventListener('keydown', (e) => {
-            // Quick time popup
             if (e.key === 'Enter' && document.getElementById('quickTimePopup').style.display === 'block') {
                 applyQuickTime();
             }
             if (e.key === 'Escape' && document.getElementById('quickTimePopup').style.display === 'block') {
                 closeQuickTimeEdit();
-            }
-            
-            // Block editor popover
-            const blockEditorOpen = document.getElementById('blockEditorPopover')?.classList.contains('open');
-            if (blockEditorOpen) {
-                if (e.key === 'Escape') {
-                    closeBlockEditor();
-                }
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    // Only if not in a text field that might need Enter
-                    const activeEl = document.activeElement;
-                    if (activeEl?.tagName !== 'TEXTAREA') {
-                        e.preventDefault();
-                        saveBlockFromEditor();
-                    }
-                }
             }
         });
         
@@ -2998,7 +2792,7 @@
                         <div class="calendar-block ${block.type}" 
                              data-id="${block.id}"
                              style="top:${top}px;height:${height}px;"
-                             onclick="editBlock('${day}', '${block.id}', event)"
+                             onclick="editBlock('${day}', '${block.id}')"
                              oncontextmenu="openBlockContext(event, '${day}', '${block.id}'); return false;">
                             <span class="block-title">${displayTitle}</span>
                             <span class="block-time">${block.start} - ${block.end}</span>
@@ -3105,192 +2899,33 @@
             renderCalendar();
         }
         
-        // Block Editor State
-        let blockEditorState = {
-            day: null,
-            blockId: null,
-            isNew: false
-        };
-        
-        function initBlockEditorDropdowns() {
-            // Populate hour dropdowns (7 AM to 6 PM)
-            const startHourSel = document.getElementById('blockEditorStartHour');
-            const endHourSel = document.getElementById('blockEditorEndHour');
-            
-            [startHourSel, endHourSel].forEach(sel => {
-                sel.innerHTML = '';
-                for (let h = 7; h <= 18; h++) {
-                    const label = h > 12 ? `${h-12} PM` : (h === 12 ? '12 PM' : `${h} AM`);
-                    sel.innerHTML += `<option value="${h}">${label}</option>`;
-                }
-            });
-            
-            // Populate minute dropdowns (5-min increments)
-            const startMinSel = document.getElementById('blockEditorStartMin');
-            const endMinSel = document.getElementById('blockEditorEndMin');
-            
-            [startMinSel, endMinSel].forEach(sel => {
-                sel.innerHTML = '';
-                for (let m = 0; m < 60; m += 5) {
-                    sel.innerHTML += `<option value="${m}">${m.toString().padStart(2, '0')}</option>`;
-                }
-            });
-        }
-        
-        function openBlockEditor(day, blockId, clickEvent) {
+        function editBlock(day, blockId) {
             const blocks = scheduleBlocks[day];
             const block = blocks.find(b => b.id === blockId);
             if (!block) return;
             
-            // Initialize dropdowns if needed
-            initBlockEditorDropdowns();
+            const newStart = prompt('Start time (HH:MM, e.g. 1:30 = 1:30 PM):', block.start);
+            if (!newStart) return;
             
-            // Store state
-            blockEditorState = { day, blockId, isNew: false };
+            const newEnd = prompt('End time (HH:MM, e.g. 2:45 = 2:45 PM):', block.end);
+            if (!newEnd) return;
             
-            // Parse times
-            const [startH, startM] = block.start.split(':').map(Number);
-            const [endH, endM] = block.end.split(':').map(Number);
+            const newTitle = prompt('Title:', block.title);
+            if (!newTitle) return;
             
-            // Populate form
-            document.getElementById('blockEditorName').value = block.title;
-            document.getElementById('blockEditorType').value = block.type || 'period';
-            document.getElementById('blockEditorStartHour').value = startH;
-            document.getElementById('blockEditorStartMin').value = Math.floor(startM / 5) * 5;
-            document.getElementById('blockEditorEndHour').value = endH;
-            document.getElementById('blockEditorEndMin').value = Math.floor(endM / 5) * 5;
-            
-            // Show/hide period number based on type
-            const isPeriod = block.type === 'period';
-            document.getElementById('blockEditorPeriodRow').style.display = isPeriod ? 'flex' : 'none';
-            if (isPeriod && block.period) {
-                document.getElementById('blockEditorPeriodNum').value = block.period;
-            }
-            
-            // Set title
-            document.getElementById('blockEditorTitle').textContent = `Edit ${block.title}`;
-            
-            // Position popover near clicked element
-            const popover = document.getElementById('blockEditorPopover');
-            const overlay = document.getElementById('blockEditorOverlay');
-            
-            if (clickEvent) {
-                let x = clickEvent.clientX;
-                let y = clickEvent.clientY;
-                
-                // Keep within viewport
-                const popWidth = 300;
-                const popHeight = 320;
-                if (x + popWidth > window.innerWidth) x = window.innerWidth - popWidth - 20;
-                if (y + popHeight > window.innerHeight) y = window.innerHeight - popHeight - 20;
-                if (x < 10) x = 10;
-                if (y < 10) y = 10;
-                
-                popover.style.left = x + 'px';
-                popover.style.top = y + 'px';
-            } else {
-                // Center if no click event
-                popover.style.left = '50%';
-                popover.style.top = '50%';
-                popover.style.transform = 'translate(-50%, -50%)';
-            }
-            
-            // Show
-            overlay.classList.add('open');
-            popover.classList.add('open');
-            
-            // Focus title input
-            setTimeout(() => document.getElementById('blockEditorName').focus(), 100);
-        }
-        
-        function closeBlockEditor() {
-            document.getElementById('blockEditorOverlay').classList.remove('open');
-            document.getElementById('blockEditorPopover').classList.remove('open');
-            blockEditorState = { day: null, blockId: null, isNew: false };
-        }
-        
-        function saveBlockFromEditor() {
-            const { day, blockId } = blockEditorState;
-            if (!day || !blockId) return;
-            
-            const blocks = scheduleBlocks[day];
-            const block = blocks.find(b => b.id === blockId);
-            if (!block) return;
-            
-            // Get values
-            const title = document.getElementById('blockEditorName').value.trim();
-            const type = document.getElementById('blockEditorType').value;
-            const startH = parseInt(document.getElementById('blockEditorStartHour').value);
-            const startM = parseInt(document.getElementById('blockEditorStartMin').value);
-            const endH = parseInt(document.getElementById('blockEditorEndHour').value);
-            const endM = parseInt(document.getElementById('blockEditorEndMin').value);
-            
-            if (!title) {
-                showToast('Please enter a title');
-                return;
-            }
-            
-            // Validate times
-            const startMins = startH * 60 + startM;
-            const endMins = endH * 60 + endM;
-            if (endMins <= startMins) {
-                showToast('End time must be after start time');
-                return;
-            }
-            
-            // Update block
-            block.title = title;
-            block.type = type;
-            block.start = `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
-            block.end = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-            
-            if (type === 'period') {
-                block.period = parseInt(document.getElementById('blockEditorPeriodNum').value);
-            }
+            // Normalize times (1:00 → 13:00, etc.)
+            block.start = normalizeTimeStr(newStart);
+            block.end = normalizeTimeStr(newEnd);
+            block.title = newTitle;
             
             saveScheduleBlocks();
             renderCalendar();
-            closeBlockEditor();
-            showToast('Block updated');
-        }
-        
-        function deleteBlockFromEditor() {
-            const { day, blockId } = blockEditorState;
-            if (!day || !blockId) return;
-            
-            const blocks = scheduleBlocks[day];
-            const idx = blocks.findIndex(b => b.id === blockId);
-            if (idx === -1) return;
-            
-            const blockTitle = blocks[idx].title;
-            blocks.splice(idx, 1);
-            
-            saveScheduleBlocks();
-            renderCalendar();
-            closeBlockEditor();
-            showToast(`Deleted "${blockTitle}"`);
-        }
-        
-        // Handle type change to show/hide period number
-        document.addEventListener('DOMContentLoaded', () => {
-            const typeSelect = document.getElementById('blockEditorType');
-            if (typeSelect) {
-                typeSelect.addEventListener('change', () => {
-                    const isPeriod = typeSelect.value === 'period';
-                    document.getElementById('blockEditorPeriodRow').style.display = isPeriod ? 'flex' : 'none';
-                });
-            }
-        });
-        
-        // Legacy function - now opens popover
-        function editBlock(day, blockId, event) {
-            openBlockEditor(day, blockId, event);
         }
         
         function editBlockFromContext() {
             closeCalendarContext();
             if (calendarContextDay && calendarContextBlockId) {
-                openBlockEditor(calendarContextDay, calendarContextBlockId, null);
+                editBlock(calendarContextDay, calendarContextBlockId);
             }
         }
         
