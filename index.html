@@ -328,10 +328,8 @@
             background: var(--bg-card);
             border: 2px solid var(--border);
             border-radius: 8px;
-            padding: 8px;
+            padding: 4px;
             text-align: center;
-            cursor: pointer;
-            transition: all 0.15s ease;
             min-height: 50px;
             display: flex;
             flex-direction: column;
@@ -339,45 +337,40 @@
             align-items: center;
         }
         
-        .rotation-cell:hover {
-            border-color: var(--accent);
-            transform: scale(1.02);
-        }
-        
-        .rotation-cell.selected {
-            border-color: var(--accent);
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-        }
-        
-        .rotation-cell.swap-target {
-            border-color: var(--success);
-            background: rgba(34, 197, 94, 0.1);
-        }
-        
-        .rotation-cell .period-num {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-        
-        .rotation-cell .class-name {
-            font-size: 0.7rem;
-            opacity: 0.8;
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-        }
-        
         .rotation-cell.fit-block {
             background: #f59e0b22;
             border-color: #f59e0b;
         }
         
-        .rotation-cell.fit-block .period-num {
-            color: #f59e0b;
+        .rotation-select {
+            width: 100%;
+            padding: 8px 4px;
+            border: none;
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-align: center;
+            text-align-last: center;
+        }
+        
+        .rotation-select:hover {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .rotation-select:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+        
+        .fit-block .rotation-select {
+            background: #f59e0b33;
+        }
+        
+        .fit-block .rotation-select:hover {
+            background: #f59e0b;
         }
         
         .rotation-section-title {
@@ -1756,9 +1749,10 @@
             </div>
             <div class="modal-body">
                 <!-- Tab Navigation -->
-                <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+                <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px;flex-wrap:wrap;">
                     <button class="btn btn-secondary sched-tab active" onclick="showSchedTab('today')">📅 Today</button>
-                    <button class="btn btn-secondary sched-tab" onclick="showSchedTab('weekly')">🗓️ Weekly Pattern</button>
+                    <button class="btn btn-secondary sched-tab" onclick="showSchedTab('weekly')">🗓️ Calendar</button>
+                    <button class="btn btn-secondary sched-tab" onclick="showSchedTab('rotation')">🔄 Rotation</button>
                     <button class="btn btn-secondary sched-tab" onclick="showSchedTab('classes')">📚 My Classes</button>
                     <button class="btn btn-secondary sched-tab" onclick="showSchedTab('presets')">⚡ Presets</button>
                 </div>
@@ -1853,32 +1847,6 @@
                             <button class="btn btn-secondary" onclick="resetToDefaultSchedule()">↺ Reset to Britannia Default</button>
                         </div>
                         
-                        <!-- Period Rotation Grid -->
-                        <div class="rotation-section-title">🔄 Period Rotation</div>
-                        <p class="rotation-help">Click a cell to select it, then click another cell in the same column to swap periods. This lets you arrange which class meets in which time block each day.</p>
-                        
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                            <span style="font-size:0.9rem;">Rotation Pattern:</span>
-                            <select id="rotationPatternType" onchange="setRotationPatternType(this.value)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);">
-                                <option value="simple">Same Every Week</option>
-                                <option value="biweekly">Week 1 / Week 2</option>
-                            </select>
-                            <div id="rotationWeekToggle" style="display:none;">
-                                <button class="btn rotation-week-btn active" data-week="1" onclick="setRotationWeek(1)" style="padding:6px 12px;">Wk 1</button>
-                                <button class="btn rotation-week-btn" data-week="2" onclick="setRotationWeek(2)" style="padding:6px 12px;">Wk 2</button>
-                            </div>
-                        </div>
-                        
-                        <div id="periodRotationGrid" class="rotation-grid">
-                            <!-- Populated by renderRotationGrid() -->
-                        </div>
-                        
-                        <div style="margin-top:12px;display:flex;gap:8px;">
-                            <button class="btn btn-secondary" onclick="resetRotationToDefault()">↺ Reset Rotation</button>
-                            <button class="btn btn-secondary" onclick="addBlockToRotation()">+ Add Block Row</button>
-                            <button class="btn btn-secondary" onclick="removeBlockFromRotation()">- Remove Block Row</button>
-                        </div>
-                        
                         <!-- Hidden old inputs for compatibility -->
                         <div style="display:none;">
                             <select id="weekPatternType"><option value="simple">simple</option><option value="biweekly">biweekly</option></select>
@@ -1888,6 +1856,45 @@
                             <select class="day-sched" data-day="thu"></select>
                             <select class="day-sched" data-day="fri"></select>
                             <select id="currentWeekNum"><option value="1">1</option><option value="2">2</option></select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Rotation Tab -->
+                <div class="sched-panel" id="schedPanelRotation">
+                    <div class="setting-section">
+                        <h3>Period Rotation</h3>
+                        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">
+                            Set which period/class meets in each time block for each day. Use the dropdowns to rearrange.
+                        </p>
+                        
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                            <span style="font-size:0.9rem;">Pattern:</span>
+                            <select id="rotationPatternType" onchange="setRotationPatternType(this.value)" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);">
+                                <option value="simple">Same Every Week</option>
+                                <option value="biweekly">Week 1 / Week 2</option>
+                            </select>
+                            <div id="rotationWeekToggle" style="display:none;gap:4px;">
+                                <button class="btn rotation-week-btn active" data-week="1" onclick="setRotationWeek(1)" style="padding:6px 12px;">Week 1</button>
+                                <button class="btn rotation-week-btn" data-week="2" onclick="setRotationWeek(2)" style="padding:6px 12px;">Week 2</button>
+                            </div>
+                        </div>
+                        
+                        <div id="periodRotationGrid" class="rotation-grid">
+                            <!-- Populated by renderRotationGrid() -->
+                        </div>
+                        
+                        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary" onclick="resetRotationToDefault()">↺ Reset to Default</button>
+                            <button class="btn btn-secondary" onclick="addBlockToRotation()">+ Add Block</button>
+                            <button class="btn btn-secondary" onclick="removeBlockFromRotation()">- Remove Block</button>
+                        </div>
+                        
+                        <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;">
+                            <p style="font-size:0.85rem;color:var(--text-secondary);">
+                                💡 This controls which <strong>class</strong> meets in each <strong>time block</strong>. 
+                                For example, if Tuesday Block 1 = P3, then your Period 3 class meets in the first time slot on Tuesdays.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -2527,6 +2534,15 @@
             
             document.querySelector(`.sched-tab[onclick*="${tab}"]`)?.classList.add('active');
             document.getElementById('schedPanel' + tab.charAt(0).toUpperCase() + tab.slice(1))?.classList.add('active');
+            
+            // Render rotation grid when switching to rotation tab
+            if (tab === 'rotation') {
+                renderRotationGrid();
+            }
+            // Render calendar when switching to weekly tab
+            if (tab === 'weekly') {
+                renderCalendar();
+            }
         }
         
         function updateSchedulePreview() {
@@ -3165,39 +3181,41 @@
                 html += `<div class="rotation-header">${label}</div>`;
             });
             
-            // Block rows
+            // Block rows - using dropdown selects
             for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
                 html += `<div class="rotation-label">Block ${blockIdx + 1}</div>`;
                 
                 days.forEach(day => {
-                    const periods = pattern[day] || [1, 2, 3, 4];
+                    const periods = pattern[day] || [];
+                    // Ensure array is long enough
+                    while (periods.length <= blockIdx) {
+                        periods.push(periods.length + 1);
+                    }
                     const periodNum = periods[blockIdx] || (blockIdx + 1);
                     
-                    // Get class name for this period
-                    const assignment = classAssignments[periodNum];
-                    const className = assignment?.name || '';
-                    const shortName = className.length > 12 ? className.substring(0, 10) + '...' : className;
+                    // Build dropdown options
+                    let options = '';
+                    for (let p = 1; p <= numBlocks; p++) {
+                        const assignment = classAssignments[p];
+                        const className = assignment?.name || '';
+                        const label = className ? `P${p}: ${className.substring(0, 15)}` : `Period ${p}`;
+                        const selected = p === periodNum ? 'selected' : '';
+                        options += `<option value="${p}" ${selected}>${label}</option>`;
+                    }
                     
-                    // Check if this is a FIT-affected block (shortened periods)
+                    // Check if this is a FIT-affected block
                     const schedType = getScheduleTypeForDay(day);
                     const isFitAffected = (schedType === 'amfit' && blockIdx < 2) || 
                                          (schedType === 'pmfit' && blockIdx >= 2);
                     
-                    const isSelected = rotationSwapSelection && 
-                                       rotationSwapSelection.day === day && 
-                                       rotationSwapSelection.blockIdx === blockIdx;
-                    
-                    const isSwapTarget = rotationSwapSelection && 
-                                         rotationSwapSelection.day === day && 
-                                         rotationSwapSelection.blockIdx !== blockIdx;
-                    
                     html += `
-                        <div class="rotation-cell ${isFitAffected ? 'fit-block' : ''} ${isSelected ? 'selected' : ''} ${isSwapTarget ? 'swap-target' : ''}"
-                             data-day="${day}" 
-                             data-block="${blockIdx}"
-                             onclick="handleRotationCellClick('${day}', ${blockIdx})">
-                            <span class="period-num">P${periodNum}</span>
-                            ${shortName ? `<span class="class-name">${shortName}</span>` : ''}
+                        <div class="rotation-cell ${isFitAffected ? 'fit-block' : ''}">
+                            <select class="rotation-select" 
+                                    data-day="${day}" 
+                                    data-block="${blockIdx}"
+                                    onchange="handleRotationChange('${day}', ${blockIdx}, this.value)">
+                                ${options}
+                            </select>
                         </div>
                     `;
                 });
@@ -3217,55 +3235,36 @@
             return 'regular';
         }
         
-        function handleRotationCellClick(day, blockIdx) {
-            if (!rotationSwapSelection) {
-                // First click - select this cell
-                rotationSwapSelection = { day, blockIdx };
-                renderRotationGrid();
-                return;
-            }
+        function handleRotationChange(day, blockIdx, newPeriod) {
+            newPeriod = parseInt(newPeriod);
             
-            if (rotationSwapSelection.day !== day) {
-                // Clicked different day - just select the new cell
-                rotationSwapSelection = { day, blockIdx };
-                renderRotationGrid();
-                return;
-            }
-            
-            if (rotationSwapSelection.blockIdx === blockIdx) {
-                // Clicked same cell - deselect
-                rotationSwapSelection = null;
-                renderRotationGrid();
-                return;
-            }
-            
-            // Same day, different block - swap them!
+            // Get the current pattern
             const pattern = periodRotation.type === 'biweekly'
                 ? (periodRotation.currentWeek === 2 ? periodRotation.week2 : periodRotation.week1)
                 : periodRotation.simple;
             
-            const periods = pattern[day] || [1, 2, 3, 4];
+            // Ensure the day array exists
+            if (!pattern[day]) {
+                pattern[day] = [1, 2, 3, 4];
+            }
+            
+            const periods = pattern[day];
             
             // Ensure array is long enough
-            while (periods.length <= Math.max(rotationSwapSelection.blockIdx, blockIdx)) {
+            while (periods.length <= blockIdx) {
                 periods.push(periods.length + 1);
             }
             
-            // Swap
-            const temp = periods[rotationSwapSelection.blockIdx];
-            periods[rotationSwapSelection.blockIdx] = periods[blockIdx];
-            periods[blockIdx] = temp;
+            // Set the new period for this block
+            periods[blockIdx] = newPeriod;
             
-            // Save
-            pattern[day] = periods;
+            // Save and update
             saveRotation();
-            
-            // Clear selection and re-render
-            rotationSwapSelection = null;
-            renderRotationGrid();
             renderCalendar();
             
-            showToast(`Swapped periods for ${day.charAt(0).toUpperCase() + day.slice(1)}`);
+            // Get class name for toast
+            const className = classAssignments[newPeriod]?.name || `Period ${newPeriod}`;
+            showToast(`${day.charAt(0).toUpperCase() + day.slice(1)} Block ${blockIdx + 1} → ${className}`);
         }
         
         function setRotationPatternType(type) {
