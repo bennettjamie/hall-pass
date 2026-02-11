@@ -370,6 +370,45 @@
         .calendar-block.fit { background: #f59e0b44; border: 1px solid #f59e0b; color: #f59e0b; }
         .calendar-block.custom { background: #8b5cf644; border: 1px solid #8b5cf6; color: #8b5cf6; }
         
+        .calendar-block.selected {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+        }
+        
+        /* Copy submenu */
+        .context-submenu {
+            position: relative;
+        }
+        
+        .context-submenu-trigger::after {
+            content: '▶';
+            float: right;
+            font-size: 0.7em;
+            opacity: 0.6;
+        }
+        
+        .context-submenu-items {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            min-width: 100px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1001;
+        }
+        
+        .context-submenu:hover .context-submenu-items {
+            display: block;
+        }
+        
+        .context-submenu-items .calendar-context-item {
+            padding: 8px 12px;
+        }
+        
         .calendar-block .block-title {
             font-weight: 600;
             white-space: nowrap;
@@ -1881,9 +1920,20 @@
         <div class="calendar-context-item" onclick="addBlockFromContext('break')">☕ Add Break</div>
         <div class="calendar-context-item" onclick="addBlockFromContext('lunch')">🍽️ Add Lunch</div>
         <div class="calendar-context-item" onclick="addBlockFromContext('custom')">✨ Add Custom Block</div>
-        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
-        <div class="calendar-context-item" onclick="editBlockFromContext()">✏️ Edit Block</div>
-        <div class="calendar-context-item" onclick="deleteBlockFromContext()">🗑️ Delete Block</div>
+        <div style="border-top:1px solid var(--border);margin:4px 0;" id="contextBlockDivider"></div>
+        <div class="calendar-context-item" onclick="editBlockFromContext()" id="contextEditBlock">✏️ Edit Block</div>
+        <div class="context-submenu" id="contextCopySubmenu">
+            <div class="calendar-context-item context-submenu-trigger">📋 Copy to...</div>
+            <div class="context-submenu-items">
+                <div class="calendar-context-item" onclick="copyBlockToDay('mon')">Monday</div>
+                <div class="calendar-context-item" onclick="copyBlockToDay('tue')">Tuesday</div>
+                <div class="calendar-context-item" onclick="copyBlockToDay('wed')">Wednesday</div>
+                <div class="calendar-context-item" onclick="copyBlockToDay('thu')">Thursday</div>
+                <div class="calendar-context-item" onclick="copyBlockToDay('fri')">Friday</div>
+            </div>
+        </div>
+        <div class="calendar-context-item" onclick="duplicateBlock()" id="contextDuplicate">📑 Duplicate</div>
+        <div class="calendar-context-item" onclick="deleteBlockFromContext()" id="contextDeleteBlock">🗑️ Delete Block</div>
     </div>
     
     <!-- Block Editor Popover -->
@@ -1929,7 +1979,7 @@
         </div>
         
         <div class="block-editor-actions">
-            <button class="btn-delete" onclick="deleteBlockFromEditor()" title="Delete">🗑️</button>
+            <button class="btn-delete" id="blockEditorDeleteBtn" onclick="deleteBlockFromEditor()" title="Delete">🗑️</button>
             <button class="btn-cancel" onclick="closeBlockEditor()">Cancel</button>
             <button class="btn-save" onclick="saveBlockFromEditor()">Save</button>
         </div>
@@ -2114,11 +2164,11 @@
                             <div class="calendar-header">Thu</div>
                             <div class="calendar-header">Fri</div>
                             <div></div><!-- spacer for time column -->
-                            <div class="calendar-day" id="calDay-mon" oncontextmenu="openCalendarContext(event, 'mon'); return false;"></div>
-                            <div class="calendar-day" id="calDay-tue" oncontextmenu="openCalendarContext(event, 'tue'); return false;"></div>
-                            <div class="calendar-day" id="calDay-wed" oncontextmenu="openCalendarContext(event, 'wed'); return false;"></div>
-                            <div class="calendar-day" id="calDay-thu" oncontextmenu="openCalendarContext(event, 'thu'); return false;"></div>
-                            <div class="calendar-day" id="calDay-fri" oncontextmenu="openCalendarContext(event, 'fri'); return false;"></div>
+                            <div class="calendar-day" id="calDay-mon" onclick="handleCalendarDayClick(event, 'mon')" oncontextmenu="openCalendarContext(event, 'mon'); return false;"></div>
+                            <div class="calendar-day" id="calDay-tue" onclick="handleCalendarDayClick(event, 'tue')" oncontextmenu="openCalendarContext(event, 'tue'); return false;"></div>
+                            <div class="calendar-day" id="calDay-wed" onclick="handleCalendarDayClick(event, 'wed')" oncontextmenu="openCalendarContext(event, 'wed'); return false;"></div>
+                            <div class="calendar-day" id="calDay-thu" onclick="handleCalendarDayClick(event, 'thu')" oncontextmenu="openCalendarContext(event, 'thu'); return false;"></div>
+                            <div class="calendar-day" id="calDay-fri" onclick="handleCalendarDayClick(event, 'fri')" oncontextmenu="openCalendarContext(event, 'fri'); return false;"></div>
                         </div>
                         
                         <!-- Quick Actions -->
@@ -2869,6 +2919,24 @@
                         saveBlockFromEditor();
                     }
                 }
+                return; // Don't process other keys while editor is open
+            }
+            
+            // Delete selected block
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlock.day && selectedBlock.blockId) {
+                // Don't delete if typing in an input
+                const activeEl = document.activeElement;
+                if (activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA' || activeEl?.tagName === 'SELECT') {
+                    return;
+                }
+                
+                e.preventDefault();
+                deleteSelectedBlock();
+            }
+            
+            // Escape clears selection
+            if (e.key === 'Escape' && selectedBlock.day) {
+                clearBlockSelection();
             }
         });
         
@@ -3563,6 +3631,41 @@
             renderCalendar();
         }
         
+        // Handle click on calendar day (empty space)
+        function handleCalendarDayClick(event, day) {
+            // If click was on a block, the block handler takes over
+            if (event.target.closest('.calendar-block')) {
+                return;
+            }
+            
+            // Click on empty space = clear block selection
+            clearBlockSelection();
+        }
+        
+        // Double-click on empty space = quick add period
+        document.addEventListener('dblclick', (e) => {
+            const dayEl = e.target.closest('.calendar-day');
+            if (!dayEl || e.target.closest('.calendar-block')) return;
+            
+            const day = dayEl.id.replace('calDay-', '');
+            const rect = dayEl.getBoundingClientRect();
+            const relativeY = e.clientY - rect.top;
+            const percentage = relativeY / CALENDAR_HEIGHT;
+            
+            const [startH, startM] = CALENDAR_START.split(':').map(Number);
+            const [endH, endM] = CALENDAR_END.split(':').map(Number);
+            const totalMins = (endH * 60 + endM) - (startH * 60 + startM);
+            const clickMins = startH * 60 + startM + (percentage * totalMins);
+            
+            const startHour = Math.floor(clickMins / 60);
+            const startMin = Math.round((clickMins % 60) / 5) * 5;
+            const endMins = clickMins + 60; // Default 60 min duration
+            const endHour = Math.floor(endMins / 60);
+            const endMin = Math.round((endMins % 60) / 5) * 5;
+            
+            openNewBlockEditor(day, 'period', startHour, startMin, endHour, endMin);
+        });
+        
         // Calendar context menu
         let calendarContextDay = null;
         let calendarContextBlockId = null;
@@ -3579,10 +3682,12 @@
             menu.style.top = event.clientY + 'px';
             menu.classList.add('open');
             
-            // Hide edit/delete options when clicking empty area
-            menu.querySelectorAll('.calendar-context-item').forEach((item, i) => {
-                if (i >= 5) item.style.display = 'none';
-            });
+            // Hide block-specific options when clicking empty area
+            document.getElementById('contextBlockDivider').style.display = 'none';
+            document.getElementById('contextEditBlock').style.display = 'none';
+            document.getElementById('contextCopySubmenu').style.display = 'none';
+            document.getElementById('contextDuplicate').style.display = 'none';
+            document.getElementById('contextDeleteBlock').style.display = 'none';
         }
         
         function openBlockContext(event, day, blockId) {
@@ -3591,15 +3696,100 @@
             calendarContextDay = day;
             calendarContextBlockId = blockId;
             
+            // Select this block
+            selectBlock(day, blockId);
+            
             const menu = document.getElementById('calendarContextMenu');
             menu.style.left = event.clientX + 'px';
             menu.style.top = event.clientY + 'px';
             menu.classList.add('open');
             
-            // Show edit/delete options
-            menu.querySelectorAll('.calendar-context-item').forEach((item, i) => {
-                item.style.display = 'block';
+            // Show all block-specific options
+            document.getElementById('contextBlockDivider').style.display = 'block';
+            document.getElementById('contextEditBlock').style.display = 'block';
+            document.getElementById('contextCopySubmenu').style.display = 'block';
+            document.getElementById('contextDuplicate').style.display = 'block';
+            document.getElementById('contextDeleteBlock').style.display = 'block';
+        }
+        
+        // Block selection state
+        let selectedBlock = { day: null, blockId: null };
+        
+        function selectBlock(day, blockId) {
+            // Clear previous selection
+            document.querySelectorAll('.calendar-block.selected').forEach(el => {
+                el.classList.remove('selected');
             });
+            
+            selectedBlock = { day, blockId };
+            
+            // Highlight new selection
+            const blockEl = document.querySelector(`.calendar-block[data-id="${blockId}"][data-day="${day}"]`);
+            if (blockEl) {
+                blockEl.classList.add('selected');
+            }
+        }
+        
+        function clearBlockSelection() {
+            document.querySelectorAll('.calendar-block.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+            selectedBlock = { day: null, blockId: null };
+        }
+        
+        function copyBlockToDay(targetDay) {
+            closeCalendarContext();
+            
+            if (!calendarContextDay || !calendarContextBlockId) return;
+            
+            const blocks = scheduleBlocks[calendarContextDay];
+            const block = blocks.find(b => b.id === calendarContextBlockId);
+            if (!block) return;
+            
+            // Create a copy with new ID
+            const newBlock = {
+                ...block,
+                id: `${targetDay}-${Date.now()}`
+            };
+            
+            scheduleBlocks[targetDay].push(newBlock);
+            saveScheduleBlocks();
+            renderCalendar();
+            
+            const dayName = targetDay.charAt(0).toUpperCase() + targetDay.slice(1);
+            showToast(`Copied "${block.title}" to ${dayName}`);
+        }
+        
+        function duplicateBlock() {
+            closeCalendarContext();
+            
+            if (!calendarContextDay || !calendarContextBlockId) return;
+            
+            const blocks = scheduleBlocks[calendarContextDay];
+            const block = blocks.find(b => b.id === calendarContextBlockId);
+            if (!block) return;
+            
+            // Calculate new time (offset by 10 minutes)
+            const startMins = parseTimeToMinutes(block.start);
+            const endMins = parseTimeToMinutes(block.end);
+            const duration = endMins - startMins;
+            
+            // Place after original block
+            const newStartMins = endMins + 10;
+            const newEndMins = newStartMins + duration;
+            
+            const newBlock = {
+                ...block,
+                id: `${calendarContextDay}-${Date.now()}`,
+                start: minutesToTime(newStartMins),
+                end: minutesToTime(newEndMins)
+            };
+            
+            blocks.push(newBlock);
+            saveScheduleBlocks();
+            renderCalendar();
+            
+            showToast(`Duplicated "${block.title}"`);
         }
         
         function closeCalendarContext() {
@@ -3628,7 +3818,6 @@
             
             const startHour = Math.floor(clickMins / 60);
             const startMin = Math.round((clickMins % 60) / 5) * 5;
-            const start = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
             
             // Default duration by type
             let duration = 60;
@@ -3639,22 +3828,9 @@
             const endMins = clickMins + duration;
             const endHour = Math.floor(endMins / 60);
             const endMin = Math.round((endMins % 60) / 5) * 5;
-            const end = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
             
-            const title = prompt(`Enter ${type} name:`, type.charAt(0).toUpperCase() + type.slice(1));
-            if (!title) return;
-            
-            const block = {
-                id: `${calendarContextDay}-${Date.now()}`,
-                type,
-                start,
-                end,
-                title
-            };
-            
-            scheduleBlocks[calendarContextDay].push(block);
-            saveScheduleBlocks();
-            renderCalendar();
+            // Open block editor for new block
+            openNewBlockEditor(calendarContextDay, type, startHour, startMin, endHour, endMin);
         }
         
         // Block Editor State
@@ -3719,8 +3895,9 @@
                 document.getElementById('blockEditorPeriodNum').value = block.period;
             }
             
-            // Set title
+            // Set title and show delete button
             document.getElementById('blockEditorTitle').textContent = `Edit ${block.title}`;
+            document.getElementById('blockEditorDeleteBtn').style.display = 'block';
             
             // Position popover near clicked element
             const popover = document.getElementById('blockEditorPopover');
@@ -3755,6 +3932,66 @@
             setTimeout(() => document.getElementById('blockEditorName').focus(), 100);
         }
         
+        function openNewBlockEditor(day, type, startHour, startMin, endHour, endMin) {
+            // Initialize dropdowns if needed
+            initBlockEditorDropdowns();
+            
+            // Store state - isNew = true for new block creation
+            blockEditorState = { day, blockId: null, isNew: true };
+            
+            // Default title based on type
+            const defaultTitles = {
+                period: 'Period',
+                break: 'Break',
+                lunch: 'Lunch',
+                fit: 'FIT',
+                custom: 'Custom Block'
+            };
+            
+            // Populate form with defaults
+            document.getElementById('blockEditorName').value = defaultTitles[type] || 'New Block';
+            document.getElementById('blockEditorType').value = type;
+            document.getElementById('blockEditorStartHour').value = startHour;
+            document.getElementById('blockEditorStartMin').value = Math.floor(startMin / 5) * 5;
+            document.getElementById('blockEditorEndHour').value = endHour;
+            document.getElementById('blockEditorEndMin').value = Math.floor(endMin / 5) * 5;
+            
+            // Show/hide period number based on type
+            const isPeriod = type === 'period';
+            document.getElementById('blockEditorPeriodRow').style.display = isPeriod ? 'flex' : 'none';
+            if (isPeriod) {
+                // Find next available period number
+                const usedPeriods = scheduleBlocks[day]
+                    .filter(b => b.type === 'period' && b.period)
+                    .map(b => b.period);
+                const nextPeriod = [1, 2, 3, 4].find(p => !usedPeriods.includes(p)) || 1;
+                document.getElementById('blockEditorPeriodNum').value = nextPeriod;
+            }
+            
+            // Set title and hide delete button (can't delete what doesn't exist yet)
+            document.getElementById('blockEditorTitle').textContent = `Add ${defaultTitles[type] || 'Block'}`;
+            document.getElementById('blockEditorDeleteBtn').style.display = 'none';
+            
+            // Position popover in center
+            const popover = document.getElementById('blockEditorPopover');
+            const overlay = document.getElementById('blockEditorOverlay');
+            
+            popover.style.left = '50%';
+            popover.style.top = '50%';
+            popover.style.transform = 'translate(-50%, -50%)';
+            
+            // Show
+            overlay.classList.add('open');
+            popover.classList.add('open');
+            
+            // Focus and select title input
+            setTimeout(() => {
+                const nameInput = document.getElementById('blockEditorName');
+                nameInput.focus();
+                nameInput.select();
+            }, 100);
+        }
+        
         function closeBlockEditor() {
             document.getElementById('blockEditorOverlay').classList.remove('open');
             document.getElementById('blockEditorPopover').classList.remove('open');
@@ -3762,12 +3999,8 @@
         }
         
         function saveBlockFromEditor() {
-            const { day, blockId } = blockEditorState;
-            if (!day || !blockId) return;
-            
-            const blocks = scheduleBlocks[day];
-            const block = blocks.find(b => b.id === blockId);
-            if (!block) return;
+            const { day, blockId, isNew } = blockEditorState;
+            if (!day) return;
             
             // Get values
             const title = document.getElementById('blockEditorName').value.trim();
@@ -3790,20 +4023,48 @@
                 return;
             }
             
-            // Update block
-            block.title = title;
-            block.type = type;
-            block.start = `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
-            block.end = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+            const start = `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
+            const end = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
             
-            if (type === 'period') {
-                block.period = parseInt(document.getElementById('blockEditorPeriodNum').value);
+            if (isNew) {
+                // Create new block
+                const newBlock = {
+                    id: `${day}-${Date.now()}`,
+                    type,
+                    title,
+                    start,
+                    end
+                };
+                
+                if (type === 'period') {
+                    newBlock.period = parseInt(document.getElementById('blockEditorPeriodNum').value);
+                }
+                
+                scheduleBlocks[day].push(newBlock);
+                showToast(`Added "${title}"`);
+            } else {
+                // Update existing block
+                if (!blockId) return;
+                
+                const blocks = scheduleBlocks[day];
+                const block = blocks.find(b => b.id === blockId);
+                if (!block) return;
+                
+                block.title = title;
+                block.type = type;
+                block.start = start;
+                block.end = end;
+                
+                if (type === 'period') {
+                    block.period = parseInt(document.getElementById('blockEditorPeriodNum').value);
+                }
+                
+                showToast('Block updated');
             }
             
             saveScheduleBlocks();
             renderCalendar();
             closeBlockEditor();
-            showToast('Block updated');
         }
         
         function deleteBlockFromEditor() {
@@ -3857,8 +4118,26 @@
             if (!confirm(`Delete "${blocks[idx].title}"?`)) return;
             
             blocks.splice(idx, 1);
+            clearBlockSelection();
             saveScheduleBlocks();
             renderCalendar();
+        }
+        
+        function deleteSelectedBlock() {
+            if (!selectedBlock.day || !selectedBlock.blockId) return;
+            
+            const blocks = scheduleBlocks[selectedBlock.day];
+            const idx = blocks.findIndex(b => b.id === selectedBlock.blockId);
+            if (idx === -1) return;
+            
+            const blockTitle = blocks[idx].title;
+            
+            blocks.splice(idx, 1);
+            clearBlockSelection();
+            saveScheduleBlocks();
+            renderCalendar();
+            
+            showToast(`Deleted "${blockTitle}"`);
         }
         
         function addBlockToDay(day, type) {
