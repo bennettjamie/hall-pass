@@ -2381,6 +2381,31 @@
             return `${hours.toString().padStart(2, '0')}:${(minutes || 0).toString().padStart(2, '0')}`;
         }
         
+        // Migration: fix any existing schedule blocks with AM times (1:00 → 13:00)
+        function migrateScheduleBlockTimes() {
+            let migrated = false;
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+            
+            days.forEach(day => {
+                if (!scheduleBlocks[day]) return;
+                scheduleBlocks[day].forEach(block => {
+                    const oldStart = block.start;
+                    const oldEnd = block.end;
+                    block.start = normalizeTimeStr(block.start);
+                    block.end = normalizeTimeStr(block.end);
+                    if (oldStart !== block.start || oldEnd !== block.end) {
+                        migrated = true;
+                        console.log(`Migrated ${day} block: ${oldStart}-${oldEnd} → ${block.start}-${block.end}`);
+                    }
+                });
+            });
+            
+            if (migrated) {
+                saveScheduleBlocks();
+                console.log('Schedule times migrated to 24-hour format');
+            }
+        }
+        
         // ========== SCHEDULE ==========
         let weeklyPattern = {
             type: 'simple', // simple, biweekly, cycle
@@ -2683,7 +2708,11 @@
             // Load schedule blocks from storage or init defaults
             const savedBlocks = localStorage.getItem('hallpass_scheduleBlocks');
             if (savedBlocks) {
-                try { scheduleBlocks = JSON.parse(savedBlocks); } catch(e) {}
+                try { 
+                    scheduleBlocks = JSON.parse(savedBlocks);
+                    // Migrate: normalize all times (fix 1:00 AM → 1:00 PM issues)
+                    migrateScheduleBlockTimes();
+                } catch(e) {}
             } else {
                 initDefaultScheduleBlocks();
             }
