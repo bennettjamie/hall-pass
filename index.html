@@ -1354,8 +1354,8 @@
             </select>
             <button id="autoModeBtn" onclick="clearPeriodOverride()" style="display:none;background:var(--warning);border:none;color:black;font-size:0.65rem;padding:2px 6px;border-radius:4px;cursor:pointer;" title="Click to resume auto-detect">MANUAL</button>
             <div class="class-name" id="className" onclick="openSchedule()"></div>
-            <div class="countdown pre-class" id="countdown">--:--</div>
-            <div class="class-status" id="classStatus">Loading...</div>
+            <div class="countdown pre-class" id="countdown" ondblclick="openQuickTimeEdit()" title="Double-click to adjust time" style="cursor:pointer;">--:--</div>
+            <div class="class-status" id="classStatus" ondblclick="openQuickTimeEdit()" title="Double-click to adjust time" style="cursor:pointer;">Loading...</div>
         </div>
         <div class="stats">
             <div class="stat ontime">
@@ -1821,6 +1821,30 @@
         </div>
     </div>
 
+    <!-- Quick Time Edit Popup -->
+    <div id="quickTimePopup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-card);border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:2000;min-width:300px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;">⏱️ Quick Time Adjust</h3>
+            <button onclick="closeQuickTimeEdit()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-secondary);">✕</button>
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-size:0.9rem;color:var(--text-secondary);">Period <span id="quickTimePeriod">1</span> Start Time</label>
+            <input type="time" id="quickStartTime" style="width:100%;padding:12px;font-size:1.2rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);">
+        </div>
+        <div style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:6px;font-size:0.9rem;color:var(--text-secondary);">Period <span id="quickTimePeriod2">1</span> End Time</label>
+            <input type="time" id="quickEndTime" style="width:100%;padding:12px;font-size:1.2rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);">
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button onclick="applyQuickTime()" class="btn btn-primary" style="flex:1;">✓ Apply</button>
+            <button onclick="closeQuickTimeEdit()" class="btn btn-secondary">Cancel</button>
+        </div>
+        <div style="margin-top:12px;font-size:0.8rem;color:var(--text-secondary);text-align:center;">
+            Tip: This adjusts the current period only. Use Settings for full schedule.
+        </div>
+    </div>
+    <div id="quickTimeOverlay" onclick="closeQuickTimeEdit()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1999;"></div>
+
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
         <div class="modal">
@@ -2268,6 +2292,71 @@
         function closeSchedule() {
             document.getElementById('scheduleModal').classList.remove('open');
         }
+        
+        // Quick Time Edit (double-click on countdown)
+        function openQuickTimeEdit() {
+            const popup = document.getElementById('quickTimePopup');
+            const overlay = document.getElementById('quickTimeOverlay');
+            
+            // Set current values
+            document.getElementById('quickTimePeriod').textContent = schedule.period;
+            document.getElementById('quickTimePeriod2').textContent = schedule.period;
+            document.getElementById('quickStartTime').value = schedule.startTime;
+            document.getElementById('quickEndTime').value = schedule.endTime;
+            
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+            
+            // Focus the start time input
+            document.getElementById('quickStartTime').focus();
+        }
+        
+        function closeQuickTimeEdit() {
+            document.getElementById('quickTimePopup').style.display = 'none';
+            document.getElementById('quickTimeOverlay').style.display = 'none';
+        }
+        
+        function applyQuickTime() {
+            const newStart = document.getElementById('quickStartTime').value;
+            const newEnd = document.getElementById('quickEndTime').value;
+            
+            if (!newStart || !newEnd) {
+                showToast('Please enter both times');
+                return;
+            }
+            
+            // Validate end is after start
+            if (newEnd <= newStart) {
+                showToast('End time must be after start time');
+                return;
+            }
+            
+            // Apply to current period
+            schedule.startTime = newStart;
+            schedule.endTime = newEnd;
+            
+            // Set manual override so auto-detect doesn't revert
+            manualPeriodOverride = true;
+            
+            // Save
+            localStorage.setItem('hallpass_schedule', JSON.stringify(schedule));
+            
+            // Update UI
+            updateStatusBar();
+            closeQuickTimeEdit();
+            
+            showToast(`⏱️ Period ${schedule.period}: ${newStart} - ${newEnd}`);
+        }
+        
+        // Allow Enter key to apply
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && document.getElementById('quickTimePopup').style.display === 'block') {
+                applyQuickTime();
+            }
+            if (e.key === 'Escape' && document.getElementById('quickTimePopup').style.display === 'block') {
+                closeQuickTimeEdit();
+            }
+        });
         
         function showSchedTab(tab) {
             document.querySelectorAll('.sched-tab').forEach(t => t.classList.remove('active'));
