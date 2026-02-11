@@ -915,8 +915,9 @@
         /* Seating Canvas */
         .seating-container {
             width: 100%;
-            height: calc(100vh - 220px);
-            overflow: auto;
+            min-height: calc(100vh - 220px);
+            height: auto;
+            overflow: visible;
             position: relative;
         }
         
@@ -977,6 +978,34 @@
                 var(--bg-hover) 20px,
                 var(--bg-hover) 21px
             );
+            border: 2px dashed var(--accent);
+        }
+        
+        .seating-canvas.edit-mode::before {
+            content: '✏️ EDIT MODE — Drag students to rearrange';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 100;
+        }
+        
+        .seating-canvas:not(.edit-mode) .canvas-student {
+            cursor: pointer;
+        }
+        
+        .seating-canvas.edit-mode .canvas-student {
+            cursor: grab;
+        }
+        
+        .seating-canvas.edit-mode .canvas-student:active {
+            cursor: grabbing;
         }
 
         /* Student Cards */
