@@ -376,6 +376,54 @@
             box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
         }
         
+        /* Block hover tooltip */
+        .calendar-block .block-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .calendar-block .block-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--border);
+        }
+        
+        .calendar-block:hover .block-tooltip {
+            opacity: 1;
+        }
+        
+        .calendar-block.dragging .block-tooltip,
+        .calendar-block.resizing .block-tooltip {
+            opacity: 0 !important;
+        }
+        
+        .block-tooltip-row {
+            display: flex;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+        
+        .block-tooltip-row strong {
+            color: var(--text-primary);
+        }
+        
         /* Copy submenu */
         .context-submenu {
             position: relative;
@@ -3167,6 +3215,12 @@
                             <span class="block-title">${displayTitle}</span>
                             <span class="block-time" data-block-time="${block.id}">${block.start} - ${block.end}</span>
                             ${className ? `<span class="block-class">${className}</span>` : ''}
+                            <div class="block-tooltip">
+                                <div class="block-tooltip-row"><strong>${block.title}</strong></div>
+                                <div class="block-tooltip-row">⏰ ${formatTime12h(block.start)} - ${formatTime12h(block.end)}</div>
+                                ${className ? `<div class="block-tooltip-row">📚 ${className}</div>` : ''}
+                                <div class="block-tooltip-row" style="opacity:0.6;font-size:0.65rem;">Click to edit • Drag to move</div>
+                            </div>
                             <div class="resize-handle bottom" 
                                  onmousedown="startResize(event, '${day}', '${block.id}', 'bottom')"></div>
                         </div>
@@ -3599,6 +3653,13 @@
             const hours = Math.floor(totalMinutes / 60);
             const mins = totalMinutes % 60;
             return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        }
+        
+        function formatTime12h(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            const period = h >= 12 ? 'PM' : 'AM';
+            const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+            return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
         }
         
         function moveBlock(fromDay, blockId, toDay, newStart, newEnd) {
